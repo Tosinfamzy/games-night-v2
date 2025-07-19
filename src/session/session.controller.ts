@@ -20,6 +20,7 @@ import {
 import { SessionService } from './session.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
+import { JoinSessionDto } from './dto/join-session.dto';
 import { Session } from './session.entity';
 
 @ApiTags('sessions')
@@ -126,5 +127,33 @@ export class SessionController {
   @HttpCode(HttpStatus.OK)
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.service.remove(id);
+  }
+
+  @Get('join/:joinCode')
+  @ApiOperation({ summary: 'Get session by join code' })
+  @ApiParam({
+    name: 'joinCode',
+    type: 'string',
+    description: '6-digit join code',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Session found.',
+    type: Session,
+  })
+  findByJoinCode(@Param('joinCode') joinCode: string): Promise<Session> {
+    return this.service.findByJoinCode(joinCode);
+  }
+
+  @Post('join')
+  @ApiOperation({ summary: 'Join a session using join code' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully joined session.',
+  })
+  joinSession(
+    @Body() dto: JoinSessionDto,
+  ): Promise<{ session: Session; message: string }> {
+    return this.service.joinSession(dto);
   }
 }

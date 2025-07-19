@@ -21,11 +21,34 @@ export class Session {
   id: string;
 
   @ApiProperty({
+    description: 'Name of the session',
+    example: 'Friday Game Night',
+  })
+  @Column()
+  name: string;
+
+  @ApiProperty({
+    description: 'Description of the session',
+    example: 'Weekly board game session',
+    required: false,
+  })
+  @Column({ nullable: true })
+  description?: string;
+
+  @ApiProperty({
     description: 'Date of the session',
     example: '2025-07-14T19:00:00Z',
   })
   @Column('timestamptz')
   date: Date;
+
+  @ApiProperty({
+    description: 'Location of the session',
+    example: 'Community Center',
+    required: false,
+  })
+  @Column({ nullable: true })
+  location?: string;
 
   @ApiProperty({
     enum: SessionStatus,
@@ -39,7 +62,17 @@ export class Session {
   })
   status: SessionStatus;
 
-  @ApiProperty({ description: 'Games master hosting this session' })
+  @ApiProperty({
+    description: '6-digit join code for players to join the session',
+    example: '123456',
+  })
+  @Column({ unique: true, length: 6 })
+  joinCode: string;
+
+  @ApiProperty({
+    description: 'Games master hosting this session',
+    type: () => GamesMaster,
+  })
   @ManyToOne(() => GamesMaster, { eager: true })
   host: GamesMaster;
 

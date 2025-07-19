@@ -51,7 +51,10 @@ export class Game {
   @Column({ default: 1 })
   maxRounds: number;
 
-  @ApiProperty({ description: 'Session this game belongs to' })
+  @ApiProperty({
+    description: 'Session this game belongs to',
+    type: () => Session,
+  })
   @ManyToOne(() => Session, (session) => session.games, { eager: true })
   session: Session;
 

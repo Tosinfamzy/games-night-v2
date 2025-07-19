@@ -12,6 +12,8 @@ import { GamesMaster } from '../games-master/games-master.entity';
 import { SessionStatus } from './enums/session-status.enum';
 import { Game } from '../game/game.entity';
 import { GameStatus } from '../game/enums/game-status.enum';
+import { generateJoinCode } from './utils/join-code.util';
+import { JoinSessionDto } from './dto/join-session.dto';
 
 @Injectable()
 export class SessionService {
@@ -25,19 +27,83 @@ export class SessionService {
   ) {}
 
   async create(dto: CreateSessionDto): Promise<Session> {
-    const host = await this.gamesMasterRepo.findOneBy({ id: dto.hostId });
+    const host = await this.gamesMasterRepo.findOneBy({
+      id: dto.gamesMasterId,
+    });
     if (!host) {
       throw new NotFoundException(
-        `GamesMaster with ID ${dto.hostId} not found`,
+        `GamesMaster with ID ${dto.gamesMasterId} not found`,
       );
     }
 
+    // Generate unique join code
+    let joinCode = generateJoinCode();
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!isUnique && attempts < maxAttempts) {
+      const existingSession = await this.repo.findOne({
+        where: { joinCode },
+      });
+      if (!existingSession) {
+        isUnique = true;
+      } else {
+        joinCode = generateJoinCode();
+        attempts++;
+      }
+    }
+
+    if (!isUnique) {
+      throw new BadRequestException('Failed to generate unique join code');
+    }
+
     const session = this.repo.create({
+      name: dto.name,
+      description: dto.description,
       date: dto.date,
+      location: dto.location,
       host,
       status: SessionStatus.SCHEDULED,
+      joinCode,
     });
     return await this.repo.save(session);
+  }
+
+  async findByJoinCode(joinCode: string): Promise<Session> {
+    const session = await this.repo.findOne({
+      where: { joinCode },
+      relations: ['host', 'players', 'teams', 'games'],
+    });
+
+    if (!session) {
+      throw new NotFoundException(
+        `Session with join code ${joinCode} not found`,
+      );
+    }
+
+    return session;
+  }
+
+  async joinSession(
+    dto: JoinSessionDto,
+  ): Promise<{ session: Session; message: string }> {
+    const session = await this.findByJoinCode(dto.joinCode);
+
+    if (session.status === SessionStatus.COMPLETED) {
+      throw new BadRequestException('Cannot join a completed session');
+    }
+
+    if (session.status === SessionStatus.CANCELLED) {
+      throw new BadRequestException('Cannot join a cancelled session');
+    }
+
+    // Note: Player creation/assignment logic would go here
+    // For now, we'll just return the session info
+    return {
+      session,
+      message: `Successfully joined session hosted by ${session.host.name}`,
+    };
   }
 
   async findAll(relations: string[] = []): Promise<Session[]> {
@@ -139,18 +205,23 @@ export class SessionService {
   async update(id: string, dto: UpdateSessionDto): Promise<Session> {
     const session = await this.findOne(id);
 
-    if (dto.hostId) {
-      const host = await this.gamesMasterRepo.findOneBy({ id: dto.hostId });
+    if (dto.gamesMasterId) {
+      const host = await this.gamesMasterRepo.findOneBy({
+        id: dto.gamesMasterId,
+      });
       if (!host) {
         throw new NotFoundException(
-          `GamesMaster with ID ${dto.hostId} not found`,
+          `GamesMaster with ID ${dto.gamesMasterId} not found`,
         );
       }
       session.host = host;
     }
 
     Object.assign(session, {
+      name: dto.name ?? session.name,
+      description: dto.description ?? session.description,
       date: dto.date ?? session.date,
+      location: dto.location ?? session.location,
     });
 
     return await this.repo.save(session);

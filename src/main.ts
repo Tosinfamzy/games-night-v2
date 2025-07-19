@@ -27,7 +27,8 @@ async function bootstrap() {
   // Enable CORS
   app.enableCors();
 
-  // Set up Swagger documentation
+  // Set up Swagger documentation - TEMPORARILY DISABLED
+  /*
   const config = new DocumentBuilder()
     .setTitle('Games Night API')
     .setDescription(
@@ -44,6 +45,7 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
+  */
 
   // Start the server
   const port = process.env.PORT || 3000;
