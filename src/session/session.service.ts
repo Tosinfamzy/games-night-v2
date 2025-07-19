@@ -14,6 +14,11 @@ import { Game } from '../game/game.entity';
 import { GameStatus } from '../game/enums/game-status.enum';
 import { generateJoinCode } from './utils/join-code.util';
 import { JoinSessionDto } from './dto/join-session.dto';
+import { GameLibrary } from '../game-library/game-library.entity';
+import {
+  AddGamesToSessionDto,
+  RemoveGameFromSessionDto,
+} from './dto/session-games.dto';
 
 @Injectable()
 export class SessionService {
@@ -24,6 +29,8 @@ export class SessionService {
     private readonly gamesMasterRepo: Repository<GamesMaster>,
     @InjectRepository(Game)
     private readonly gameRepo: Repository<Game>,
+    @InjectRepository(GameLibrary)
+    private readonly gameLibraryRepo: Repository<GameLibrary>,
   ) {}
 
   async create(dto: CreateSessionDto): Promise<Session> {
@@ -253,5 +260,85 @@ export class SessionService {
       .where('session.date = :today', { today })
       .orderBy('session.date', 'DESC')
       .getOne();
+  }
+
+  // Game management methods
+  async addGamesToSession(
+    sessionId: string,
+    dto: AddGamesToSessionDto,
+  ): Promise<Session> {
+    const session = await this.findOne(sessionId, [
+      'games',
+      'games.gameLibrary',
+    ]);
+
+    // Verify all game library IDs exist
+    const gameLibraries = await this.gameLibraryRepo.findByIds(
+      dto.gameLibraryIds,
+    );
+    if (gameLibraries.length !== dto.gameLibraryIds.length) {
+      throw new NotFoundException('One or more game library IDs not found');
+    }
+
+    // Create Game instances from GameLibrary templates
+    const newGames = gameLibraries.map((gameLibrary) =>
+      this.gameRepo.create({
+        name: gameLibrary.name,
+        session,
+        gameLibrary,
+        status: GameStatus.PENDING,
+        currentRound: 0,
+        maxRounds: 1, // Default, can be configured later
+      }),
+    );
+
+    await this.gameRepo.save(newGames);
+    return this.findOne(sessionId, ['games', 'games.gameLibrary']);
+  }
+
+  async removeGameFromSession(
+    sessionId: string,
+    dto: RemoveGameFromSessionDto,
+  ): Promise<Session> {
+    await this.findOne(sessionId, ['games']); // Validate session exists
+    const game = await this.gameRepo.findOne({
+      where: { id: dto.gameId, session: { id: sessionId } },
+    });
+
+    if (!game) {
+      throw new NotFoundException(
+        `Game with ID ${dto.gameId} not found in session ${sessionId}`,
+      );
+    }
+
+    if (game.status === GameStatus.IN_PROGRESS) {
+      throw new BadRequestException('Cannot remove a game that is in progress');
+    }
+
+    await this.gameRepo.remove(game);
+    return this.findOne(sessionId, ['games', 'games.gameLibrary']);
+  }
+
+  async updateSessionGames(
+    sessionId: string,
+    gameLibraryIds: string[],
+  ): Promise<Session> {
+    const session = await this.findOne(sessionId, ['games']);
+
+    // Remove existing games that aren't in progress
+    const gamesToRemove = session.games.filter(
+      (game) => game.status !== GameStatus.IN_PROGRESS,
+    );
+    if (gamesToRemove.length > 0) {
+      await this.gameRepo.remove(gamesToRemove);
+    }
+
+    // Add new games
+    if (gameLibraryIds.length > 0) {
+      const dto: AddGamesToSessionDto = { gameLibraryIds };
+      return this.addGamesToSession(sessionId, dto);
+    }
+
+    return this.findOne(sessionId, ['games', 'games.gameLibrary']);
   }
 }

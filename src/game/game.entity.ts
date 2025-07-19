@@ -11,6 +11,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Session } from '../session/session.entity';
 import { Team } from '../team/team.entity';
 import { Score } from '../score/score.entity';
+import { GameLibrary } from '../game-library/game-library.entity';
 import { GameStatus } from './enums/game-status.enum';
 
 @Entity()
@@ -57,6 +58,13 @@ export class Game {
   })
   @ManyToOne(() => Session, (session) => session.games, { eager: true })
   session: Session;
+
+  @ApiProperty({
+    description: 'Game template from the library this game is based on',
+    type: () => GameLibrary,
+  })
+  @ManyToOne(() => GameLibrary, { eager: true })
+  gameLibrary: GameLibrary;
 
   @ApiProperty({ type: () => [Team], description: 'Teams for this game' })
   @OneToMany(() => Team, (team) => team.game)

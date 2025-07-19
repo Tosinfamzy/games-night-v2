@@ -21,6 +21,10 @@ import { SessionService } from './session.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
 import { JoinSessionDto } from './dto/join-session.dto';
+import {
+  AddGamesToSessionDto,
+  RemoveGameFromSessionDto,
+} from './dto/session-games.dto';
 import { Session } from './session.entity';
 
 @ApiTags('sessions')
@@ -155,5 +159,44 @@ export class SessionController {
     @Body() dto: JoinSessionDto,
   ): Promise<{ session: Session; message: string }> {
     return this.service.joinSession(dto);
+  }
+
+  // Game management endpoints
+  @Post(':id/games')
+  @ApiOperation({ summary: 'Add games to a session' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Games successfully added to session.',
+    type: Session,
+  })
+  addGamesToSession(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AddGamesToSessionDto,
+  ): Promise<Session> {
+    return this.service.addGamesToSession(id, dto);
+  }
+
+  @Delete(':id/games')
+  @ApiOperation({ summary: 'Remove a game from a session' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Game successfully removed from session.',
+    type: Session,
+  })
+  removeGameFromSession(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RemoveGameFromSessionDto,
+  ): Promise<Session> {
+    return this.service.removeGameFromSession(id, dto);
   }
 }

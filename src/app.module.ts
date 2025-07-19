@@ -12,6 +12,7 @@ import { PlayerModule } from './player/player.module';
 import { GameModule } from './game/game.module';
 import { TeamModule } from './team/team.module';
 import { ScoreModule } from './score/score.module';
+import { GameLibraryModule } from './game-library/game-library.module';
 import * as Joi from 'joi';
 
 @Module({
@@ -76,6 +77,7 @@ import * as Joi from 'joi';
     GameModule,
     TeamModule,
     ScoreModule,
+    GameLibraryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
