@@ -14,6 +14,13 @@ import { Session } from '../session/session.entity';
 import { Team } from '../team/team.entity';
 import { Score } from '../score/score.entity';
 
+export enum PlayerStatus {
+  JOINED = 'joined',
+  READY = 'ready',
+  PLAYING = 'playing',
+  DISCONNECTED = 'disconnected',
+}
+
 @Entity()
 export class Player {
   @ApiProperty({ example: 'uuid' })
@@ -23,6 +30,26 @@ export class Player {
   @ApiProperty({ example: 'Bob' })
   @Column()
   name: string;
+
+  @ApiProperty({
+    example: 'joined',
+    description: 'Current status of the player',
+    enum: PlayerStatus,
+  })
+  @Column({
+    type: 'enum',
+    enum: PlayerStatus,
+    default: PlayerStatus.JOINED,
+  })
+  status: PlayerStatus;
+
+  @ApiProperty({
+    example: '2025-07-19T10:30:00Z',
+    description: 'When the player last connected',
+    required: false,
+  })
+  @Column({ type: 'timestamp', nullable: true })
+  lastConnectedAt?: Date;
 
   @ApiProperty({ type: () => Session })
   @ManyToOne(() => Session, (session) => session.players, { eager: true })
