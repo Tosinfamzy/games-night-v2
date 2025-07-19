@@ -19,6 +19,7 @@ import {
   AddGamesToSessionDto,
   RemoveGameFromSessionDto,
 } from './dto/session-games.dto';
+import { PlayerStatus } from '../player/player.entity';
 
 @Injectable()
 export class SessionService {
@@ -133,23 +134,39 @@ export class SessionService {
     return session;
   }
 
-  async startSession(id: string): Promise<Session> {
-    const session = await this.findOne(id, ['games']);
+  async startSession(sessionId: string): Promise<Session> {
+    const startCheck = await this.canStartSession(sessionId);
 
-    if (session.status !== SessionStatus.SCHEDULED) {
+    if (!startCheck.canStart) {
       throw new BadRequestException(
-        `Session cannot be started. Current status: ${session.status}`,
+        `Cannot start session: ${startCheck.reasons.join(', ')}`,
       );
     }
 
-    if (!session.games?.length) {
-      throw new BadRequestException(
-        'Cannot start session without any scheduled games',
-      );
-    }
+    const session = await this.findOne(sessionId, ['players']);
 
+    // Update session status
     session.status = SessionStatus.IN_PROGRESS;
-    return await this.repo.save(session);
+
+    // Set all ready players to playing status
+    const activePlayers = session.players.filter(
+      (player) => player.status !== PlayerStatus.DISCONNECTED,
+    );
+
+    for (const player of activePlayers) {
+      if (player.status === PlayerStatus.READY) {
+        player.status = PlayerStatus.PLAYING;
+      }
+    }
+
+    await this.repo.save(session);
+
+    return this.findOne(sessionId, [
+      'games',
+      'games.gameLibrary',
+      'players',
+      'host',
+    ]);
   }
 
   async completeSession(id: string): Promise<Session> {
@@ -340,5 +357,180 @@ export class SessionService {
     }
 
     return this.findOne(sessionId, ['games', 'games.gameLibrary']);
+  }
+
+  async validatePlayerCountForGames(sessionId: string): Promise<{
+    isValid: boolean;
+    errors: string[];
+    playerCount: number;
+    gameRequirements: Array<{
+      gameName: string;
+      minPlayers: number;
+      maxPlayers: number;
+      isValidForCurrentPlayers: boolean;
+    }>;
+  }> {
+    const session = await this.findOne(sessionId, [
+      'games',
+      'games.gameLibrary',
+      'players',
+    ]);
+
+    const activePlayerCount = session.players.filter(
+      (player) => player.status !== PlayerStatus.DISCONNECTED,
+    ).length;
+
+    const errors: string[] = [];
+    const gameRequirements: Array<{
+      gameName: string;
+      minPlayers: number;
+      maxPlayers: number;
+      isValidForCurrentPlayers: boolean;
+    }> = [];
+
+    for (const game of session.games) {
+      const { minPlayers, maxPlayers, name } = game.gameLibrary;
+      const isValidForCurrentPlayers =
+        activePlayerCount >= minPlayers && activePlayerCount <= maxPlayers;
+
+      gameRequirements.push({
+        gameName: name,
+        minPlayers,
+        maxPlayers,
+        isValidForCurrentPlayers,
+      });
+
+      if (!isValidForCurrentPlayers) {
+        errors.push(
+          `${name} requires ${minPlayers}-${maxPlayers} players, but ${activePlayerCount} active players in session`,
+        );
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      playerCount: activePlayerCount,
+      gameRequirements,
+    };
+  }
+
+  async canStartSession(sessionId: string): Promise<{
+    canStart: boolean;
+    reasons: string[];
+    checks: {
+      hasGames: boolean;
+      playersReady: boolean;
+      playerCountValid: boolean;
+      sessionScheduled: boolean;
+    };
+  }> {
+    const session = await this.findOne(sessionId, [
+      'games',
+      'games.gameLibrary',
+      'players',
+    ]);
+
+    const reasons: string[] = [];
+    const checks = {
+      hasGames: session.games.length > 0,
+      playersReady: false,
+      playerCountValid: false,
+      sessionScheduled: session.status === SessionStatus.SCHEDULED,
+    };
+
+    // Check if session has games
+    if (!checks.hasGames) {
+      reasons.push('Session must have at least one game selected');
+    }
+
+    // Check if session is in correct status
+    if (!checks.sessionScheduled) {
+      reasons.push(
+        `Session status must be SCHEDULED, current: ${session.status}`,
+      );
+    }
+
+    // Check if all players are ready
+    const activePlayers = session.players.filter(
+      (player) => player.status !== PlayerStatus.DISCONNECTED,
+    );
+    checks.playersReady =
+      activePlayers.length > 0 &&
+      activePlayers.every((player) => player.status === PlayerStatus.READY);
+
+    if (!checks.playersReady) {
+      const readyCount = activePlayers.filter(
+        (p) => p.status === PlayerStatus.READY,
+      ).length;
+      reasons.push(
+        `All players must be ready. Currently ${readyCount}/${activePlayers.length} players ready`,
+      );
+    }
+
+    // Check player count validity for all games
+    if (checks.hasGames) {
+      const validation = await this.validatePlayerCountForGames(sessionId);
+      checks.playerCountValid = validation.isValid;
+
+      if (!validation.isValid) {
+        reasons.push(...validation.errors);
+      }
+    }
+
+    return {
+      canStart:
+        checks.hasGames &&
+        checks.playersReady &&
+        checks.playerCountValid &&
+        checks.sessionScheduled,
+      reasons,
+      checks,
+    };
+  }
+
+  async getSessionReadiness(sessionId: string) {
+    const session = await this.findOne(sessionId, [
+      'players',
+      'games',
+      'games.gameLibrary',
+    ]);
+
+    const activePlayers = session.players.filter(
+      (player) => player.status !== PlayerStatus.DISCONNECTED,
+    );
+
+    const playerStats = {
+      total: session.players.length,
+      active: activePlayers.length,
+      ready: activePlayers.filter((p) => p.status === PlayerStatus.READY)
+        .length,
+      joined: activePlayers.filter((p) => p.status === PlayerStatus.JOINED)
+        .length,
+      playing: activePlayers.filter((p) => p.status === PlayerStatus.PLAYING)
+        .length,
+    };
+
+    const gameValidation = await this.validatePlayerCountForGames(sessionId);
+    const startCheck = await this.canStartSession(sessionId);
+
+    return {
+      session: {
+        id: session.id,
+        name: session.name,
+        status: session.status,
+        joinCode: session.joinCode,
+      },
+      players: playerStats,
+      games: session.games.map((game) => ({
+        id: game.id,
+        name: game.gameLibrary.name,
+        minPlayers: game.gameLibrary.minPlayers,
+        maxPlayers: game.gameLibrary.maxPlayers,
+        status: game.status,
+      })),
+      validation: gameValidation,
+      readiness: startCheck,
+    };
   }
 }

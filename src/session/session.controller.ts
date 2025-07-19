@@ -199,4 +199,49 @@ export class SessionController {
   ): Promise<Session> {
     return this.service.removeGameFromSession(id, dto);
   }
+
+  @Get(':id/validation')
+  @ApiOperation({ summary: 'Validate player count for session games' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Player count validation results.',
+  })
+  validatePlayerCount(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.validatePlayerCountForGames(id);
+  }
+
+  @Get(':id/can-start')
+  @ApiOperation({ summary: 'Check if session can be started' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Session start readiness check.',
+  })
+  canStartSession(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.canStartSession(id);
+  }
+
+  @Get(':id/readiness')
+  @ApiOperation({ summary: 'Get comprehensive session readiness status' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Complete session readiness information.',
+  })
+  getSessionReadiness(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.getSessionReadiness(id);
+  }
 }
