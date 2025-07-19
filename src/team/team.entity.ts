@@ -25,6 +25,28 @@ export class Team {
   @Column()
   name: string;
 
+  @ApiProperty({
+    example: '#FF5733',
+    description: 'Team color for identification',
+    required: false,
+  })
+  @Column({ nullable: true })
+  color?: string;
+
+  @ApiProperty({
+    example: 1,
+    description: 'Team position/order in the game',
+  })
+  @Column({ default: 1 })
+  position: number;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether this team is currently active in the game',
+  })
+  @Column({ default: true })
+  isActive: boolean;
+
   @ApiProperty({ type: () => Game, description: 'Game this team belongs to' })
   @ManyToOne(() => Game, (game) => game.teams, { eager: true })
   game: Game;

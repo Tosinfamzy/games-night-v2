@@ -18,6 +18,7 @@ import {
 import { TeamService } from './team.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
+import { CreateTeamsDto, AssignPlayersDto } from './dto/team-formation.dto';
 import { Team } from './team.entity';
 
 @ApiTags('teams')
@@ -91,5 +92,63 @@ export class TeamController {
     @Param('gameId', ParseUUIDPipe) gameId: string,
   ): Promise<Team[]> {
     return this.service.findByGame(gameId);
+  }
+
+  @Post('game/:gameId/create-teams')
+  @ApiOperation({ summary: 'Create teams for a game with automatic formation' })
+  @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 201,
+    description: 'Teams created successfully',
+    type: [Team],
+  })
+  @ApiNotFoundResponse({ description: 'Game not found' })
+  async createTeamsForGame(
+    @Param('gameId', ParseUUIDPipe) gameId: string,
+    @Body() dto: CreateTeamsDto,
+  ): Promise<Team[]> {
+    return this.service.createTeamsForGame(gameId, dto);
+  }
+
+  @Put('game/:gameId/assign-players')
+  @ApiOperation({ summary: 'Manually assign players to teams' })
+  @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Players assigned successfully',
+    type: [Team],
+  })
+  @ApiNotFoundResponse({ description: 'Game or teams not found' })
+  async manualAssignPlayers(
+    @Param('gameId', ParseUUIDPipe) gameId: string,
+    @Body() dto: AssignPlayersDto,
+  ): Promise<Team[]> {
+    return this.service.manualAssignPlayers(gameId, dto);
+  }
+
+  @Get('game/:gameId/stats')
+  @ApiOperation({ summary: 'Get team statistics for a game' })
+  @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Team statistics',
+  })
+  async getTeamStats(@Param('gameId', ParseUUIDPipe) gameId: string) {
+    return this.service.getTeamStats(gameId);
+  }
+
+  @Delete('game/:gameId/clear')
+  @ApiOperation({ summary: 'Clear all teams for a game' })
+  @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Teams cleared successfully',
+  })
+  @ApiNotFoundResponse({ description: 'Game not found' })
+  async clearTeamsForGame(
+    @Param('gameId', ParseUUIDPipe) gameId: string,
+  ): Promise<{ message: string }> {
+    await this.service.clearTeamsForGame(gameId);
+    return { message: 'Teams cleared successfully' };
   }
 }

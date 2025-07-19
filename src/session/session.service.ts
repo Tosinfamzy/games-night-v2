@@ -19,7 +19,7 @@ import {
   AddGamesToSessionDto,
   RemoveGameFromSessionDto,
 } from './dto/session-games.dto';
-import { PlayerStatus } from '../player/player.entity';
+import { PlayerStatus, Player } from '../player/player.entity';
 
 @Injectable()
 export class SessionService {
@@ -32,6 +32,8 @@ export class SessionService {
     private readonly gameRepo: Repository<Game>,
     @InjectRepository(GameLibrary)
     private readonly gameLibraryRepo: Repository<GameLibrary>,
+    @InjectRepository(Player)
+    private readonly playerRepo: Repository<Player>,
   ) {}
 
   async create(dto: CreateSessionDto): Promise<Session> {
@@ -156,6 +158,7 @@ export class SessionService {
     for (const player of activePlayers) {
       if (player.status === PlayerStatus.READY) {
         player.status = PlayerStatus.PLAYING;
+        await this.playerRepo.save(player);
       }
     }
 

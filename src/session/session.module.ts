@@ -6,10 +6,11 @@ import { Session } from './session.entity';
 import { GamesMaster } from '../games-master/games-master.entity';
 import { Game } from '../game/game.entity';
 import { GameLibrary } from '../game-library/game-library.entity';
+import { Player } from '../player/player.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Session, GamesMaster, Game, GameLibrary]),
+    TypeOrmModule.forFeature([Session, GamesMaster, Game, GameLibrary, Player]),
   ],
   providers: [SessionService],
   controllers: [SessionController],

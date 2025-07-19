@@ -53,6 +53,30 @@ export class Game {
   maxRounds: number;
 
   @ApiProperty({
+    example: 'uuid',
+    description: 'ID of the team whose turn it is',
+    required: false,
+  })
+  @Column({ nullable: true })
+  currentTurnTeamId?: string;
+
+  @ApiProperty({
+    example: '2025-01-15T10:30:00Z',
+    description: 'When the current turn started',
+    required: false,
+  })
+  @Column({ type: 'timestamp', nullable: true })
+  turnStartedAt?: Date;
+
+  @ApiProperty({
+    example: 120,
+    description: 'Turn time limit in seconds',
+    required: false,
+  })
+  @Column({ nullable: true })
+  turnTimeLimit?: number;
+
+  @ApiProperty({
     description: 'Session this game belongs to',
     type: () => Session,
   })

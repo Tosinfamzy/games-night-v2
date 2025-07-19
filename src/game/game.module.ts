@@ -5,9 +5,14 @@ import { GameController } from './game.controller';
 import { Game } from './game.entity';
 import { Session } from '../session/session.entity';
 import { Team } from '../team/team.entity';
+import { Player } from '../player/player.entity';
+import { TeamModule } from '../team/team.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Game, Session, Team])],
+  imports: [
+    TypeOrmModule.forFeature([Game, Session, Team, Player]),
+    TeamModule,
+  ],
   providers: [GameService],
   controllers: [GameController],
   exports: [GameService],
