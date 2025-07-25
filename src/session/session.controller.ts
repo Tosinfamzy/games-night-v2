@@ -25,7 +25,12 @@ import {
   AddGamesToSessionDto,
   RemoveGameFromSessionDto,
 } from './dto/session-games.dto';
+import {
+  CreateTeamForSessionDto,
+  AssignPlayersToTeamDto,
+} from './dto/session-teams.dto';
 import { Session } from './session.entity';
+import { Team } from '../team/team.entity';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
@@ -243,5 +248,50 @@ export class SessionController {
   })
   getSessionReadiness(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.getSessionReadiness(id);
+  }
+
+  // Team management endpoints
+  @Post(':id/teams')
+  @ApiOperation({ summary: 'Create teams for a session' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiResponse({
+    status: HttpStatus.CREATED,
+    description: 'Team successfully created for session.',
+    type: Team,
+  })
+  createTeamForSession(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateTeamForSessionDto,
+  ): Promise<Team> {
+    return this.service.createTeamForSession(id, dto);
+  }
+
+  @Put(':id/teams/:teamId/players')
+  @ApiOperation({ summary: 'Assign players to a team' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiParam({
+    name: 'teamId',
+    type: 'string',
+    description: 'Team ID',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Players successfully assigned to team.',
+    type: Team,
+  })
+  assignPlayersToTeam(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('teamId', ParseUUIDPipe) teamId: string,
+    @Body() dto: AssignPlayersToTeamDto,
+  ): Promise<Team> {
+    return this.service.assignPlayersToTeam(id, teamId, dto);
   }
 }

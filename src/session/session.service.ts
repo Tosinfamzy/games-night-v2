@@ -19,7 +19,12 @@ import {
   AddGamesToSessionDto,
   RemoveGameFromSessionDto,
 } from './dto/session-games.dto';
+import {
+  CreateTeamForSessionDto,
+  AssignPlayersToTeamDto,
+} from './dto/session-teams.dto';
 import { PlayerStatus, Player } from '../player/player.entity';
+import { Team } from '../team/team.entity';
 
 @Injectable()
 export class SessionService {
@@ -34,6 +39,8 @@ export class SessionService {
     private readonly gameLibraryRepo: Repository<GameLibrary>,
     @InjectRepository(Player)
     private readonly playerRepo: Repository<Player>,
+    @InjectRepository(Team)
+    private readonly teamRepo: Repository<Team>,
   ) {}
 
   async create(dto: CreateSessionDto): Promise<Session> {
@@ -535,5 +542,89 @@ export class SessionService {
       validation: gameValidation,
       readiness: startCheck,
     };
+  }
+
+  // Team management methods
+  async createTeamForSession(
+    sessionId: string,
+    dto: CreateTeamForSessionDto,
+  ): Promise<Team> {
+    const session = await this.findOne(sessionId, ['players']);
+
+    // If gameId is provided, verify it exists in the session
+    let game: Game | undefined = undefined;
+    if (dto.gameId) {
+      const foundGame = await this.gameRepo.findOne({
+        where: { id: dto.gameId, session: { id: sessionId } },
+      });
+      if (!foundGame) {
+        throw new NotFoundException(
+          `Game with ID ${dto.gameId} not found in session ${sessionId}`,
+        );
+      }
+      game = foundGame;
+    }
+
+    // Verify players exist in the session if provided
+    let players: Player[] = [];
+    if (dto.playerIds && dto.playerIds.length > 0) {
+      players = await this.playerRepo
+        .createQueryBuilder('player')
+        .where('player.id IN (:...playerIds)', { playerIds: dto.playerIds })
+        .andWhere('player.sessionId = :sessionId', { sessionId })
+        .getMany();
+
+      if (players.length !== dto.playerIds.length) {
+        throw new NotFoundException(
+          'One or more players not found in this session',
+        );
+      }
+    }
+
+    const team = this.teamRepo.create({
+      name: dto.name,
+      color: dto.color,
+      session: session,
+      game: game,
+      players: players,
+      position: 1, // Default position, can be adjusted later
+    });
+
+    return await this.teamRepo.save(team);
+  }
+
+  async assignPlayersToTeam(
+    sessionId: string,
+    teamId: string,
+    dto: AssignPlayersToTeamDto,
+  ): Promise<Team> {
+    // Verify team exists and belongs to the session
+    const team = await this.teamRepo.findOne({
+      where: { id: teamId, session: { id: sessionId } },
+      relations: ['session', 'players'],
+    });
+
+    if (!team) {
+      throw new NotFoundException(
+        `Team with ID ${teamId} not found in session ${sessionId}`,
+      );
+    }
+
+    // Verify all players exist in the session
+    const players = await this.playerRepo
+      .createQueryBuilder('player')
+      .where('player.id IN (:...playerIds)', { playerIds: dto.playerIds })
+      .andWhere('player.sessionId = :sessionId', { sessionId })
+      .getMany();
+
+    if (players.length !== dto.playerIds.length) {
+      throw new NotFoundException(
+        'One or more players not found in this session',
+      );
+    }
+
+    // Update team with new players (replacing existing ones)
+    team.players = players;
+    return await this.teamRepo.save(team);
   }
 }
