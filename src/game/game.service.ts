@@ -102,6 +102,25 @@ export class GameService {
     return await this.repo.save(game);
   }
 
+  async startFirstRound(id: string): Promise<Game> {
+    const game = await this.findOne(id);
+
+    if (game.status !== GameStatus.IN_PROGRESS) {
+      throw new BadRequestException(
+        'Cannot start first round. Game must be in progress but no round started yet.',
+      );
+    }
+
+    if (game.currentRound !== 1) {
+      throw new BadRequestException(
+        'Cannot start first round. Current round should be 1.',
+      );
+    }
+
+    game.status = GameStatus.ROUND_IN_PROGRESS;
+    return await this.repo.save(game);
+  }
+
   async startNextRound(id: string): Promise<Game> {
     const game = await this.findOne(id);
 

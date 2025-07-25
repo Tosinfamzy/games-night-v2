@@ -96,6 +96,22 @@ export class GameController {
     return this.service.startGame(id, dto);
   }
 
+  @Post(':id/start-first-round')
+  @ApiOperation({ summary: 'Start the first round of the game' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'First round has been started.',
+    type: Game,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid game state.',
+  })
+  startFirstRound(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
+    return this.service.startFirstRound(id);
+  }
+
   @Post(':id/next-round')
   @ApiOperation({ summary: 'Start the next round' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
