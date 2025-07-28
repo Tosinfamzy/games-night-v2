@@ -104,7 +104,7 @@ export class SessionService {
 
   async joinSession(
     dto: JoinSessionDto,
-  ): Promise<{ session: Session; message: string }> {
+  ): Promise<{ session: Session; player: Player; message: string }> {
     const session = await this.findByJoinCode(dto.joinCode);
 
     if (session.status === SessionStatus.COMPLETED) {
@@ -115,10 +115,39 @@ export class SessionService {
       throw new BadRequestException('Cannot join a cancelled session');
     }
 
-    // Note: Player creation/assignment logic would go here
-    // For now, we'll just return the session info
-    return {
+    if (session.status !== SessionStatus.SCHEDULED) {
+      throw new BadRequestException(
+        `Cannot join session - current status: ${session.status}`,
+      );
+    }
+
+    // Check if player name is unique within the session
+    const existingPlayer = await this.playerRepo.findOne({
+      where: { name: dto.playerName, session: { id: session.id } },
+    });
+
+    if (existingPlayer) {
+      throw new BadRequestException(
+        `Player name "${dto.playerName}" is already taken in this session`,
+      );
+    }
+
+    // Create the player and associate with session
+    const player = this.playerRepo.create({
+      name: dto.playerName,
       session,
+      status: PlayerStatus.JOINED,
+      lastConnectedAt: new Date(),
+    });
+
+    const savedPlayer = await this.playerRepo.save(player);
+
+    // Reload session with updated players
+    const updatedSession = await this.findByJoinCode(dto.joinCode);
+
+    return {
+      session: updatedSession,
+      player: savedPlayer,
       message: `Successfully joined session hosted by ${session.host.name}`,
     };
   }
@@ -626,5 +655,91 @@ export class SessionService {
     // Update team with new players (replacing existing ones)
     team.players = players;
     return await this.teamRepo.save(team);
+  }
+
+  // Player status management methods
+  async setPlayerReady(
+    sessionId: string,
+    playerId: string,
+    ready: boolean = true,
+  ): Promise<Player> {
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId, session: { id: sessionId } },
+      relations: ['session'],
+    });
+
+    if (!player) {
+      throw new NotFoundException(
+        `Player with ID ${playerId} not found in session ${sessionId}`,
+      );
+    }
+
+    // Validate session status
+    if (player.session.status !== SessionStatus.SCHEDULED) {
+      throw new BadRequestException(
+        `Cannot change player status when session is ${player.session.status}`,
+      );
+    }
+
+    // Set player status based on ready flag
+    player.status = ready ? PlayerStatus.READY : PlayerStatus.JOINED;
+    player.lastConnectedAt = new Date();
+
+    return await this.playerRepo.save(player);
+  }
+
+  async updatePlayerStatus(
+    sessionId: string,
+    playerId: string,
+    status: PlayerStatus,
+  ): Promise<Player> {
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId, session: { id: sessionId } },
+      relations: ['session'],
+    });
+
+    if (!player) {
+      throw new NotFoundException(
+        `Player with ID ${playerId} not found in session ${sessionId}`,
+      );
+    }
+
+    // Update status and connection time
+    player.status = status;
+    if (status !== PlayerStatus.DISCONNECTED) {
+      player.lastConnectedAt = new Date();
+    }
+
+    return await this.playerRepo.save(player);
+  }
+
+  async getSessionPlayers(sessionId: string): Promise<Player[]> {
+    const session = await this.findOne(sessionId, ['players']);
+    return session.players;
+  }
+
+  async removePlayerFromSession(
+    sessionId: string,
+    playerId: string,
+  ): Promise<void> {
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId, session: { id: sessionId } },
+      relations: ['session'],
+    });
+
+    if (!player) {
+      throw new NotFoundException(
+        `Player with ID ${playerId} not found in session ${sessionId}`,
+      );
+    }
+
+    // Check if session allows player removal
+    if (player.session.status === SessionStatus.IN_PROGRESS) {
+      throw new BadRequestException(
+        'Cannot remove players from a session in progress',
+      );
+    }
+
+    await this.playerRepo.remove(player);
   }
 }

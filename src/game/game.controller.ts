@@ -24,6 +24,7 @@ import { StartGameDto } from './dto/start-game.dto';
 import { StartGameWithTeamsDto } from './dto/start-game-with-teams.dto';
 import { NextTurnDto } from './dto/next-turn.dto';
 import { Game } from './game.entity';
+import { GameStatus } from './enums/game-status.enum';
 
 @ApiTags('games')
 @ApiBearerAuth()
@@ -335,5 +336,48 @@ export class GameController {
   })
   forceStartGame(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
     return this.service.forceStartGame(id);
+  }
+
+  @Post(':id/complete')
+  @ApiOperation({ summary: 'Complete a game' })
+  @ApiParam({ name: 'id', description: 'Game ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Game completed successfully.',
+    type: Game,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Game cannot be completed.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Game not found.',
+  })
+  completeGame(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
+    return this.service.completeGame(id);
+  }
+
+  @Put(':id/status')
+  @ApiOperation({ summary: 'Update game status' })
+  @ApiParam({ name: 'id', description: 'Game ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Game status updated successfully.',
+    type: Game,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid status transition.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Game not found.',
+  })
+  updateGameStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { status: GameStatus },
+  ): Promise<Game> {
+    return this.service.updateGameStatus(id, dto.status);
   }
 }

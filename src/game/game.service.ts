@@ -433,4 +433,53 @@ export class GameService {
 
     return await this.repo.save(game);
   }
+
+  // Additional game lifecycle methods
+  async completeGame(id: string): Promise<Game> {
+    const game = await this.findOne(id);
+
+    if (game.status === GameStatus.COMPLETED) {
+      throw new BadRequestException('Game is already completed');
+    }
+
+    if (game.status === GameStatus.CANCELLED) {
+      throw new BadRequestException('Cannot complete a cancelled game');
+    }
+
+    game.status = GameStatus.COMPLETED;
+    game.currentRound = game.maxRounds;
+
+    return await this.repo.save(game);
+  }
+
+  async updateGameStatus(id: string, status: GameStatus): Promise<Game> {
+    const game = await this.findOne(id);
+
+    // Validate status transition
+    if (
+      game.status === GameStatus.COMPLETED &&
+      status !== GameStatus.COMPLETED
+    ) {
+      throw new BadRequestException('Cannot change status of a completed game');
+    }
+
+    if (
+      game.status === GameStatus.CANCELLED &&
+      status !== GameStatus.CANCELLED
+    ) {
+      throw new BadRequestException('Cannot change status of a cancelled game');
+    }
+
+    game.status = status;
+
+    return await this.repo.save(game);
+  }
+
+  async getGamesBySession(sessionId: string): Promise<Game[]> {
+    return this.repo.find({
+      where: { session: { id: sessionId } },
+      relations: ['session', 'teams', 'teams.players', 'scores'],
+      order: { createdAt: 'ASC' },
+    });
+  }
 }

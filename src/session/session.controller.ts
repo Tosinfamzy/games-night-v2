@@ -162,7 +162,7 @@ export class SessionController {
   })
   joinSession(
     @Body() dto: JoinSessionDto,
-  ): Promise<{ session: Session; message: string }> {
+  ): Promise<{ session: Session; player: any; message: string }> {
     return this.service.joinSession(dto);
   }
 
@@ -293,5 +293,65 @@ export class SessionController {
     @Body() dto: AssignPlayersToTeamDto,
   ): Promise<Team> {
     return this.service.assignPlayersToTeam(id, teamId, dto);
+  }
+
+  // Player status management endpoints
+  @Post(':id/players/:playerId/ready')
+  @ApiOperation({ summary: 'Set player ready status in session' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
+  @ApiParam({ name: 'playerId', description: 'Player ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Player ready status updated successfully.',
+  })
+  setPlayerReady(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('playerId', ParseUUIDPipe) playerId: string,
+    @Body() dto: { ready: boolean },
+  ) {
+    return this.service.setPlayerReady(id, playerId, dto.ready);
+  }
+
+  @Put(':id/players/:playerId/status')
+  @ApiOperation({ summary: 'Update player status in session' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
+  @ApiParam({ name: 'playerId', description: 'Player ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Player status updated successfully.',
+  })
+  updatePlayerStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('playerId', ParseUUIDPipe) playerId: string,
+    @Body() dto: { status: 'joined' | 'ready' | 'playing' | 'disconnected' },
+  ) {
+    return this.service.updatePlayerStatus(id, playerId, dto.status as any);
+  }
+
+  @Get(':id/players')
+  @ApiOperation({ summary: 'Get all players in session' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Players retrieved successfully.',
+  })
+  getSessionPlayers(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.getSessionPlayers(id);
+  }
+
+  @Delete(':id/players/:playerId')
+  @ApiOperation({ summary: 'Remove player from session' })
+  @ApiParam({ name: 'id', description: 'Session ID' })
+  @ApiParam({ name: 'playerId', description: 'Player ID' })
+  @ApiResponse({
+    status: HttpStatus.NO_CONTENT,
+    description: 'Player removed from session successfully.',
+  })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  removePlayerFromSession(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('playerId', ParseUUIDPipe) playerId: string,
+  ): Promise<void> {
+    return this.service.removePlayerFromSession(id, playerId);
   }
 }
