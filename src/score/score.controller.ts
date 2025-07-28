@@ -165,4 +165,64 @@ export class ScoreController {
   async delete(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.service.delete(id);
   }
+
+  @Post('games/:gameId/next-round')
+  @ApiOperation({ summary: 'Progress to next round and get round summary' })
+  @ApiParam({ name: 'gameId', description: 'Game ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Round progressed successfully with summary',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Game not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Cannot progress round - invalid game state.',
+  })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async progressToNextRound(@Param('gameId', ParseUUIDPipe) gameId: string) {
+    return this.service.progressToNextRound(gameId);
+  }
+
+  @Get('games/:gameId/history')
+  @ApiOperation({ summary: 'Get comprehensive score history for a game' })
+  @ApiParam({ name: 'gameId', description: 'Game ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Score history with rounds and leaderboard',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Game not found.',
+  })
+  @CacheTTL(30) // Cache for 30 seconds
+  async getScoreHistory(@Param('gameId', ParseUUIDPipe) gameId: string) {
+    return this.service.getScoreHistory(gameId);
+  }
+
+  @Put(':id/adjust')
+  @ApiOperation({ summary: 'Adjust a score with reason for auditing' })
+  @ApiParam({ name: 'id', description: 'Score ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Score adjusted successfully',
+    type: Score,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Score not found.',
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid adjustment or game completed.',
+  })
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  async adjustScore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { points?: number; reason: string },
+  ): Promise<Score> {
+    return this.service.adjustScore(id, body);
+  }
 }

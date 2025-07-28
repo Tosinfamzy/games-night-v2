@@ -31,6 +31,7 @@ import {
 } from './dto/session-teams.dto';
 import { Session } from './session.entity';
 import { Team } from '../team/team.entity';
+import { PlayerStatus } from '../player/player.entity';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
@@ -323,9 +324,9 @@ export class SessionController {
   updatePlayerStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('playerId', ParseUUIDPipe) playerId: string,
-    @Body() dto: { status: 'joined' | 'ready' | 'playing' | 'disconnected' },
+    @Body() dto: { status: PlayerStatus },
   ) {
-    return this.service.updatePlayerStatus(id, playerId, dto.status as any);
+    return this.service.updatePlayerStatus(id, playerId, dto.status);
   }
 
   @Get(':id/players')

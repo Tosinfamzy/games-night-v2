@@ -18,7 +18,11 @@ import {
 import { TeamService } from './team.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
-import { CreateTeamsDto, AssignPlayersDto } from './dto/team-formation.dto';
+import {
+  CreateTeamsDto,
+  AssignPlayersDto,
+  TeamFormationStrategy,
+} from './dto/team-formation.dto';
 import { Team } from './team.entity';
 
 @ApiTags('teams')
@@ -150,5 +154,39 @@ export class TeamController {
   ): Promise<{ message: string }> {
     await this.service.clearTeamsForGame(gameId);
     return { message: 'Teams cleared successfully' };
+  }
+
+  @Get('game/:gameId/suggestions')
+  @ApiOperation({ summary: 'Get team formation suggestions for a game' })
+  @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Team formation suggestions with validation',
+  })
+  @ApiNotFoundResponse({ description: 'Game not found' })
+  async suggestTeamFormation(@Param('gameId', ParseUUIDPipe) gameId: string) {
+    return this.service.suggestTeamFormation(gameId);
+  }
+
+  @Put('game/:gameId/rebalance')
+  @ApiOperation({
+    summary: 'Rebalance existing teams using a different strategy',
+  })
+  @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Teams rebalanced successfully',
+    type: [Team],
+  })
+  @ApiNotFoundResponse({ description: 'Game or teams not found' })
+  async rebalanceTeams(
+    @Param('gameId', ParseUUIDPipe) gameId: string,
+    @Body() body: { strategy: 'automatic' | 'balanced' | 'random' | 'manual' },
+  ): Promise<Team[]> {
+    const strategy =
+      TeamFormationStrategy[
+        body.strategy.toUpperCase() as keyof typeof TeamFormationStrategy
+      ] || TeamFormationStrategy.AUTOMATIC;
+    return this.service.rebalanceTeams(gameId, strategy);
   }
 }
