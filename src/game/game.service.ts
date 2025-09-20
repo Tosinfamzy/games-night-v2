@@ -53,7 +53,7 @@ export class GameService {
 
   async findAll(): Promise<Game[]> {
     return this.repo.find({
-      relations: ['session', 'teams', 'scores'],
+      relations: ['session', 'teams', 'scores', 'gameLibrary'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -61,7 +61,7 @@ export class GameService {
   async findOne(id: string): Promise<Game> {
     const game = await this.repo.findOne({
       where: { id },
-      relations: ['session', 'teams', 'scores'],
+      relations: ['session', 'teams', 'scores', 'gameLibrary'],
     });
 
     if (!game) {

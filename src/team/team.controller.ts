@@ -24,6 +24,7 @@ import {
   TeamFormationStrategy,
 } from './dto/team-formation.dto';
 import { Team } from './team.entity';
+import { TeamResponseDto } from '../common/dto/team.response';
 
 @ApiTags('teams')
 @Controller('teams')
@@ -35,11 +36,14 @@ export class TeamController {
   @ApiResponse({
     status: 201,
     description: 'Team created successfully',
-    type: Team,
+    type: TeamResponseDto,
   })
   @ApiNotFoundResponse({ description: 'Game not found' })
-  create(@Body() dto: CreateTeamDto): Promise<Team> {
-    return this.service.create(dto);
+  create(@Body() dto: CreateTeamDto): Promise<TeamResponseDto> {
+    return this.service
+      .create(dto)
+      .then((team) => this.service.findOne(team.id, ['session', 'game', 'players', 'scores']))
+      .then((team) => TeamResponseDto.fromEntity(team));
   }
 
   @Get()
@@ -47,31 +51,50 @@ export class TeamController {
   @ApiResponse({
     status: 200,
     description: 'List of all teams',
-    type: [Team],
+    type: [TeamResponseDto],
   })
-  findAll(): Promise<Team[]> {
-    return this.service.findAll(['game', 'players']);
+  findAll(): Promise<TeamResponseDto[]> {
+    return this.service
+      .findAll()
+      .then((teams) => teams.map((team) => TeamResponseDto.fromEntity(team)));
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a team by ID' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
-  @ApiResponse({ status: 200, description: 'Team found', type: Team })
+  @ApiResponse({
+    status: 200,
+    description: 'Team found',
+    type: TeamResponseDto,
+  })
   @ApiNotFoundResponse({ description: 'Team not found' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Team> {
-    return this.service.findOne(id, ['game', 'players']);
+  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<TeamResponseDto> {
+    const team = await this.service.findOne(id, [
+      'game',
+      'players',
+      'session',
+      'scores',
+    ]);
+    return TeamResponseDto.fromEntity(team);
   }
 
   @Put(':id')
   @ApiOperation({ summary: 'Update a team' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
-  @ApiResponse({ status: 200, description: 'Team updated', type: Team })
+  @ApiResponse({
+    status: 200,
+    description: 'Team updated',
+    type: TeamResponseDto,
+  })
   @ApiNotFoundResponse({ description: 'Team not found' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateTeamDto,
-  ): Promise<Team> {
-    return this.service.update(id, dto);
+  ): Promise<TeamResponseDto> {
+    return this.service
+      .update(id, dto)
+      .then((team) => this.service.findOne(team.id, ['session', 'game', 'players', 'scores']))
+      .then((team) => TeamResponseDto.fromEntity(team));
   }
 
   @Delete(':id')
@@ -89,13 +112,15 @@ export class TeamController {
   @ApiResponse({
     status: 200,
     description: 'List of teams for the game',
-    type: [Team],
+    type: [TeamResponseDto],
   })
   @ApiNotFoundResponse({ description: 'Game not found' })
   async findByGame(
     @Param('gameId', ParseUUIDPipe) gameId: string,
-  ): Promise<Team[]> {
-    return this.service.findByGame(gameId);
+  ): Promise<TeamResponseDto[]> {
+    return this.service
+      .findByGame(gameId)
+      .then((teams) => teams.map((team) => TeamResponseDto.fromEntity(team)));
   }
 
   @Post('game/:gameId/create-teams')
@@ -104,14 +129,16 @@ export class TeamController {
   @ApiResponse({
     status: 201,
     description: 'Teams created successfully',
-    type: [Team],
+    type: [TeamResponseDto],
   })
   @ApiNotFoundResponse({ description: 'Game not found' })
   async createTeamsForGame(
     @Param('gameId', ParseUUIDPipe) gameId: string,
     @Body() dto: CreateTeamsDto,
-  ): Promise<Team[]> {
-    return this.service.createTeamsForGame(gameId, dto);
+  ): Promise<TeamResponseDto[]> {
+    return this.service
+      .createTeamsForGame(gameId, dto)
+      .then((teams) => teams.map((team) => TeamResponseDto.fromEntity(team)));
   }
 
   @Put('game/:gameId/assign-players')
@@ -120,14 +147,16 @@ export class TeamController {
   @ApiResponse({
     status: 200,
     description: 'Players assigned successfully',
-    type: [Team],
+    type: [TeamResponseDto],
   })
   @ApiNotFoundResponse({ description: 'Game or teams not found' })
   async manualAssignPlayers(
     @Param('gameId', ParseUUIDPipe) gameId: string,
     @Body() dto: AssignPlayersDto,
-  ): Promise<Team[]> {
-    return this.service.manualAssignPlayers(gameId, dto);
+  ): Promise<TeamResponseDto[]> {
+    return this.service
+      .manualAssignPlayers(gameId, dto)
+      .then((teams) => teams.map((team) => TeamResponseDto.fromEntity(team)));
   }
 
   @Get('game/:gameId/stats')
@@ -176,17 +205,19 @@ export class TeamController {
   @ApiResponse({
     status: 200,
     description: 'Teams rebalanced successfully',
-    type: [Team],
+    type: [TeamResponseDto],
   })
   @ApiNotFoundResponse({ description: 'Game or teams not found' })
   async rebalanceTeams(
     @Param('gameId', ParseUUIDPipe) gameId: string,
     @Body() body: { strategy: 'automatic' | 'balanced' | 'random' | 'manual' },
-  ): Promise<Team[]> {
+  ): Promise<TeamResponseDto[]> {
     const strategy =
       TeamFormationStrategy[
         body.strategy.toUpperCase() as keyof typeof TeamFormationStrategy
       ] || TeamFormationStrategy.AUTOMATIC;
-    return this.service.rebalanceTeams(gameId, strategy);
+    return this.service
+      .rebalanceTeams(gameId, strategy)
+      .then((teams) => teams.map((team) => TeamResponseDto.fromEntity(team)));
   }
 }

@@ -25,6 +25,7 @@ import { StartGameWithTeamsDto } from './dto/start-game-with-teams.dto';
 import { NextTurnDto } from './dto/next-turn.dto';
 import { Game } from './game.entity';
 import { GameStatus } from './enums/game-status.enum';
+import { GameResponseDto } from '../common/dto/game.response';
 
 @ApiTags('games')
 @ApiBearerAuth()
@@ -32,19 +33,26 @@ import { GameStatus } from './enums/game-status.enum';
 export class GameController {
   constructor(private readonly service: GameService) {}
 
+  private async serializeGame(gameId: string): Promise<GameResponseDto> {
+    const game = await this.service.findOne(gameId);
+    return GameResponseDto.fromEntity(game);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Create a game' })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'The game has been successfully created.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Invalid input.',
   })
-  create(@Body() dto: CreateGameDto): Promise<Game> {
-    return this.service.create(dto);
+  create(@Body() dto: CreateGameDto): Promise<GameResponseDto> {
+    return this.service
+      .create(dto)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Get()
@@ -52,10 +60,12 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'List of all games.',
-    type: [Game],
+    type: [GameResponseDto],
   })
-  findAll(): Promise<Game[]> {
-    return this.service.findAll();
+  findAll(): Promise<GameResponseDto[]> {
+    return this.service
+      .findAll()
+      .then((games) => games.map((game) => GameResponseDto.fromEntity(game)));
   }
 
   @Get(':id')
@@ -64,14 +74,14 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'The game has been found.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'Game not found.',
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
-    return this.service.findOne(id);
+  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<GameResponseDto> {
+    return this.serializeGame(id);
   }
 
   @Post(':id/start')
@@ -80,7 +90,7 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'The game has been started.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -93,8 +103,10 @@ export class GameController {
   startGame(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: StartGameDto,
-  ): Promise<Game> {
-    return this.service.startGame(id, dto);
+  ): Promise<GameResponseDto> {
+    return this.service
+      .startGame(id, dto)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Post(':id/start-first-round')
@@ -103,14 +115,18 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'First round has been started.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Invalid game state.',
   })
-  startFirstRound(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
-    return this.service.startFirstRound(id);
+  startFirstRound(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<GameResponseDto> {
+    return this.service
+      .startFirstRound(id)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Post(':id/next-round')
@@ -119,14 +135,18 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Next round has been started.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Invalid game state or maximum rounds reached.',
   })
-  startNextRound(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
-    return this.service.startNextRound(id);
+  startNextRound(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<GameResponseDto> {
+    return this.service
+      .startNextRound(id)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Post(':id/end-round')
@@ -135,14 +155,18 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Current round has been ended.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Invalid game state.',
   })
-  endCurrentRound(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
-    return this.service.endCurrentRound(id);
+  endCurrentRound(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<GameResponseDto> {
+    return this.service
+      .endCurrentRound(id)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Post(':id/cancel')
@@ -151,14 +175,16 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'The game has been cancelled.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Invalid game state.',
   })
-  cancelGame(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
-    return this.service.cancelGame(id);
+  cancelGame(@Param('id', ParseUUIDPipe) id: string): Promise<GameResponseDto> {
+    return this.service
+      .cancelGame(id)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Put(':id')
@@ -167,7 +193,7 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'The game has been successfully updated.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -180,8 +206,10 @@ export class GameController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateGameDto,
-  ): Promise<Game> {
-    return this.service.update(id, dto);
+  ): Promise<GameResponseDto> {
+    return this.service
+      .update(id, dto)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Delete(':id')
@@ -208,7 +236,7 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Game started successfully with teams formed.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -221,8 +249,10 @@ export class GameController {
   startWithTeams(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: StartGameWithTeamsDto,
-  ): Promise<Game> {
-    return this.service.startGameWithTeams(id, dto);
+  ): Promise<GameResponseDto> {
+    return this.service
+      .startGameWithTeams(id, dto)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Get(':id/readiness')
@@ -246,7 +276,7 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Turn changed successfully.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -259,8 +289,10 @@ export class GameController {
   nextTurn(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: NextTurnDto,
-  ): Promise<Game> {
-    return this.service.nextTurn(id, dto);
+  ): Promise<GameResponseDto> {
+    return this.service
+      .nextTurn(id, dto)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Post(':id/pause')
@@ -269,7 +301,7 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Game paused successfully.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -279,8 +311,10 @@ export class GameController {
     status: HttpStatus.NOT_FOUND,
     description: 'Game not found.',
   })
-  pauseGame(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
-    return this.service.pauseGame(id);
+  pauseGame(@Param('id', ParseUUIDPipe) id: string): Promise<GameResponseDto> {
+    return this.service
+      .pauseGame(id)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Post(':id/resume')
@@ -289,7 +323,7 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Game resumed successfully.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -299,8 +333,10 @@ export class GameController {
     status: HttpStatus.NOT_FOUND,
     description: 'Game not found.',
   })
-  resumeGame(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
-    return this.service.resumeGame(id);
+  resumeGame(@Param('id', ParseUUIDPipe) id: string): Promise<GameResponseDto> {
+    return this.service
+      .resumeGame(id)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Get(':id/stats')
@@ -324,7 +360,7 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Game force started successfully.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -334,8 +370,12 @@ export class GameController {
     status: HttpStatus.NOT_FOUND,
     description: 'Game not found.',
   })
-  forceStartGame(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
-    return this.service.forceStartGame(id);
+  forceStartGame(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<GameResponseDto> {
+    return this.service
+      .forceStartGame(id)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Post(':id/complete')
@@ -344,7 +384,7 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Game completed successfully.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -354,8 +394,10 @@ export class GameController {
     status: HttpStatus.NOT_FOUND,
     description: 'Game not found.',
   })
-  completeGame(@Param('id', ParseUUIDPipe) id: string): Promise<Game> {
-    return this.service.completeGame(id);
+  completeGame(@Param('id', ParseUUIDPipe) id: string): Promise<GameResponseDto> {
+    return this.service
+      .completeGame(id)
+      .then((game) => this.serializeGame(game.id));
   }
 
   @Put(':id/status')
@@ -364,7 +406,7 @@ export class GameController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Game status updated successfully.',
-    type: Game,
+    type: GameResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -377,7 +419,9 @@ export class GameController {
   updateGameStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: { status: GameStatus },
-  ): Promise<Game> {
-    return this.service.updateGameStatus(id, dto.status);
+  ): Promise<GameResponseDto> {
+    return this.service
+      .updateGameStatus(id, dto.status)
+      .then(() => this.serializeGame(id));
   }
 }

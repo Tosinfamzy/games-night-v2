@@ -44,8 +44,10 @@ export class TeamService {
   }
 
   async findAll(relations: string[] = []): Promise<Team[]> {
+    const defaultRelations = ['session', 'game', 'players', 'scores'];
+    const mergedRelations = Array.from(new Set([...defaultRelations, ...relations]));
     return this.repo.find({
-      relations,
+      relations: mergedRelations,
       order: { name: 'ASC' },
     });
   }
@@ -90,7 +92,7 @@ export class TeamService {
     return this.repo.find({
       where: { game: { id: gameId } },
       order: { name: 'ASC' },
-      relations: ['game', 'players'],
+      relations: ['game', 'players', 'session', 'scores'],
     });
   }
 
@@ -157,7 +159,7 @@ export class TeamService {
 
     return this.repo.find({
       where: { game: { id: gameId } },
-      relations: ['players'],
+      relations: ['players', 'session', 'scores', 'game'],
       order: { position: 'ASC' },
     });
   }

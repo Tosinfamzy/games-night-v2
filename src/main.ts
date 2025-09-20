@@ -7,6 +7,7 @@ if (!globalThis.crypto) {
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -37,9 +38,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Set up Swagger documentation - TEMPORARILY DISABLED
-  /*
-  const config = new DocumentBuilder()
+  const swaggerConfig = new DocumentBuilder()
     .setTitle('Games Night API')
     .setDescription(
       'API for managing games night sessions, teams, players, and scores',
@@ -53,9 +52,8 @@ async function bootstrap() {
     .addTag('score', 'Score operations')
     .addBearerAuth()
     .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
-  */
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api', app, swaggerDocument);
 
   // Start the server
   const port = process.env.PORT || 3000;

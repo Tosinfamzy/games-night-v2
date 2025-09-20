@@ -19,6 +19,7 @@ import { GamesMasterService } from './games-master.service';
 import { CreateGamesMasterDto } from './dto/create-games-master.dto';
 import { UpdateGamesMasterDto } from './dto/update-games-master.dto';
 import { GamesMaster } from './games-master.entity';
+import { GamesMasterResponseDto } from '../common/dto/games-master.response';
 
 @ApiTags('games-master')
 @Controller('games-master')
@@ -30,10 +31,12 @@ export class GamesMasterController {
   @ApiResponse({
     status: 201,
     description: 'Games master created successfully',
-    type: GamesMaster,
+    type: GamesMasterResponseDto,
   })
-  create(@Body() dto: CreateGamesMasterDto): Promise<GamesMaster> {
-    return this.service.create(dto);
+  create(@Body() dto: CreateGamesMasterDto): Promise<GamesMasterResponseDto> {
+    return this.service
+      .create(dto)
+      .then((master) => GamesMasterResponseDto.fromEntity(master));
   }
 
   @Get()
@@ -41,10 +44,14 @@ export class GamesMasterController {
   @ApiResponse({
     status: 200,
     description: 'List of all games masters',
-    type: [GamesMaster],
+    type: [GamesMasterResponseDto],
   })
-  findAll(): Promise<GamesMaster[]> {
-    return this.service.findAll(['sessions']);
+  findAll(): Promise<GamesMasterResponseDto[]> {
+    return this.service
+      .findAll(['sessions'])
+      .then((masters) =>
+        masters.map((master) => GamesMasterResponseDto.fromEntity(master)),
+      );
   }
 
   @Get(':id')
@@ -53,11 +60,14 @@ export class GamesMasterController {
   @ApiResponse({
     status: 200,
     description: 'Games master found',
-    type: GamesMaster,
+    type: GamesMasterResponseDto,
   })
   @ApiNotFoundResponse({ description: 'Games master not found' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<GamesMaster> {
-    return this.service.findOne(id, ['sessions']);
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<GamesMasterResponseDto> {
+    const master = await this.service.findOne(id, ['sessions']);
+    return GamesMasterResponseDto.fromEntity(master);
   }
 
   @Get(':id/active-sessions')
@@ -66,13 +76,14 @@ export class GamesMasterController {
   @ApiResponse({
     status: 200,
     description: 'Games master with active sessions',
-    type: GamesMaster,
+    type: GamesMasterResponseDto,
   })
   @ApiNotFoundResponse({ description: 'Games master not found' })
   async findWithActiveSessions(
     @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<GamesMaster> {
-    return this.service.findWithActiveSessions(id);
+  ): Promise<GamesMasterResponseDto> {
+    const master = await this.service.findWithActiveSessions(id);
+    return GamesMasterResponseDto.fromEntity(master);
   }
 
   @Put(':id')
@@ -81,14 +92,16 @@ export class GamesMasterController {
   @ApiResponse({
     status: 200,
     description: 'Games master updated',
-    type: GamesMaster,
+    type: GamesMasterResponseDto,
   })
   @ApiNotFoundResponse({ description: 'Games master not found' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateGamesMasterDto,
-  ): Promise<GamesMaster> {
-    return this.service.update(id, dto);
+  ): Promise<GamesMasterResponseDto> {
+    return this.service
+      .update(id, dto)
+      .then((master) => GamesMasterResponseDto.fromEntity(master));
   }
 
   @Delete(':id')

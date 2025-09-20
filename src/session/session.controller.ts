@@ -32,6 +32,13 @@ import {
 import { Session } from './session.entity';
 import { Team } from '../team/team.entity';
 import { PlayerStatus } from '../player/player.entity';
+import {
+  SessionJoinResponseDto,
+  SessionResponseDto,
+  SessionSummaryDto,
+} from '../common/dto/session.response';
+import { PlayerResponseDto } from '../common/dto/player.response';
+import { TeamResponseDto } from '../common/dto/team.response';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
@@ -44,10 +51,13 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Session has been successfully created.',
-    type: Session,
+    type: SessionResponseDto,
   })
-  create(@Body() dto: CreateSessionDto): Promise<Session> {
-    return this.service.create(dto);
+  create(@Body() dto: CreateSessionDto): Promise<SessionResponseDto> {
+    return this.service
+      .create(dto)
+      .then((session) => this.service.findOne(session.id, ['host']))
+      .then((session) => SessionResponseDto.fromEntity(session));
   }
 
   @Get()
@@ -55,10 +65,14 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'List of all sessions.',
-    type: [Session],
+    type: [SessionResponseDto],
   })
-  findAll(): Promise<Session[]> {
-    return this.service.findAll(['games', 'teams', 'players']);
+  findAll(): Promise<SessionResponseDto[]> {
+    return this.service
+      .findAll(['host', 'games', 'teams', 'players'])
+      .then((sessions) =>
+        sessions.map((session) => SessionResponseDto.fromEntity(session)),
+      );
   }
 
   @Get(':id')
@@ -67,10 +81,14 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Session found.',
-    type: Session,
+    type: SessionResponseDto,
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Session> {
-    return this.service.findOne(id, ['games', 'teams', 'players']);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .findOne(id, ['host', 'games', 'teams', 'players'])
+      .then((session) => SessionResponseDto.fromEntity(session));
   }
 
   @Post(':id/start')
@@ -79,11 +97,18 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Session started successfully.',
-    type: Session,
+    type: SessionResponseDto,
   })
   @HttpCode(HttpStatus.OK)
-  startSession(@Param('id', ParseUUIDPipe) id: string): Promise<Session> {
-    return this.service.startSession(id);
+  startSession(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .startSession(id)
+      .then((session) =>
+        this.service.findOne(session.id, ['host', 'games', 'teams', 'players']),
+      )
+      .then((session) => SessionResponseDto.fromEntity(session));
   }
 
   @Post(':id/complete')
@@ -92,11 +117,18 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Session completed successfully.',
-    type: Session,
+    type: SessionResponseDto,
   })
   @HttpCode(HttpStatus.OK)
-  completeSession(@Param('id', ParseUUIDPipe) id: string): Promise<Session> {
-    return this.service.completeSession(id);
+  completeSession(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .completeSession(id)
+      .then((session) =>
+        this.service.findOne(session.id, ['host', 'games', 'teams', 'players']),
+      )
+      .then((session) => SessionResponseDto.fromEntity(session));
   }
 
   @Post(':id/cancel')
@@ -105,11 +137,18 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Session cancelled successfully.',
-    type: Session,
+    type: SessionResponseDto,
   })
   @HttpCode(HttpStatus.OK)
-  cancelSession(@Param('id', ParseUUIDPipe) id: string): Promise<Session> {
-    return this.service.cancelSession(id);
+  cancelSession(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .cancelSession(id)
+      .then((session) =>
+        this.service.findOne(session.id, ['host', 'games', 'teams', 'players']),
+      )
+      .then((session) => SessionResponseDto.fromEntity(session));
   }
 
   @Put(':id')
@@ -118,13 +157,18 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Session updated successfully.',
-    type: Session,
+    type: SessionResponseDto,
   })
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSessionDto,
-  ): Promise<Session> {
-    return this.service.update(id, dto);
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .update(id, dto)
+      .then((session) =>
+        this.service.findOne(session.id, ['host', 'games', 'teams', 'players']),
+      )
+      .then((session) => SessionResponseDto.fromEntity(session));
   }
 
   @Delete(':id')
@@ -149,10 +193,14 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Session found.',
-    type: Session,
+    type: SessionResponseDto,
   })
-  findByJoinCode(@Param('joinCode') joinCode: string): Promise<Session> {
-    return this.service.findByJoinCode(joinCode);
+  findByJoinCode(
+    @Param('joinCode') joinCode: string,
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .findByJoinCode(joinCode)
+      .then((session) => SessionResponseDto.fromEntity(session));
   }
 
   @Post('join')
@@ -163,8 +211,15 @@ export class SessionController {
   })
   joinSession(
     @Body() dto: JoinSessionDto,
-  ): Promise<{ session: Session; player: any; message: string }> {
-    return this.service.joinSession(dto);
+  ): Promise<SessionJoinResponseDto> {
+    return this.service.joinSession(dto).then(({ session, player, message }) =>
+      SessionJoinResponseDto.fromEntities({
+        session,
+        playerId: player.id,
+        playerName: player.name,
+        message,
+      }),
+    );
   }
 
   // Game management endpoints
@@ -178,13 +233,18 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Games successfully added to session.',
-    type: Session,
+    type: SessionResponseDto,
   })
   addGamesToSession(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AddGamesToSessionDto,
-  ): Promise<Session> {
-    return this.service.addGamesToSession(id, dto);
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .addGamesToSession(id, dto)
+      .then((session) =>
+        this.service.findOne(session.id, ['host', 'games', 'teams', 'players']),
+      )
+      .then((session) => SessionResponseDto.fromEntity(session));
   }
 
   @Delete(':id/games')
@@ -197,13 +257,18 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Game successfully removed from session.',
-    type: Session,
+    type: SessionResponseDto,
   })
   removeGameFromSession(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RemoveGameFromSessionDto,
-  ): Promise<Session> {
-    return this.service.removeGameFromSession(id, dto);
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .removeGameFromSession(id, dto)
+      .then((session) =>
+        this.service.findOne(session.id, ['host', 'games', 'teams', 'players']),
+      )
+      .then((session) => SessionResponseDto.fromEntity(session));
   }
 
   @Get(':id/validation')
@@ -262,13 +327,15 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Team successfully created for session.',
-    type: Team,
+    type: TeamResponseDto,
   })
   createTeamForSession(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateTeamForSessionDto,
-  ): Promise<Team> {
-    return this.service.createTeamForSession(id, dto);
+  ): Promise<TeamResponseDto> {
+    return this.service
+      .createTeamForSession(id, dto)
+      .then((team) => TeamResponseDto.fromEntity(team));
   }
 
   @Put(':id/teams/:teamId/players')
@@ -286,14 +353,16 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Players successfully assigned to team.',
-    type: Team,
+    type: TeamResponseDto,
   })
   assignPlayersToTeam(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('teamId', ParseUUIDPipe) teamId: string,
     @Body() dto: AssignPlayersToTeamDto,
-  ): Promise<Team> {
-    return this.service.assignPlayersToTeam(id, teamId, dto);
+  ): Promise<TeamResponseDto> {
+    return this.service
+      .assignPlayersToTeam(id, teamId, dto)
+      .then((team) => TeamResponseDto.fromEntity(team));
   }
 
   // Player status management endpoints
@@ -335,9 +404,16 @@ export class SessionController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Players retrieved successfully.',
+    type: [PlayerResponseDto],
   })
-  getSessionPlayers(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.getSessionPlayers(id);
+  getSessionPlayers(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<PlayerResponseDto[]> {
+    return this.service
+      .getSessionPlayers(id)
+      .then((players) =>
+        players.map((player) => PlayerResponseDto.fromEntity(player)),
+      );
   }
 
   @Delete(':id/players/:playerId')

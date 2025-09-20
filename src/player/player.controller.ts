@@ -24,6 +24,7 @@ import { UpdatePlayerDto } from './dto/update-player.dto';
 import { JoinSessionDto } from './dto/join-session.dto';
 import { UpdatePlayerStatusDto } from './dto/update-player-status.dto';
 import { Player } from './player.entity';
+import { PlayerResponseDto } from '../common/dto/player.response';
 
 @ApiTags('players')
 @ApiBearerAuth()
@@ -36,14 +37,19 @@ export class PlayerController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'The player has been successfully created.',
-    type: Player,
+    type: PlayerResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
     description: 'Invalid input.',
   })
-  create(@Body() dto: CreatePlayerDto): Promise<Player> {
-    return this.service.create(dto);
+  create(@Body() dto: CreatePlayerDto): Promise<PlayerResponseDto> {
+    return this.service
+      .create(dto)
+      .then((player) =>
+        this.service.findOne(player.id, ['session', 'teams', 'scores']),
+      )
+      .then((player) => PlayerResponseDto.fromEntity(player));
   }
 
   @Get()
@@ -51,10 +57,14 @@ export class PlayerController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'List of all players.',
-    type: [Player],
+    type: [PlayerResponseDto],
   })
-  findAll(): Promise<Player[]> {
-    return this.service.findAll();
+  findAll(): Promise<PlayerResponseDto[]> {
+    return this.service
+      .findAll(['session', 'teams', 'scores'])
+      .then((players) =>
+        players.map((player) => PlayerResponseDto.fromEntity(player)),
+      );
   }
 
   @Get('session/:sessionId')
@@ -63,7 +73,7 @@ export class PlayerController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'List of players in the session.',
-    type: [Player],
+    type: [PlayerResponseDto],
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
@@ -71,8 +81,12 @@ export class PlayerController {
   })
   findBySession(
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
-  ): Promise<Player[]> {
-    return this.service.findBySession(sessionId);
+  ): Promise<PlayerResponseDto[]> {
+    return this.service
+      .findBySession(sessionId)
+      .then((players) =>
+        players.map((player) => PlayerResponseDto.fromEntity(player)),
+      );
   }
 
   @Get(':id')
@@ -81,14 +95,16 @@ export class PlayerController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'The player record.',
-    type: Player,
+    type: PlayerResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'Player not found.',
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Player> {
-    return this.service.findOne(id);
+  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<PlayerResponseDto> {
+    return this.service
+      .findOne(id, ['session', 'teams', 'scores'])
+      .then((player) => PlayerResponseDto.fromEntity(player));
   }
 
   @Put(':id')
@@ -97,7 +113,7 @@ export class PlayerController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'The player has been successfully updated.',
-    type: Player,
+    type: PlayerResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -110,8 +126,13 @@ export class PlayerController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePlayerDto,
-  ): Promise<Player> {
-    return this.service.update(id, dto);
+  ): Promise<PlayerResponseDto> {
+    return this.service
+      .update(id, dto)
+      .then((player) =>
+        this.service.findOne(player.id, ['session', 'teams', 'scores']),
+      )
+      .then((player) => PlayerResponseDto.fromEntity(player));
   }
 
   @Delete(':id')
@@ -135,7 +156,7 @@ export class PlayerController {
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Player successfully joined the session.',
-    type: Player,
+    type: PlayerResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
@@ -145,8 +166,13 @@ export class PlayerController {
     status: HttpStatus.CONFLICT,
     description: 'Player name already taken in session.',
   })
-  joinSession(@Body() dto: JoinSessionDto): Promise<Player> {
-    return this.service.joinSession(dto);
+  joinSession(@Body() dto: JoinSessionDto): Promise<PlayerResponseDto> {
+    return this.service
+      .joinSession(dto)
+      .then((player) =>
+        this.service.findOne(player.id, ['session', 'teams', 'scores']),
+      )
+      .then((player) => PlayerResponseDto.fromEntity(player));
   }
 
   @Patch(':id/status')
@@ -155,7 +181,7 @@ export class PlayerController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Player status successfully updated.',
-    type: Player,
+    type: PlayerResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
@@ -164,8 +190,13 @@ export class PlayerController {
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePlayerStatusDto,
-  ): Promise<Player> {
-    return this.service.updatePlayerStatus(id, dto);
+  ): Promise<PlayerResponseDto> {
+    return this.service
+      .updatePlayerStatus(id, dto)
+      .then(() =>
+        this.service.findOne(id, ['session', 'teams', 'scores']),
+      )
+      .then((player) => PlayerResponseDto.fromEntity(player));
   }
 
   @Patch(':id/ready')
@@ -174,14 +205,19 @@ export class PlayerController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Player marked as ready.',
-    type: Player,
+    type: PlayerResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'Player not found.',
   })
-  setReady(@Param('id', ParseUUIDPipe) id: string): Promise<Player> {
-    return this.service.setPlayerReady(id);
+  setReady(@Param('id', ParseUUIDPipe) id: string): Promise<PlayerResponseDto> {
+    return this.service
+      .setPlayerReady(id)
+      .then(() =>
+        this.service.findOne(id, ['session', 'teams', 'scores']),
+      )
+      .then((player) => PlayerResponseDto.fromEntity(player));
   }
 
   @Patch(':id/not-ready')
@@ -190,14 +226,21 @@ export class PlayerController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Player marked as not ready.',
-    type: Player,
+    type: PlayerResponseDto,
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,
     description: 'Player not found.',
   })
-  setNotReady(@Param('id', ParseUUIDPipe) id: string): Promise<Player> {
-    return this.service.setPlayerNotReady(id);
+  setNotReady(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<PlayerResponseDto> {
+    return this.service
+      .setPlayerNotReady(id)
+      .then(() =>
+        this.service.findOne(id, ['session', 'teams', 'scores']),
+      )
+      .then((player) => PlayerResponseDto.fromEntity(player));
   }
 
   @Get('session/:sessionId/stats')

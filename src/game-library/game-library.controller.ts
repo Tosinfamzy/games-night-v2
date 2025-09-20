@@ -13,6 +13,7 @@ import { GameLibraryService } from './game-library.service';
 import { CreateGameLibraryDto } from './dto/create-game-library.dto';
 import { UpdateGameLibraryDto } from './dto/update-game-library.dto';
 import { GameLibrary } from './game-library.entity';
+import { GameLibraryResponseDto } from '../common/dto/game-library.response';
 
 @ApiTags('Game Library')
 @Controller('game-library')
@@ -24,10 +25,12 @@ export class GameLibraryController {
   @ApiResponse({
     status: 201,
     description: 'Game successfully created',
-    type: GameLibrary,
+    type: GameLibraryResponseDto,
   })
   create(@Body() createGameLibraryDto: CreateGameLibraryDto) {
-    return this.gameLibraryService.create(createGameLibraryDto);
+    return this.gameLibraryService
+      .create(createGameLibraryDto)
+      .then((record) => GameLibraryResponseDto.fromEntity(record));
   }
 
   @Get()
@@ -50,7 +53,7 @@ export class GameLibraryController {
   @ApiResponse({
     status: 200,
     description: 'List of games',
-    type: [GameLibrary],
+    type: [GameLibraryResponseDto],
   })
   async findAll(
     @Query('includeInactive') includeInactive?: string,
@@ -58,21 +61,35 @@ export class GameLibraryController {
     @Query('playerCount') playerCount?: string,
   ) {
     if (category) {
-      return this.gameLibraryService.findByCategory(category);
+      return this.gameLibraryService
+        .findByCategory(category)
+        .then((games) =>
+          games.map((game) => GameLibraryResponseDto.fromEntity(game)),
+        );
     }
 
     if (playerCount) {
       const count = parseInt(playerCount, 10);
       if (!isNaN(count)) {
-        return this.gameLibraryService.findByPlayerCount(count);
+        return this.gameLibraryService
+          .findByPlayerCount(count)
+          .then((games) =>
+            games.map((game) => GameLibraryResponseDto.fromEntity(game)),
+          );
       }
     }
 
     if (includeInactive === 'true') {
-      return this.gameLibraryService.findAllIncludingInactive();
-    }
+      return this.gameLibraryService
+        .findAllIncludingInactive()
+        .then((games) =>
+          games.map((game) => GameLibraryResponseDto.fromEntity(game)),
+        );
+  }
 
-    return this.gameLibraryService.findAll();
+    return this.gameLibraryService
+      .findAll()
+      .then((games) => games.map(GameLibraryResponseDto.fromEntity));
   }
 
   @Get(':id')
@@ -80,14 +97,16 @@ export class GameLibraryController {
   @ApiResponse({
     status: 200,
     description: 'Game found',
-    type: GameLibrary,
+    type: GameLibraryResponseDto,
   })
   @ApiResponse({
     status: 404,
     description: 'Game not found',
   })
   findOne(@Param('id') id: string) {
-    return this.gameLibraryService.findOne(id);
+    return this.gameLibraryService
+      .findOne(id)
+      .then((game) => GameLibraryResponseDto.fromEntity(game));
   }
 
   @Patch(':id')
@@ -95,7 +114,7 @@ export class GameLibraryController {
   @ApiResponse({
     status: 200,
     description: 'Game successfully updated',
-    type: GameLibrary,
+    type: GameLibraryResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -105,7 +124,9 @@ export class GameLibraryController {
     @Param('id') id: string,
     @Body() updateGameLibraryDto: UpdateGameLibraryDto,
   ) {
-    return this.gameLibraryService.update(id, updateGameLibraryDto);
+    return this.gameLibraryService
+      .update(id, updateGameLibraryDto)
+      .then((game) => GameLibraryResponseDto.fromEntity(game));
   }
 
   @Patch(':id/deactivate')
@@ -113,10 +134,12 @@ export class GameLibraryController {
   @ApiResponse({
     status: 200,
     description: 'Game successfully deactivated',
-    type: GameLibrary,
+    type: GameLibraryResponseDto,
   })
   deactivate(@Param('id') id: string) {
-    return this.gameLibraryService.deactivate(id);
+    return this.gameLibraryService
+      .deactivate(id)
+      .then((game) => GameLibraryResponseDto.fromEntity(game));
   }
 
   @Patch(':id/activate')
@@ -124,10 +147,12 @@ export class GameLibraryController {
   @ApiResponse({
     status: 200,
     description: 'Game successfully activated',
-    type: GameLibrary,
+    type: GameLibraryResponseDto,
   })
   activate(@Param('id') id: string) {
-    return this.gameLibraryService.activate(id);
+    return this.gameLibraryService
+      .activate(id)
+      .then((game) => GameLibraryResponseDto.fromEntity(game));
   }
 
   @Delete(':id')

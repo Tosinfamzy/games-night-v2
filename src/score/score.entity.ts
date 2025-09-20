@@ -35,7 +35,10 @@ export class Score {
   @Column({ default: 1 })
   roundNumber: number;
 
-  @ApiProperty({ description: 'Game associated with this score' })
+  @ApiProperty({
+    description: 'Game associated with this score',
+    type: () => Game,
+  })
   @ManyToOne(() => Game, (game) => game.scores, { eager: true })
   game: Game;
 
