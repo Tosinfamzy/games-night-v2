@@ -23,7 +23,7 @@ import { BaseGateway } from '../common/gateways/base.gateway';
 })
 export class GameGateway extends BaseGateway {
   @WebSocketServer()
-  server: Server;
+  declare server: Server;
 
   protected logger = new Logger(GameGateway.name);
 

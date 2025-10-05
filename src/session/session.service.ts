@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -25,6 +27,7 @@ import {
 } from './dto/session-teams.dto';
 import { PlayerStatus, Player } from '../player/player.entity';
 import { Team } from '../team/team.entity';
+import { SessionGateway } from './session.gateway';
 
 @Injectable()
 export class SessionService {
@@ -41,6 +44,8 @@ export class SessionService {
     private readonly playerRepo: Repository<Player>,
     @InjectRepository(Team)
     private readonly teamRepo: Repository<Team>,
+    @Inject(forwardRef(() => SessionGateway))
+    private readonly sessionGateway: SessionGateway,
   ) {}
 
   async create(dto: CreateSessionDto): Promise<Session> {
@@ -142,6 +147,9 @@ export class SessionService {
 
     const savedPlayer = await this.playerRepo.save(player);
 
+    // Broadcast player joined event via WebSocket
+    this.sessionGateway.broadcastPlayerJoined(session.id, savedPlayer);
+
     // Reload session with updated players
     const updatedSession = await this.findByJoinCode(dto.joinCode);
 
@@ -198,7 +206,14 @@ export class SessionService {
       }
     }
 
-    await this.repo.save(session);
+    const savedSession = await this.repo.save(session);
+
+    // Broadcast session started event
+    this.sessionGateway.broadcastSessionStatusChange(
+      sessionId,
+      SessionStatus.IN_PROGRESS,
+      savedSession,
+    );
 
     return this.findOne(sessionId, [
       'games',
@@ -230,7 +245,16 @@ export class SessionService {
     }
 
     session.status = SessionStatus.COMPLETED;
-    return await this.repo.save(session);
+    const savedSession = await this.repo.save(session);
+
+    // Broadcast session completed event
+    this.sessionGateway.broadcastSessionStatusChange(
+      id,
+      SessionStatus.COMPLETED,
+      savedSession,
+    );
+
+    return savedSession;
   }
 
   async cancelSession(id: string): Promise<Session> {
@@ -262,7 +286,16 @@ export class SessionService {
     }
 
     session.status = SessionStatus.CANCELLED;
-    return await this.repo.save(session);
+    const savedSession = await this.repo.save(session);
+
+    // Broadcast session cancelled event
+    this.sessionGateway.broadcastSessionStatusChange(
+      id,
+      SessionStatus.CANCELLED,
+      savedSession,
+    );
+
+    return savedSession;
   }
 
   async update(id: string, dto: UpdateSessionDto): Promise<Session> {
