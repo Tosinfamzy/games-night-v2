@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GameService } from './game.service';
 import { GameController } from './game.controller';
+import { GameGateway } from './game.gateway';
 import { Game } from './game.entity';
 import { Session } from '../session/session.entity';
 import { Team } from '../team/team.entity';
@@ -13,8 +14,8 @@ import { TeamModule } from '../team/team.module';
     TypeOrmModule.forFeature([Game, Session, Team, Player]),
     TeamModule,
   ],
-  providers: [GameService],
+  providers: [GameService, GameGateway],
   controllers: [GameController],
-  exports: [GameService],
+  exports: [GameService, GameGateway],
 })
 export class GameModule {}
