@@ -317,6 +317,25 @@ export class SessionController {
   }
 
   // Team management endpoints
+  @Get(':id/teams')
+  @ApiOperation({ summary: 'Get all teams for a session' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of teams for the session.',
+    type: [TeamResponseDto],
+  })
+  async getSessionTeams(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TeamResponseDto[]> {
+    const session = await this.service.findOne(id, ['teams']);
+    return session.teams.map((team) => TeamResponseDto.fromEntity(team));
+  }
+
   @Post(':id/teams')
   @ApiOperation({ summary: 'Create teams for a session' })
   @ApiParam({
