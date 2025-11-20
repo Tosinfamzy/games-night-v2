@@ -39,6 +39,7 @@ import {
 } from '../common/dto/session.response';
 import { PlayerResponseDto } from '../common/dto/player.response';
 import { TeamResponseDto } from '../common/dto/team.response';
+import { GameResponseDto } from '../common/dto/game.response';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
@@ -314,6 +315,26 @@ export class SessionController {
   })
   getSessionReadiness(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.getSessionReadiness(id);
+  }
+
+  // Game management endpoints
+  @Get(':id/games')
+  @ApiOperation({ summary: 'Get all games for a session' })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'List of games for the session.',
+    type: [GameResponseDto],
+  })
+  async getSessionGames(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<GameResponseDto[]> {
+    const session = await this.service.findOne(id, ['games']);
+    return session.games.map((game) => GameResponseDto.fromEntity(game));
   }
 
   // Team management endpoints

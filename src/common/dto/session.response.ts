@@ -60,7 +60,10 @@ export class SessionResponseDto extends SessionSummaryDto {
   @ApiProperty({ example: ['team-uuid-1'], description: 'Associated team IDs' })
   teamIds: string[];
 
-  @ApiProperty({ example: ['player-uuid-1'], description: 'Associated player IDs' })
+  @ApiProperty({
+    example: ['player-uuid-1'],
+    description: 'Associated player IDs',
+  })
   playerIds: string[];
 
   static fromEntity(entity: Session): SessionResponseDto {
