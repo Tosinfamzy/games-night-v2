@@ -10,6 +10,7 @@ import { GameLibrary } from '../game-library/game-library.entity';
 import { Player } from '../player/player.entity';
 import { Team } from '../team/team.entity';
 import { ScoreModule } from '../score/score.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ScoreModule } from '../score/score.module';
       Team,
     ]),
     forwardRef(() => ScoreModule),
+    AuthModule,
   ],
   providers: [SessionService, SessionGateway],
   controllers: [SessionController],

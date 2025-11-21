@@ -32,6 +32,21 @@ export class Player {
   name: string;
 
   @ApiProperty({
+    example: false,
+    description: 'Whether this is a guest player (not linked to a user account)',
+  })
+  @Column({ default: false })
+  isGuest: boolean;
+
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'Linked user ID (if authenticated)',
+    required: false,
+  })
+  @Column({ nullable: true })
+  userId?: string;
+
+  @ApiProperty({
     example: 'joined',
     description: 'Current status of the player',
     enum: PlayerStatus,

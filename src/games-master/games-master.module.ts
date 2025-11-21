@@ -8,5 +8,6 @@ import { GamesMaster } from './games-master.entity';
   imports: [TypeOrmModule.forFeature([GamesMaster])],
   providers: [GamesMasterService],
   controllers: [GamesMasterController],
+  exports: [GamesMasterService],
 })
 export class GamesMasterModule {}

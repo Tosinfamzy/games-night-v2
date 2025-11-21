@@ -13,6 +13,8 @@ import { GameModule } from './game/game.module';
 import { TeamModule } from './team/team.module';
 import { ScoreModule } from './score/score.module';
 import { GameLibraryModule } from './game-library/game-library.module';
+import { UserModule } from './user/user.module';
+import { AuthModule } from './auth/auth.module';
 import * as Joi from 'joi';
 
 @Module({
@@ -30,6 +32,9 @@ import * as Joi from 'joi';
         DB_NAME: Joi.string().default('games_night'),
         REDIS_HOST: Joi.string().default('localhost'),
         REDIS_PORT: Joi.number().default(6379),
+        JWT_SECRET: Joi.string().required(),
+        JWT_EXPIRATION: Joi.string().default('15m'),
+        JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
       }),
     }),
     TypeOrmModule.forRootAsync({
@@ -78,6 +83,8 @@ import * as Joi from 'joi';
     TeamModule,
     ScoreModule,
     GameLibraryModule,
+    UserModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

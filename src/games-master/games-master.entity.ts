@@ -22,6 +22,14 @@ export class GamesMaster {
   @Column()
   name: string;
 
+  @ApiProperty({
+    example: '123e4567-e89b-12d3-a456-426614174000',
+    description: 'Linked user ID (if authenticated)',
+    required: false,
+  })
+  @Column({ nullable: true })
+  userId?: string;
+
   @ApiProperty({ description: 'Creation timestamp' })
   @CreateDateColumn()
   createdAt: Date;

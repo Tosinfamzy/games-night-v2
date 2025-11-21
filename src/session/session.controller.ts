@@ -9,6 +9,8 @@ import {
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
+  UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -41,6 +43,12 @@ import { PlayerResponseDto } from '../common/dto/player.response';
 import { TeamResponseDto } from '../common/dto/team.response';
 import { GameResponseDto } from '../common/dto/game.response';
 import { SessionLeaderboardDto } from '../common/dto/session-leaderboard.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { User, UserRole } from '../user/user.entity';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
@@ -49,13 +57,25 @@ export class SessionController {
   constructor(private readonly service: SessionService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.GAMES_MASTER)
   @ApiOperation({ summary: 'Create a new session' })
   @ApiResponse({
     status: HttpStatus.CREATED,
     description: 'Session has been successfully created.',
     type: SessionResponseDto,
   })
-  create(@Body() dto: CreateSessionDto): Promise<SessionResponseDto> {
+  create(
+    @CurrentUser() user: User,
+    @Body() dto: CreateSessionDto,
+  ): Promise<SessionResponseDto> {
+    // Verify the gamesMasterId matches the authenticated user's profile
+    if (!user.gamesMasterProfile || dto.gamesMasterId !== user.gamesMasterProfile.id) {
+      throw new ForbiddenException(
+        'You can only create sessions for your own Games Master profile',
+      );
+    }
+
     return this.service
       .create(dto)
       .then((session) => this.service.findOne(session.id, ['host']))
@@ -94,6 +114,8 @@ export class SessionController {
   }
 
   @Post(':id/start')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.GAMES_MASTER)
   @ApiOperation({ summary: 'Start a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -102,9 +124,18 @@ export class SessionController {
     type: SessionResponseDto,
   })
   @HttpCode(HttpStatus.OK)
-  startSession(
+  async startSession(
+    @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SessionResponseDto> {
+    // Verify ownership
+    const session = await this.service.findOne(id, ['host']);
+    if (!user.gamesMasterProfile || session.host.userId !== user.id) {
+      throw new ForbiddenException(
+        'You can only start your own sessions',
+      );
+    }
+
     return this.service
       .startSession(id)
       .then((session) =>
@@ -114,6 +145,8 @@ export class SessionController {
   }
 
   @Post(':id/complete')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.GAMES_MASTER)
   @ApiOperation({ summary: 'Complete a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -122,9 +155,18 @@ export class SessionController {
     type: SessionResponseDto,
   })
   @HttpCode(HttpStatus.OK)
-  completeSession(
+  async completeSession(
+    @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SessionResponseDto> {
+    // Verify ownership
+    const session = await this.service.findOne(id, ['host']);
+    if (!user.gamesMasterProfile || session.host.userId !== user.id) {
+      throw new ForbiddenException(
+        'You can only complete your own sessions',
+      );
+    }
+
     return this.service
       .completeSession(id)
       .then((session) =>
@@ -134,6 +176,8 @@ export class SessionController {
   }
 
   @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.GAMES_MASTER)
   @ApiOperation({ summary: 'Cancel a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -142,9 +186,18 @@ export class SessionController {
     type: SessionResponseDto,
   })
   @HttpCode(HttpStatus.OK)
-  cancelSession(
+  async cancelSession(
+    @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<SessionResponseDto> {
+    // Verify ownership
+    const session = await this.service.findOne(id, ['host']);
+    if (!user.gamesMasterProfile || session.host.userId !== user.id) {
+      throw new ForbiddenException(
+        'You can only cancel your own sessions',
+      );
+    }
+
     return this.service
       .cancelSession(id)
       .then((session) =>
@@ -154,6 +207,8 @@ export class SessionController {
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.GAMES_MASTER)
   @ApiOperation({ summary: 'Update a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -161,10 +216,19 @@ export class SessionController {
     description: 'Session updated successfully.',
     type: SessionResponseDto,
   })
-  update(
+  async update(
+    @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSessionDto,
   ): Promise<SessionResponseDto> {
+    // Verify ownership
+    const session = await this.service.findOne(id, ['host']);
+    if (!user.gamesMasterProfile || session.host.userId !== user.id) {
+      throw new ForbiddenException(
+        'You can only update your own sessions',
+      );
+    }
+
     return this.service
       .update(id, dto)
       .then((session) =>
@@ -174,6 +238,8 @@ export class SessionController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.GAMES_MASTER)
   @ApiOperation({ summary: 'Delete a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -181,7 +247,18 @@ export class SessionController {
     description: 'Session deleted successfully.',
   })
   @HttpCode(HttpStatus.OK)
-  remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+  async remove(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    // Verify ownership
+    const session = await this.service.findOne(id, ['host']);
+    if (!user.gamesMasterProfile || session.host.userId !== user.id) {
+      throw new ForbiddenException(
+        'You can only delete your own sessions',
+      );
+    }
+
     return this.service.remove(id);
   }
 
@@ -206,26 +283,32 @@ export class SessionController {
   }
 
   @Post('join')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Join a session using join code' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Successfully joined session.',
   })
   joinSession(
+    @CurrentUser() user: User | null,
     @Body() dto: JoinSessionDto,
   ): Promise<SessionJoinResponseDto> {
-    return this.service.joinSession(dto).then(({ session, player, message }) =>
-      SessionJoinResponseDto.fromEntities({
-        session,
-        playerId: player.id,
-        playerName: player.name,
-        message,
-      }),
-    );
+    return this.service
+      .joinSession(dto, user?.id)
+      .then(({ session, player, message }) =>
+        SessionJoinResponseDto.fromEntities({
+          session,
+          playerId: player.id,
+          playerName: player.name,
+          message,
+        }),
+      );
   }
 
   // Game management endpoints
   @Post(':id/games')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.GAMES_MASTER)
   @ApiOperation({ summary: 'Add games to a session' })
   @ApiParam({
     name: 'id',
@@ -237,10 +320,19 @@ export class SessionController {
     description: 'Games successfully added to session.',
     type: SessionResponseDto,
   })
-  addGamesToSession(
+  async addGamesToSession(
+    @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AddGamesToSessionDto,
   ): Promise<SessionResponseDto> {
+    // Verify ownership
+    const session = await this.service.findOne(id, ['host']);
+    if (!user.gamesMasterProfile || session.host.userId !== user.id) {
+      throw new ForbiddenException(
+        'You can only add games to your own sessions',
+      );
+    }
+
     return this.service
       .addGamesToSession(id, dto)
       .then((session) =>
@@ -250,6 +342,8 @@ export class SessionController {
   }
 
   @Delete(':id/games')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.GAMES_MASTER)
   @ApiOperation({ summary: 'Remove a game from a session' })
   @ApiParam({
     name: 'id',
@@ -261,10 +355,19 @@ export class SessionController {
     description: 'Game successfully removed from session.',
     type: SessionResponseDto,
   })
-  removeGameFromSession(
+  async removeGameFromSession(
+    @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RemoveGameFromSessionDto,
   ): Promise<SessionResponseDto> {
+    // Verify ownership
+    const session = await this.service.findOne(id, ['host']);
+    if (!user.gamesMasterProfile || session.host.userId !== user.id) {
+      throw new ForbiddenException(
+        'You can only remove games from your own sessions',
+      );
+    }
+
     return this.service
       .removeGameFromSession(id, dto)
       .then((session) =>
@@ -359,6 +462,8 @@ export class SessionController {
   }
 
   @Post(':id/teams')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.GAMES_MASTER)
   @ApiOperation({ summary: 'Create teams for a session' })
   @ApiParam({
     name: 'id',
@@ -370,16 +475,27 @@ export class SessionController {
     description: 'Team successfully created for session.',
     type: TeamResponseDto,
   })
-  createTeamForSession(
+  async createTeamForSession(
+    @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateTeamForSessionDto,
   ): Promise<TeamResponseDto> {
+    // Verify ownership
+    const session = await this.service.findOne(id, ['host']);
+    if (!user.gamesMasterProfile || session.host.userId !== user.id) {
+      throw new ForbiddenException(
+        'You can only create teams for your own sessions',
+      );
+    }
+
     return this.service
       .createTeamForSession(id, dto)
       .then((team) => TeamResponseDto.fromEntity(team));
   }
 
   @Put(':id/teams/:teamId/players')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.GAMES_MASTER)
   @ApiOperation({ summary: 'Assign players to a team' })
   @ApiParam({
     name: 'id',
@@ -396,11 +512,20 @@ export class SessionController {
     description: 'Players successfully assigned to team.',
     type: TeamResponseDto,
   })
-  assignPlayersToTeam(
+  async assignPlayersToTeam(
+    @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) id: string,
     @Param('teamId', ParseUUIDPipe) teamId: string,
     @Body() dto: AssignPlayersToTeamDto,
   ): Promise<TeamResponseDto> {
+    // Verify ownership
+    const session = await this.service.findOne(id, ['host']);
+    if (!user.gamesMasterProfile || session.host.userId !== user.id) {
+      throw new ForbiddenException(
+        'You can only assign players in your own sessions',
+      );
+    }
+
     return this.service
       .assignPlayersToTeam(id, teamId, dto)
       .then((team) => TeamResponseDto.fromEntity(team));

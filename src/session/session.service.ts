@@ -113,6 +113,7 @@ export class SessionService {
 
   async joinSession(
     dto: JoinSessionDto,
+    userId?: string,
   ): Promise<{ session: Session; player: Player; message: string }> {
     const session = await this.findByJoinCode(dto.joinCode);
 
@@ -147,6 +148,8 @@ export class SessionService {
       session,
       status: PlayerStatus.JOINED,
       lastConnectedAt: new Date(),
+      userId: userId, // Link to user if authenticated (undefined if not)
+      isGuest: !userId, // Mark as guest if no userId provided
     });
 
     const savedPlayer = await this.playerRepo.save(player);
