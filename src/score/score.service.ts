@@ -15,6 +15,7 @@ import { SubmitGameScoreDto } from './dto/submit-game-score.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GameStatus } from '../game/enums/game-status.enum';
 import { TeamScore } from './interfaces/team-score.interface';
+import { TeamStandingDto } from '../common/dto/team-standing.dto';
 
 interface RawTeamScore {
   teamId: string;
@@ -202,5 +203,181 @@ export class ScoreService {
   async delete(id: string): Promise<void> {
     const score = await this.findOne(id);
     await this.repo.remove(score);
+  }
+
+  /**
+   * Get ranked team standings for a game
+   * Returns teams sorted by total points (highest to lowest) with rank assignments
+   */
+  async getRankedGameScores(gameId: string): Promise<TeamStandingDto[]> {
+    const teamScores = await this.getGameScores(gameId);
+
+    // Sort by total points (descending)
+    const sortedScores = teamScores.sort(
+      (a, b) => b.totalPoints - a.totalPoints,
+    );
+
+    // Assign ranks and detect ties
+    const standings: TeamStandingDto[] = [];
+    let currentRank = 1;
+
+    for (let i = 0; i < sortedScores.length; i++) {
+      const score = sortedScores[i];
+
+      // Check if tied with previous team
+      const isTied =
+        i > 0 && sortedScores[i - 1].totalPoints === score.totalPoints;
+
+      // If not tied with previous, update rank
+      if (i > 0 && !isTied) {
+        currentRank = i + 1;
+      }
+
+      standings.push({
+        teamId: score.teamId,
+        teamName: score.teamName,
+        rank: currentRank,
+        totalPoints: score.totalPoints,
+        bonusPointsCount: score.bonusPointsCount,
+        roundPoints: score.roundPoints,
+        isTied,
+      });
+    }
+
+    return standings;
+  }
+
+  /**
+   * Determine the winner of a game
+   * Returns null if there are no teams or if there's a tie for first place
+   */
+  async determineWinner(
+    gameId: string,
+  ): Promise<{ winnerId: string; winnerName: string; score: number } | null> {
+    const standings = await this.getRankedGameScores(gameId);
+
+    if (standings.length === 0) {
+      return null;
+    }
+
+    const firstPlace = standings[0];
+
+    // Check if there's a tie for first place
+    const isTied = standings.some(
+      (standing, index) =>
+        index > 0 &&
+        standing.totalPoints === firstPlace.totalPoints &&
+        standing.rank === 1,
+    );
+
+    if (isTied) {
+      // Return null for ties (can be enhanced with tie-breaking rules later)
+      return null;
+    }
+
+    return {
+      winnerId: firstPlace.teamId,
+      winnerName: firstPlace.teamName,
+      score: firstPlace.totalPoints,
+    };
+  }
+
+  /**
+   * Get session-wide leaderboard by aggregating scores across all session games
+   */
+  async getSessionLeaderboard(
+    sessionId: string,
+  ): Promise<
+    Array<{
+      teamId: string;
+      teamName: string;
+      totalPoints: number;
+      gamesWon: number;
+      gamesPlayed: number;
+      gamePoints: Record<string, number>;
+    }>
+  > {
+    const rawResults = await this.repo
+      .createQueryBuilder('score')
+      .leftJoin('score.team', 'team')
+      .leftJoin('score.game', 'game')
+      .leftJoin('game.session', 'session')
+      .where('session.id = :sessionId', { sessionId })
+      .select([
+        'team.id as "teamId"',
+        'team.name as "teamName"',
+        'game.id as "gameId"',
+        'CAST(SUM(score.points) AS INTEGER) as "gamePoints"',
+      ])
+      .groupBy('team.id, team.name, game.id')
+      .getRawMany<{
+        teamId: string;
+        teamName: string;
+        gameId: string;
+        gamePoints: string;
+      }>();
+
+    // Aggregate by team
+    const teamMap = new Map<
+      string,
+      {
+        teamId: string;
+        teamName: string;
+        totalPoints: number;
+        gamesWon: number;
+        gamesPlayed: number;
+        gamePoints: Record<string, number>;
+      }
+    >();
+
+    // First pass: collect all game points per team
+    for (const result of rawResults) {
+      if (!teamMap.has(result.teamId)) {
+        teamMap.set(result.teamId, {
+          teamId: result.teamId,
+          teamName: result.teamName,
+          totalPoints: 0,
+          gamesWon: 0,
+          gamesPlayed: 0,
+          gamePoints: {},
+        });
+      }
+
+      const team = teamMap.get(result.teamId)!;
+      const points = parseInt(result.gamePoints, 10) || 0;
+      team.gamePoints[result.gameId] = points;
+      team.totalPoints += points;
+      team.gamesPlayed++;
+    }
+
+    // Second pass: determine winners for each game
+    const gameWinnersMap = new Map<string, string>();
+    const gamePointsMap = new Map<string, number>();
+
+    for (const [, team] of teamMap) {
+      for (const [gameId, points] of Object.entries(team.gamePoints)) {
+        const currentMax = gamePointsMap.get(gameId) || 0;
+        if (points > currentMax) {
+          gamePointsMap.set(gameId, points);
+          gameWinnersMap.set(gameId, team.teamId);
+        } else if (points === currentMax) {
+          // Tie - remove winner
+          gameWinnersMap.delete(gameId);
+        }
+      }
+    }
+
+    // Third pass: count wins
+    for (const [, team] of teamMap) {
+      for (const [gameId] of Object.entries(team.gamePoints)) {
+        if (gameWinnersMap.get(gameId) === team.teamId) {
+          team.gamesWon++;
+        }
+      }
+    }
+
+    return Array.from(teamMap.values()).sort(
+      (a, b) => b.totalPoints - a.totalPoints,
+    );
   }
 }

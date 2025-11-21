@@ -40,6 +40,7 @@ import {
 import { PlayerResponseDto } from '../common/dto/player.response';
 import { TeamResponseDto } from '../common/dto/team.response';
 import { GameResponseDto } from '../common/dto/game.response';
+import { SessionLeaderboardDto } from '../common/dto/session-leaderboard.dto';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
@@ -470,5 +471,30 @@ export class SessionController {
     @Param('playerId', ParseUUIDPipe) playerId: string,
   ): Promise<void> {
     return this.service.removePlayerFromSession(id, playerId);
+  }
+
+  // Results and leaderboard endpoints
+  @Get(':id/leaderboard')
+  @ApiOperation({
+    summary: 'Get session leaderboard with complete standings across all games',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Session leaderboard retrieved successfully.',
+    type: SessionLeaderboardDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Session not found.',
+  })
+  getSessionLeaderboard(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SessionLeaderboardDto> {
+    return this.service.getLeaderboard(id);
   }
 }

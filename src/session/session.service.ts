@@ -28,6 +28,8 @@ import {
 import { PlayerStatus, Player } from '../player/player.entity';
 import { Team } from '../team/team.entity';
 import { SessionGateway } from './session.gateway';
+import { ScoreService } from '../score/score.service';
+import { SessionLeaderboardDto } from '../common/dto/session-leaderboard.dto';
 
 @Injectable()
 export class SessionService {
@@ -46,6 +48,8 @@ export class SessionService {
     private readonly teamRepo: Repository<Team>,
     @Inject(forwardRef(() => SessionGateway))
     private readonly sessionGateway: SessionGateway,
+    @Inject(forwardRef(() => ScoreService))
+    private readonly scoreService: ScoreService,
   ) {}
 
   async create(dto: CreateSessionDto): Promise<Session> {
@@ -774,5 +778,49 @@ export class SessionService {
     }
 
     await this.playerRepo.remove(player);
+  }
+
+  /**
+   * Get session leaderboard with complete standings across all games
+   */
+  async getLeaderboard(id: string): Promise<SessionLeaderboardDto> {
+    const session = await this.findOne(id, ['games']);
+
+    // Get leaderboard data from score service
+    const leaderboardData =
+      await this.scoreService.getSessionLeaderboard(id);
+
+    // Count completed games
+    const completedGames = session.games?.filter(
+      (game) => game.status === GameStatus.COMPLETED,
+    ).length || 0;
+
+    // Determine champion (team with highest total points)
+    const champion = leaderboardData.length > 0 ? leaderboardData[0] : null;
+
+    // Build standings with ranks
+    const standings = leaderboardData.map((team, index) => ({
+      teamId: team.teamId,
+      teamName: team.teamName,
+      rank: index + 1,
+      totalPoints: team.totalPoints,
+      gamesWon: team.gamesWon,
+      gamesPlayed: team.gamesPlayed,
+      gamePoints: team.gamePoints,
+      averagePoints:
+        team.gamesPlayed > 0 ? team.totalPoints / team.gamesPlayed : 0,
+    }));
+
+    return {
+      sessionId: session.id,
+      sessionName: session.name,
+      status: session.status,
+      championId: champion?.teamId || null,
+      championName: champion?.teamName || null,
+      standings,
+      gamesCompleted: completedGames,
+      teamsCount: leaderboardData.length,
+      completedAt: session.updatedAt.toISOString(),
+    };
   }
 }

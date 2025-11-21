@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SessionService } from './session.service';
 import { SessionController } from './session.controller';
@@ -9,6 +9,7 @@ import { Game } from '../game/game.entity';
 import { GameLibrary } from '../game-library/game-library.entity';
 import { Player } from '../player/player.entity';
 import { Team } from '../team/team.entity';
+import { ScoreModule } from '../score/score.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { Team } from '../team/team.entity';
       Player,
       Team,
     ]),
+    forwardRef(() => ScoreModule),
   ],
   providers: [SessionService, SessionGateway],
   controllers: [SessionController],

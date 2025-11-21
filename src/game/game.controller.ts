@@ -26,6 +26,7 @@ import { NextTurnDto } from './dto/next-turn.dto';
 import { Game } from './game.entity';
 import { GameStatus } from './enums/game-status.enum';
 import { GameResponseDto } from '../common/dto/game.response';
+import { GameResultsDto } from '../common/dto/game-results.dto';
 
 @ApiTags('games')
 @ApiBearerAuth()
@@ -398,6 +399,22 @@ export class GameController {
     return this.service
       .completeGame(id)
       .then((game) => this.serializeGame(game.id));
+  }
+
+  @Get(':id/results')
+  @ApiOperation({ summary: 'Get game results with rankings and winner' })
+  @ApiParam({ name: 'id', description: 'Game ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Game results retrieved successfully.',
+    type: GameResultsDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Game not found.',
+  })
+  getResults(@Param('id', ParseUUIDPipe) id: string): Promise<GameResultsDto> {
+    return this.service.getResults(id);
   }
 
   @Put(':id/status')

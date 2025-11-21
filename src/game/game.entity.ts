@@ -77,6 +77,34 @@ export class Game {
   turnTimeLimit?: number;
 
   @ApiProperty({
+    example: 'team-uuid-123',
+    description: 'ID of the winning team',
+    required: false,
+  })
+  @Column({ nullable: true })
+  winnerId?: string;
+
+  @ApiProperty({
+    example: '2025-01-15T14:30:00Z',
+    description: 'When the game was completed',
+    required: false,
+  })
+  @Column({ type: 'timestamp', nullable: true })
+  completedAt?: Date;
+
+  @ApiProperty({
+    example: {
+      standings: [],
+      winningScore: 450,
+      isTied: false,
+    },
+    description: 'Final game results stored as JSON',
+    required: false,
+  })
+  @Column({ type: 'jsonb', nullable: true })
+  results?: Record<string, any>;
+
+  @ApiProperty({
     description: 'Session this game belongs to',
     type: () => Session,
   })

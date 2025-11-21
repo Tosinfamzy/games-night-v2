@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -15,8 +17,11 @@ import { Session } from '../session/session.entity';
 import { Team } from '../team/team.entity';
 import { Player } from '../player/player.entity';
 import { TeamService } from '../team/team.service';
+import { ScoreService } from '../score/score.service';
 import { GameStatus } from './enums/game-status.enum';
 import { CreateTeamsDto } from '../team/dto/team-formation.dto';
+import { GameResultsDto } from '../common/dto/game-results.dto';
+import { GameGateway } from './game.gateway';
 
 @Injectable()
 export class GameService {
@@ -30,6 +35,9 @@ export class GameService {
     @InjectRepository(Player)
     private readonly playerRepo: Repository<Player>,
     private readonly teamService: TeamService,
+    private readonly scoreService: ScoreService,
+    @Inject(forwardRef(() => GameGateway))
+    private readonly gameGateway: GameGateway,
   ) {}
 
   async create(dto: CreateGameDto): Promise<Game> {
@@ -446,10 +454,60 @@ export class GameService {
       throw new BadRequestException('Cannot complete a cancelled game');
     }
 
+    // Calculate final standings and determine winner
+    const standings = await this.scoreService.getRankedGameScores(id);
+    const winner = await this.scoreService.determineWinner(id);
+
+    // Update game with completion data
     game.status = GameStatus.COMPLETED;
     game.currentRound = game.maxRounds;
+    game.completedAt = new Date();
 
-    return await this.repo.save(game);
+    // Store winner if there is one (not a tie)
+    if (winner) {
+      game.winnerId = winner.winnerId;
+    }
+
+    // Store complete results as JSON
+    game.results = {
+      standings,
+      winningScore: winner?.score || null,
+      isTied: standings.length > 0 && standings[0].isTied === true,
+      completedAt: new Date().toISOString(),
+    };
+
+    const savedGame = await this.repo.save(game);
+
+    // Broadcast game completion via WebSocket
+    this.gameGateway.broadcastGameCompleted(id, savedGame);
+
+    return savedGame;
+  }
+
+  async getResults(id: string): Promise<GameResultsDto> {
+    const game = await this.findOne(id);
+
+    // Get standings from score service
+    const standings = await this.scoreService.getRankedGameScores(id);
+    const winner = await this.scoreService.determineWinner(id);
+
+    // Check if there's a tie for first place
+    const isTied =
+      standings.length > 0 &&
+      standings.filter((s) => s.rank === 1).length > 1;
+
+    return {
+      gameId: game.id,
+      gameName: game.name,
+      status: game.status,
+      winnerId: game.winnerId || null,
+      winnerName: winner?.winnerName || null,
+      winningScore: winner?.score || null,
+      completedAt: game.completedAt?.toISOString() || null,
+      standings,
+      roundsCompleted: game.currentRound,
+      isTied,
+    };
   }
 
   async updateGameStatus(id: string, status: GameStatus): Promise<Game> {
