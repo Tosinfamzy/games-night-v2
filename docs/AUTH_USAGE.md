@@ -7,6 +7,7 @@ This guide shows you how to use authentication in your controllers and services.
 ### 1. Protecting Endpoints
 
 #### Require Authentication (Games Masters Only)
+
 ```typescript
 import { Controller, Post, UseGuards, Body } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -22,7 +23,7 @@ export class SessionController {
   @Roles(UserRole.GAMES_MASTER)
   async createSession(
     @CurrentUser() user: User,
-    @Body() dto: CreateSessionDTO
+    @Body() dto: CreateSessionDTO,
   ) {
     // user.gamesMasterProfile will be available
     return this.sessionService.create(dto, user.gamesMasterProfile.id);
@@ -31,6 +32,7 @@ export class SessionController {
 ```
 
 #### Optional Authentication (Allow Guests)
+
 ```typescript
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
@@ -41,7 +43,7 @@ export class SessionController {
   async joinSession(
     @Param('id') id: string,
     @Body() dto: JoinSessionDTO,
-    @CurrentUser() user?: User // Optional
+    @CurrentUser() user?: User, // Optional
   ) {
     if (user) {
       // Authenticated user - link player to their account
@@ -51,7 +53,7 @@ export class SessionController {
       // Guest player - use provided name
       dto.isGuest = true;
     }
-    
+
     return this.sessionService.joinSession(id, dto);
   }
 }
@@ -67,12 +69,12 @@ async deleteSession(
   @CurrentUser() user: User
 ) {
   const session = await this.sessionService.findOne(id);
-  
+
   // Verify ownership
   if (session.host.userId !== user.id) {
     throw new ForbiddenException('You can only delete your own sessions');
   }
-  
+
   return this.sessionService.delete(id);
 }
 ```
@@ -128,7 +130,7 @@ api.interceptors.response.use(
   async (error) => {
     if (error.response?.status === 401 && !error.config._retry) {
       error.config._retry = true;
-      
+
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         try {
@@ -144,7 +146,7 @@ api.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
 ```
 
@@ -152,22 +154,32 @@ api.interceptors.response.use(
 
 ```typescript
 // Signup
-const signup = async (email: string, password: string, name: string, role: 'games_master' | 'player') => {
-  const { data } = await api.post('/auth/signup', { email, password, name, role });
-  
+const signup = async (
+  email: string,
+  password: string,
+  name: string,
+  role: 'games_master' | 'player',
+) => {
+  const { data } = await api.post('/auth/signup', {
+    email,
+    password,
+    name,
+    role,
+  });
+
   localStorage.setItem('accessToken', data.accessToken);
   localStorage.setItem('refreshToken', data.refreshToken);
-  
+
   return data.user;
 };
 
 // Login
 const login = async (email: string, password: string) => {
   const { data } = await api.post('/auth/login', { email, password });
-  
+
   localStorage.setItem('accessToken', data.accessToken);
   localStorage.setItem('refreshToken', data.refreshToken);
-  
+
   return data.user;
 };
 
@@ -282,14 +294,14 @@ async verifySessionAccess(sessionId: string, user?: User) {
 ```typescript
 async linkPlayerToUser(playerId: string, userId: string) {
   const player = await this.playerRepo.findOne({ where: { id: playerId } });
-  
+
   if (player.userId) {
     throw new ConflictException('Player already linked to a user');
   }
 
   player.userId = userId;
   player.isGuest = false;
-  
+
   return this.playerRepo.save(player);
 }
 ```

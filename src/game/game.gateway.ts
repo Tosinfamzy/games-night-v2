@@ -9,6 +9,10 @@ import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { BaseGateway } from '../common/gateways/base.gateway';
+import { Game } from './game.entity';
+import { Score } from '../score/score.entity';
+import { TeamStandingDto } from '../common/dto/team-standing.dto';
+import { GameStatus } from './enums/game-status.enum';
 
 /**
  * WebSocket Gateway for real-time game updates
@@ -72,7 +76,7 @@ export class GameGateway extends BaseGateway {
   handleScoreSubmitted(payload: {
     gameId: string;
     teamId: string;
-    score: any;
+    score: Score;
   }): void {
     const room = `game:${payload.gameId}`;
 
@@ -91,7 +95,7 @@ export class GameGateway extends BaseGateway {
   /**
    * Broadcast game started
    */
-  broadcastGameStarted(gameId: string, game: any): void {
+  broadcastGameStarted(gameId: string, game: Game): void {
     const room = `game:${gameId}`;
     this.emitToRoom(room, 'game:started', {
       gameId,
@@ -125,7 +129,7 @@ export class GameGateway extends BaseGateway {
   /**
    * Broadcast game completed
    */
-  broadcastGameCompleted(gameId: string, game: any): void {
+  broadcastGameCompleted(gameId: string, game: Game): void {
     const room = `game:${gameId}`;
     this.emitToRoom(room, 'game:completed', {
       gameId,
@@ -161,7 +165,7 @@ export class GameGateway extends BaseGateway {
   /**
    * Broadcast game state changed
    */
-  broadcastGameStateChanged(gameId: string, state: any): void {
+  broadcastGameStateChanged(gameId: string, state: GameStatus): void {
     const room = `game:${gameId}`;
     this.emitToRoom(room, 'game:state-changed', {
       gameId,
@@ -173,7 +177,7 @@ export class GameGateway extends BaseGateway {
   /**
    * Broadcast leaderboard update
    */
-  broadcastLeaderboardUpdate(gameId: string, leaderboard: any[]): void {
+  broadcastLeaderboardUpdate(gameId: string, leaderboard: TeamStandingDto[]): void {
     const room = `game:${gameId}`;
     this.emitToRoom(room, 'game:leaderboard-updated', {
       gameId,
@@ -185,7 +189,7 @@ export class GameGateway extends BaseGateway {
   /**
    * Broadcast score updated
    */
-  broadcastScoreUpdated(gameId: string, score: any): void {
+  broadcastScoreUpdated(gameId: string, score: Score): void {
     const room = `game:${gameId}`;
     this.emitToRoom(room, 'game:score-updated', {
       gameId,

@@ -31,13 +31,11 @@ import {
   CreateTeamForSessionDto,
   AssignPlayersToTeamDto,
 } from './dto/session-teams.dto';
-import { Session } from './session.entity';
-import { Team } from '../team/team.entity';
+
 import { PlayerStatus } from '../player/player.entity';
 import {
   SessionJoinResponseDto,
   SessionResponseDto,
-  SessionSummaryDto,
 } from '../common/dto/session.response';
 import { PlayerResponseDto } from '../common/dto/player.response';
 import { TeamResponseDto } from '../common/dto/team.response';
@@ -70,7 +68,10 @@ export class SessionController {
     @Body() dto: CreateSessionDto,
   ): Promise<SessionResponseDto> {
     // Verify the gamesMasterId matches the authenticated user's profile
-    if (!user.gamesMasterProfile || dto.gamesMasterId !== user.gamesMasterProfile.id) {
+    if (
+      !user.gamesMasterProfile ||
+      dto.gamesMasterId !== user.gamesMasterProfile.id
+    ) {
       throw new ForbiddenException(
         'You can only create sessions for your own Games Master profile',
       );
@@ -105,9 +106,7 @@ export class SessionController {
     description: 'Session found.',
     type: SessionResponseDto,
   })
-  findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<SessionResponseDto> {
+  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<SessionResponseDto> {
     return this.service
       .findOne(id, ['host', 'games', 'teams', 'players'])
       .then((session) => SessionResponseDto.fromEntity(session));
@@ -131,9 +130,7 @@ export class SessionController {
     // Verify ownership
     const session = await this.service.findOne(id, ['host']);
     if (!user.gamesMasterProfile || session.host.userId !== user.id) {
-      throw new ForbiddenException(
-        'You can only start your own sessions',
-      );
+      throw new ForbiddenException('You can only start your own sessions');
     }
 
     return this.service
@@ -162,9 +159,7 @@ export class SessionController {
     // Verify ownership
     const session = await this.service.findOne(id, ['host']);
     if (!user.gamesMasterProfile || session.host.userId !== user.id) {
-      throw new ForbiddenException(
-        'You can only complete your own sessions',
-      );
+      throw new ForbiddenException('You can only complete your own sessions');
     }
 
     return this.service
@@ -193,9 +188,7 @@ export class SessionController {
     // Verify ownership
     const session = await this.service.findOne(id, ['host']);
     if (!user.gamesMasterProfile || session.host.userId !== user.id) {
-      throw new ForbiddenException(
-        'You can only cancel your own sessions',
-      );
+      throw new ForbiddenException('You can only cancel your own sessions');
     }
 
     return this.service
@@ -224,9 +217,7 @@ export class SessionController {
     // Verify ownership
     const session = await this.service.findOne(id, ['host']);
     if (!user.gamesMasterProfile || session.host.userId !== user.id) {
-      throw new ForbiddenException(
-        'You can only update your own sessions',
-      );
+      throw new ForbiddenException('You can only update your own sessions');
     }
 
     return this.service
@@ -254,9 +245,7 @@ export class SessionController {
     // Verify ownership
     const session = await this.service.findOne(id, ['host']);
     if (!user.gamesMasterProfile || session.host.userId !== user.id) {
-      throw new ForbiddenException(
-        'You can only delete your own sessions',
-      );
+      throw new ForbiddenException('You can only delete your own sessions');
     }
 
     return this.service.remove(id);

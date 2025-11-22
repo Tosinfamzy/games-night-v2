@@ -1,6 +1,7 @@
 # Phase 2: Session Endpoint Protection - COMPLETE ✅
 
 ## Overview
+
 Phase 2 successfully protected all critical session management endpoints with authentication and authorization guards. Games Masters must be authenticated to create and manage sessions, while players can join either as authenticated users or guests.
 
 ## Changes Made
@@ -8,12 +9,15 @@ Phase 2 successfully protected all critical session management endpoints with au
 ### 1. Session Controller Updates (`src/session/session.controller.ts`)
 
 #### Protected Endpoints (Games Master Only)
+
 All these endpoints now require:
+
 - `@UseGuards(JwtAuthGuard, RolesGuard)`
 - `@Roles(UserRole.GAMES_MASTER)`
 - Ownership verification (user must own the session)
 
 **Session Lifecycle:**
+
 - ✅ `POST /v1/sessions` - Create session (with GM profile verification)
 - ✅ `PUT /v1/sessions/:id` - Update session
 - ✅ `DELETE /v1/sessions/:id` - Delete session
@@ -22,21 +26,27 @@ All these endpoints now require:
 - ✅ `POST /v1/sessions/:id/cancel` - Cancel session
 
 **Game Management:**
+
 - ✅ `POST /v1/sessions/:id/games` - Add games to session
 - ✅ `DELETE /v1/sessions/:id/games` - Remove game from session
 
 **Team Management:**
+
 - ✅ `POST /v1/sessions/:id/teams` - Create team
 - ✅ `PUT /v1/sessions/:id/teams/:teamId/players` - Assign players to team
 
 #### Optional Authentication (Guest Support)
+
 **Join Session:**
+
 - ✅ `POST /v1/sessions/join` - Uses `@UseGuards(OptionalJwtAuthGuard)`
   - Authenticated users: Creates player with `userId` and `isGuest: false`
   - Guest users: Creates player without `userId` and `isGuest: true`
 
 #### Public Endpoints (No Authentication Required)
+
 These remain public for discoverability:
+
 - `GET /v1/sessions` - List all sessions
 - `GET /v1/sessions/:id` - Get session details
 - `GET /v1/sessions/join/:joinCode` - Get session by join code
@@ -50,6 +60,7 @@ These remain public for discoverability:
 ### 2. Session Service Updates (`src/session/session.service.ts`)
 
 #### Enhanced Join Session Method
+
 ```typescript
 async joinSession(
   dto: JoinSessionDto,
@@ -58,6 +69,7 @@ async joinSession(
 ```
 
 **Changes:**
+
 - Accepts optional `userId` parameter
 - Sets `player.userId` if provided (authenticated user)
 - Sets `player.isGuest` to `true` if no userId (guest user)
@@ -66,11 +78,13 @@ async joinSession(
 ### 3. Session Module Updates (`src/session/session.module.ts`)
 
 **Added Import:**
+
 - `AuthModule` - Provides access to JWT guards and strategies
 
 ### 4. Ownership Verification Pattern
 
 All protected session operations verify ownership:
+
 ```typescript
 const session = await this.service.findOne(id, ['host']);
 if (!user.gamesMasterProfile || session.host.userId !== user.id) {
@@ -81,6 +95,7 @@ if (!user.gamesMasterProfile || session.host.userId !== user.id) {
 ## Security Model
 
 ### Authentication Flow
+
 1. **Games Master Actions:**
    - Must have valid JWT token
    - Must have `games_master` role
@@ -103,6 +118,7 @@ if (!user.gamesMasterProfile || session.host.userId !== user.id) {
 ### Test Scenarios
 
 #### 1. Session Creation
+
 ```bash
 # Should succeed (authenticated GM)
 curl -X POST http://localhost:3000/v1/sessions \
@@ -127,6 +143,7 @@ curl -X POST http://localhost:3000/v1/sessions \
 ```
 
 #### 2. Session Join (Hybrid Auth)
+
 ```bash
 # Authenticated player join
 curl -X POST http://localhost:3000/v1/sessions/join \
@@ -147,6 +164,7 @@ curl -X POST http://localhost:3000/v1/sessions/join \
 ```
 
 #### 3. Session Ownership
+
 ```bash
 # Should succeed (session owner)
 curl -X DELETE http://localhost:3000/v1/sessions/<SESSION_ID> \
@@ -158,6 +176,7 @@ curl -X DELETE http://localhost:3000/v1/sessions/<SESSION_ID> \
 ```
 
 #### 4. Game Management
+
 ```bash
 # Add games (owner only)
 curl -X POST http://localhost:3000/v1/sessions/<SESSION_ID>/games \
@@ -171,18 +190,23 @@ curl -X POST http://localhost:3000/v1/sessions/<SESSION_ID>/games \
 ## Database Schema Impact
 
 ### Player Entity Updates
+
 The `player` entity now supports the hybrid authentication model:
+
 - `userId` (nullable): Links to authenticated user account
 - `isGuest` (boolean): `true` for guest players, `false` for authenticated
 
 ### GamesMaster Entity Updates
+
 The `games_master` entity links to user accounts:
+
 - `userId` (nullable): Links to authenticated user account
 - Used for ownership verification in protected endpoints
 
 ## API Documentation
 
 Swagger documentation automatically updated:
+
 - Protected endpoints show 🔒 lock icon
 - `@ApiBearerAuth()` decorator applies to entire controller
 - Authentication requirements visible in Swagger UI at `/api`
@@ -190,6 +214,7 @@ Swagger documentation automatically updated:
 ## Next Steps (Phase 3)
 
 Phase 3 will focus on frontend integration:
+
 1. Create authentication context/provider in React
 2. Implement login/signup UI components
 3. Add token storage and refresh logic
@@ -200,6 +225,7 @@ Phase 3 will focus on frontend integration:
 ## Breaking Changes
 
 ⚠️ **BREAKING:** The following endpoints now require authentication:
+
 - Session creation
 - Session updates
 - Session deletion
@@ -208,6 +234,7 @@ Phase 3 will focus on frontend integration:
 - Team management (create/assign players)
 
 **Migration Path:**
+
 1. Ensure all Games Masters create user accounts
 2. Link existing GamesMaster profiles to user accounts via `userId`
 3. Update frontend to include JWT tokens in requests

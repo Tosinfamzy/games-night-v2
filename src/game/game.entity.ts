@@ -14,6 +14,18 @@ import { Score } from '../score/score.entity';
 import { GameLibrary } from '../game-library/game-library.entity';
 import { GameStatus } from './enums/game-status.enum';
 
+export interface GameResults {
+  standings: Array<{
+    teamId: string;
+    teamName: string;
+    rank: number;
+    totalPoints: number;
+  }>;
+  winningScore: number | null;
+  isTied: boolean;
+  completedAt?: string;
+}
+
 @Entity()
 export class Game {
   @ApiProperty({ example: 'uuid', description: 'Game ID' })
@@ -102,7 +114,7 @@ export class Game {
     required: false,
   })
   @Column({ type: 'jsonb', nullable: true })
-  results?: Record<string, any>;
+  results?: GameResults;
 
   @ApiProperty({
     description: 'Session this game belongs to',

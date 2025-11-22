@@ -58,14 +58,14 @@ export abstract class BaseGateway
   /**
    * Helper method to emit to a specific room
    */
-  protected emitToRoom(room: string, event: string, data: any): void {
+  protected emitToRoom<T = unknown>(room: string, event: string, data: T): void {
     this.server.to(room).emit(event, data);
   }
 
   /**
    * Helper method to emit to all clients
    */
-  protected emitToAll(event: string, data: any): void {
+  protected emitToAll<T = unknown>(event: string, data: T): void {
     this.server.emit(event, data);
   }
 

@@ -22,13 +22,13 @@ CREATE TABLE users (
 
 -- Add user_id to games_master table
 ALTER TABLE games_master ADD COLUMN user_id UUID;
-ALTER TABLE games_master ADD CONSTRAINT fk_games_master_user 
+ALTER TABLE games_master ADD CONSTRAINT fk_games_master_user
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
 
 -- Add user_id and is_guest to player table
 ALTER TABLE player ADD COLUMN user_id UUID;
 ALTER TABLE player ADD COLUMN is_guest BOOLEAN DEFAULT false;
-ALTER TABLE player ADD CONSTRAINT fk_player_user 
+ALTER TABLE player ADD CONSTRAINT fk_player_user
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
 
 -- Create indexes for performance
@@ -39,7 +39,7 @@ CREATE INDEX idx_player_user_id ON player(user_id);
 
 ## TypeORM Auto-Sync
 
-If you have `synchronize: true` in your TypeORM config (development only), 
+If you have `synchronize: true` in your TypeORM config (development only),
 these changes will be applied automatically when you start the application.
 
 **⚠️ WARNING**: Do NOT use `synchronize: true` in production. Use proper migrations.
@@ -66,6 +66,7 @@ DROP TABLE IF EXISTS users;
 ### Existing Players & Games Masters
 
 Existing records without user_id will continue to work as "legacy" records:
+
 - Players: `isGuest` will be `false` by default, can be set to `true` for anonymous players
 - Games Masters: Will have `userId` as `null` until they create an account and link it
 
@@ -80,7 +81,7 @@ VALUES ('alice@example.com', '$hashed_password', 'Alice', 'games_master')
 RETURNING id;
 
 -- Use the returned ID to update games master
-UPDATE games_master 
-SET user_id = 'returned-user-id' 
+UPDATE games_master
+SET user_id = 'returned-user-id'
 WHERE name = 'Alice';
 ```

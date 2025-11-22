@@ -1,5 +1,10 @@
 import { Controller, Post, Body, UseGuards, Get, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
@@ -44,7 +49,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({ status: 200, description: 'Current user info' })
   @ApiResponse({ status: 401, description: 'Not authenticated' })
-  async getCurrentUser(@CurrentUser() user: User) {
+  getCurrentUser(@CurrentUser() user: User) {
     return {
       id: user.id,
       email: user.email,

@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Team } from './team.entity';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
@@ -379,7 +379,9 @@ export class TeamService {
         throw new NotFoundException(`Team with ID ${teamId} not found`);
       }
 
-      const players = await this.playerRepo.findByIds(playerIds);
+      const players = await this.playerRepo.find({
+        where: { id: In(playerIds) },
+      });
       team.players = players;
       await this.repo.save(team);
     }

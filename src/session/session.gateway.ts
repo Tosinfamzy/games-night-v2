@@ -8,6 +8,14 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Logger } from '@nestjs/common';
 import { BaseGateway } from '../common/gateways/base.gateway';
+import { Player } from '../player/player.entity';
+import { Team } from '../team/team.entity';
+import { Session } from './session.entity';
+
+interface SessionReadiness {
+  canStart: boolean;
+  reasons: string[];
+}
 
 /**
  * WebSocket Gateway for real-time session updates
@@ -67,7 +75,7 @@ export class SessionGateway extends BaseGateway {
   /**
    * Broadcast that a player joined a session
    */
-  broadcastPlayerJoined(sessionId: string, player: any): void {
+  broadcastPlayerJoined(sessionId: string, player: Player): void {
     const room = `session:${sessionId}`;
     this.emitToRoom(room, 'session:player-joined', {
       sessionId,
@@ -108,7 +116,7 @@ export class SessionGateway extends BaseGateway {
   /**
    * Broadcast session readiness status
    */
-  broadcastSessionReadiness(sessionId: string, readiness: any): void {
+  broadcastSessionReadiness(sessionId: string, readiness: SessionReadiness): void {
     const room = `session:${sessionId}`;
     this.emitToRoom(room, 'session:readiness-changed', {
       sessionId,
@@ -123,7 +131,7 @@ export class SessionGateway extends BaseGateway {
   broadcastSessionStatusChange(
     sessionId: string,
     status: string,
-    session?: any,
+    session?: Session,
   ): void {
     const room = `session:${sessionId}`;
     this.emitToRoom(room, 'session:status-changed', {
@@ -137,7 +145,7 @@ export class SessionGateway extends BaseGateway {
   /**
    * Broadcast team created
    */
-  broadcastTeamCreated(sessionId: string, team: any): void {
+  broadcastTeamCreated(sessionId: string, team: Team): void {
     const room = `session:${sessionId}`;
     this.emitToRoom(room, 'session:team-created', {
       sessionId,
@@ -149,7 +157,7 @@ export class SessionGateway extends BaseGateway {
   /**
    * Broadcast team updated
    */
-  broadcastTeamUpdated(sessionId: string, team: any): void {
+  broadcastTeamUpdated(sessionId: string, team: Team): void {
     const room = `session:${sessionId}`;
     this.emitToRoom(room, 'session:team-updated', {
       sessionId,

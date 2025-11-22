@@ -6,7 +6,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Session } from './session.entity';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
@@ -369,9 +369,9 @@ export class SessionService {
     ]);
 
     // Verify all game library IDs exist
-    const gameLibraries = await this.gameLibraryRepo.findByIds(
-      dto.gameLibraryIds,
-    );
+    const gameLibraries = await this.gameLibraryRepo.find({
+      where: { id: In(dto.gameLibraryIds) },
+    });
     if (gameLibraries.length !== dto.gameLibraryIds.length) {
       throw new NotFoundException('One or more game library IDs not found');
     }
@@ -790,13 +790,12 @@ export class SessionService {
     const session = await this.findOne(id, ['games']);
 
     // Get leaderboard data from score service
-    const leaderboardData =
-      await this.scoreService.getSessionLeaderboard(id);
+    const leaderboardData = await this.scoreService.getSessionLeaderboard(id);
 
     // Count completed games
-    const completedGames = session.games?.filter(
-      (game) => game.status === GameStatus.COMPLETED,
-    ).length || 0;
+    const completedGames =
+      session.games?.filter((game) => game.status === GameStatus.COMPLETED)
+        .length || 0;
 
     // Determine champion (team with highest total points)
     const champion = leaderboardData.length > 0 ? leaderboardData[0] : null;

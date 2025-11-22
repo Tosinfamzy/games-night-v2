@@ -33,7 +33,8 @@ export class Player {
 
   @ApiProperty({
     example: false,
-    description: 'Whether this is a guest player (not linked to a user account)',
+    description:
+      'Whether this is a guest player (not linked to a user account)',
   })
   @Column({ default: false })
   isGuest: boolean;

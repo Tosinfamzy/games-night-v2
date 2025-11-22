@@ -3,6 +3,7 @@
 ## What Was Implemented
 
 ### 1. Database Layer
+
 - ✅ **User Entity** (`src/user/user.entity.ts`)
   - Email and password authentication
   - Role-based system (games_master, player)
@@ -15,10 +16,10 @@
   - `Player`: Added `userId` and `isGuest` fields for linking and guest support
 
 ### 2. Authentication Module
+
 - ✅ **JWT Strategy** (`src/auth/strategies/jwt.strategy.ts`)
   - Bearer token extraction
   - User validation on each request
-  
 - ✅ **Guards**
   - `JwtAuthGuard`: Require authentication
   - `OptionalJwtAuthGuard`: Allow guests but extract user if present
@@ -35,17 +36,19 @@
   - `ChangePasswordDto`: Password changes
 
 ### 3. Auth Endpoints
+
 All endpoints are available at `/auth`:
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| POST | `/auth/signup` | Register new user | No |
-| POST | `/auth/login` | Login with credentials | No |
-| POST | `/auth/refresh` | Refresh access token | No |
-| GET | `/auth/me` | Get current user profile | Yes |
-| PATCH | `/auth/change-password` | Change password | Yes |
+| Method | Endpoint                | Description              | Auth Required |
+| ------ | ----------------------- | ------------------------ | ------------- |
+| POST   | `/auth/signup`          | Register new user        | No            |
+| POST   | `/auth/login`           | Login with credentials   | No            |
+| POST   | `/auth/refresh`         | Refresh access token     | No            |
+| GET    | `/auth/me`              | Get current user profile | Yes           |
+| PATCH  | `/auth/change-password` | Change password          | Yes           |
 
 ### 4. Services
+
 - ✅ **UserService**: CRUD operations for users
 - ✅ **AuthService**: Authentication logic
   - Password hashing with bcrypt
@@ -54,7 +57,9 @@ All endpoints are available at `/auth`:
   - Automatic profile creation (GamesMaster for games_master role)
 
 ### 5. Environment Configuration
+
 Added JWT configuration to `.env`:
+
 ```env
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 JWT_EXPIRATION=15m
@@ -62,6 +67,7 @@ JWT_REFRESH_EXPIRATION=7d
 ```
 
 ### 6. Documentation
+
 - ✅ `docs/AUTH_USAGE.md`: Complete usage guide with examples
 - ✅ `docs/MIGRATION_AUTH.md`: Database migration instructions
 
@@ -109,6 +115,7 @@ JWT_REFRESH_EXPIRATION=7d
 ## Testing
 
 ### 1. Signup as Games Master
+
 ```bash
 curl -X POST http://localhost:3000/auth/signup \
   -H "Content-Type: application/json" \
@@ -121,6 +128,7 @@ curl -X POST http://localhost:3000/auth/signup \
 ```
 
 Expected Response:
+
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -136,6 +144,7 @@ Expected Response:
 ```
 
 ### 2. Login
+
 ```bash
 curl -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
@@ -146,12 +155,14 @@ curl -X POST http://localhost:3000/auth/login \
 ```
 
 ### 3. Get Current User
+
 ```bash
 curl -X GET http://localhost:3000/auth/me \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ### 4. Refresh Token
+
 ```bash
 curl -X POST http://localhost:3000/auth/refresh \
   -H "Content-Type: application/json" \
@@ -163,6 +174,7 @@ curl -X POST http://localhost:3000/auth/refresh \
 ## Database Changes
 
 The entities will auto-sync in development mode. Key changes:
+
 - New `users` table created
 - `games_master.userId` column added (nullable)
 - `player.userId` column added (nullable)
@@ -171,12 +183,14 @@ The entities will auto-sync in development mode. Key changes:
 ## Next Steps (Phase 2)
 
 ### Backend - Protect Endpoints
+
 1. Add `@UseGuards(JwtAuthGuard)` to session creation
 2. Add `@UseGuards(OptionalJwtAuthGuard)` to session join
 3. Verify session ownership before delete/update operations
 4. Link players to user accounts when authenticated
 
 ### Frontend Integration
+
 1. Create auth context/provider
 2. Build login/signup forms
 3. Add token storage (localStorage)
@@ -210,6 +224,7 @@ async create(
 ## Files Created
 
 ### Core Files
+
 - `src/user/user.entity.ts`
 - `src/user/user.module.ts`
 - `src/user/user.service.ts`
@@ -218,22 +233,26 @@ async create(
 - `src/auth/auth.service.ts`
 
 ### DTOs
+
 - `src/auth/dto/signup.dto.ts`
 - `src/auth/dto/login.dto.ts`
 - `src/auth/dto/refresh-token.dto.ts`
 - `src/auth/dto/change-password.dto.ts`
 
 ### Guards & Strategies
+
 - `src/auth/guards/jwt-auth.guard.ts`
 - `src/auth/guards/optional-jwt-auth.guard.ts`
 - `src/auth/guards/roles.guard.ts`
 - `src/auth/strategies/jwt.strategy.ts`
 
 ### Decorators
+
 - `src/auth/decorators/current-user.decorator.ts`
 - `src/auth/decorators/roles.decorator.ts`
 
 ### Documentation
+
 - `docs/AUTH_USAGE.md`
 - `docs/MIGRATION_AUTH.md`
 
