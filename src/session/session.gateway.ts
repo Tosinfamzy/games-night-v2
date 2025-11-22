@@ -116,7 +116,10 @@ export class SessionGateway extends BaseGateway {
   /**
    * Broadcast session readiness status
    */
-  broadcastSessionReadiness(sessionId: string, readiness: SessionReadiness): void {
+  broadcastSessionReadiness(
+    sessionId: string,
+    readiness: SessionReadiness,
+  ): void {
     const room = `session:${sessionId}`;
     this.emitToRoom(room, 'session:readiness-changed', {
       sessionId,

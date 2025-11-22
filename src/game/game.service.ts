@@ -493,8 +493,7 @@ export class GameService {
 
     // Check if there's a tie for first place
     const isTied =
-      standings.length > 0 &&
-      standings.filter((s) => s.rank === 1).length > 1;
+      standings.length > 0 && standings.filter((s) => s.rank === 1).length > 1;
 
     return {
       gameId: game.id,

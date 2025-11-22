@@ -18,7 +18,6 @@ import {
 import { GamesMasterService } from './games-master.service';
 import { CreateGamesMasterDto } from './dto/create-games-master.dto';
 import { UpdateGamesMasterDto } from './dto/update-games-master.dto';
-import { GamesMaster } from './games-master.entity';
 import { GamesMasterResponseDto } from '../common/dto/games-master.response';
 
 @ApiTags('games-master')

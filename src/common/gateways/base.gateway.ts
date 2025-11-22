@@ -27,13 +27,11 @@ export abstract class BaseGateway
   /**
    * Called when a client connects
    */
-  async handleConnection(client: Socket): Promise<void> {
+  handleConnection(client: Socket): void {
     const clientId = client.id;
     const namespace = client.nsp.name;
 
-    this.logger.log(
-      `Client connected: ${clientId} to namespace: ${namespace}`,
-    );
+    this.logger.log(`Client connected: ${clientId} to namespace: ${namespace}`);
 
     // You can implement authentication here
     // const user = await this.authenticateClient(client);
@@ -58,7 +56,11 @@ export abstract class BaseGateway
   /**
    * Helper method to emit to a specific room
    */
-  protected emitToRoom<T = unknown>(room: string, event: string, data: T): void {
+  protected emitToRoom<T = unknown>(
+    room: string,
+    event: string,
+    data: T,
+  ): void {
     this.server.to(room).emit(event, data);
   }
 
@@ -73,7 +75,7 @@ export abstract class BaseGateway
    * Helper method to make client join a room
    */
   protected joinRoom(client: Socket, room: string): void {
-    client.join(room);
+    void client.join(room);
     this.logger.debug(`Client ${client.id} joined room: ${room}`);
   }
 
@@ -81,7 +83,7 @@ export abstract class BaseGateway
    * Helper method to make client leave a room
    */
   protected leaveRoom(client: Socket, room: string): void {
-    client.leave(room);
+    void client.leave(room);
     this.logger.debug(`Client ${client.id} left room: ${room}`);
   }
 }

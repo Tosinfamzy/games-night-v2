@@ -23,7 +23,6 @@ import { UpdateGameDto } from './dto/update-game.dto';
 import { StartGameDto } from './dto/start-game.dto';
 import { StartGameWithTeamsDto } from './dto/start-game-with-teams.dto';
 import { NextTurnDto } from './dto/next-turn.dto';
-import { Game } from './game.entity';
 import { GameStatus } from './enums/game-status.enum';
 import { GameResponseDto } from '../common/dto/game.response';
 import { GameResultsDto } from '../common/dto/game-results.dto';
@@ -51,9 +50,7 @@ export class GameController {
     description: 'Invalid input.',
   })
   create(@Body() dto: CreateGameDto): Promise<GameResponseDto> {
-    return this.service
-      .create(dto)
-      .then((game) => this.serializeGame(game.id));
+    return this.service.create(dto).then((game) => this.serializeGame(game.id));
   }
 
   @Get()
@@ -395,7 +392,9 @@ export class GameController {
     status: HttpStatus.NOT_FOUND,
     description: 'Game not found.',
   })
-  completeGame(@Param('id', ParseUUIDPipe) id: string): Promise<GameResponseDto> {
+  completeGame(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<GameResponseDto> {
     return this.service
       .completeGame(id)
       .then((game) => this.serializeGame(game.id));

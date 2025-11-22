@@ -23,7 +23,6 @@ import {
   AssignPlayersDto,
   TeamFormationStrategy,
 } from './dto/team-formation.dto';
-import { Team } from './team.entity';
 import { TeamResponseDto } from '../common/dto/team.response';
 
 @ApiTags('teams')
@@ -42,7 +41,9 @@ export class TeamController {
   create(@Body() dto: CreateTeamDto): Promise<TeamResponseDto> {
     return this.service
       .create(dto)
-      .then((team) => this.service.findOne(team.id, ['session', 'game', 'players', 'scores']))
+      .then((team) =>
+        this.service.findOne(team.id, ['session', 'game', 'players', 'scores']),
+      )
       .then((team) => TeamResponseDto.fromEntity(team));
   }
 
@@ -68,7 +69,9 @@ export class TeamController {
     type: TeamResponseDto,
   })
   @ApiNotFoundResponse({ description: 'Team not found' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<TeamResponseDto> {
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<TeamResponseDto> {
     const team = await this.service.findOne(id, [
       'game',
       'players',
@@ -93,7 +96,9 @@ export class TeamController {
   ): Promise<TeamResponseDto> {
     return this.service
       .update(id, dto)
-      .then((team) => this.service.findOne(team.id, ['session', 'game', 'players', 'scores']))
+      .then((team) =>
+        this.service.findOne(team.id, ['session', 'game', 'players', 'scores']),
+      )
       .then((team) => TeamResponseDto.fromEntity(team));
   }
 

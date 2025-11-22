@@ -30,7 +30,7 @@ export class CreateSessionDto {
     description: 'Date of the session',
     example: '2025-07-14T19:00:00Z',
   })
-  @Transform(({ value }) => new Date(value))
+  @Transform(({ value }: { value: string | number | Date }) => new Date(value))
   @IsDate()
   @IsNotEmpty()
   date: Date;

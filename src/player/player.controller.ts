@@ -23,7 +23,6 @@ import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
 import { JoinSessionDto } from './dto/join-session.dto';
 import { UpdatePlayerStatusDto } from './dto/update-player-status.dto';
-import { Player } from './player.entity';
 import { PlayerResponseDto } from '../common/dto/player.response';
 
 @ApiTags('players')
@@ -193,9 +192,7 @@ export class PlayerController {
   ): Promise<PlayerResponseDto> {
     return this.service
       .updatePlayerStatus(id, dto)
-      .then(() =>
-        this.service.findOne(id, ['session', 'teams', 'scores']),
-      )
+      .then(() => this.service.findOne(id, ['session', 'teams', 'scores']))
       .then((player) => PlayerResponseDto.fromEntity(player));
   }
 
@@ -214,9 +211,7 @@ export class PlayerController {
   setReady(@Param('id', ParseUUIDPipe) id: string): Promise<PlayerResponseDto> {
     return this.service
       .setPlayerReady(id)
-      .then(() =>
-        this.service.findOne(id, ['session', 'teams', 'scores']),
-      )
+      .then(() => this.service.findOne(id, ['session', 'teams', 'scores']))
       .then((player) => PlayerResponseDto.fromEntity(player));
   }
 
@@ -237,9 +232,7 @@ export class PlayerController {
   ): Promise<PlayerResponseDto> {
     return this.service
       .setPlayerNotReady(id)
-      .then(() =>
-        this.service.findOne(id, ['session', 'teams', 'scores']),
-      )
+      .then(() => this.service.findOne(id, ['session', 'teams', 'scores']))
       .then((player) => PlayerResponseDto.fromEntity(player));
   }
 

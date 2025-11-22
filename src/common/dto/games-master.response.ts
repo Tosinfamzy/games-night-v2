@@ -11,7 +11,9 @@ export class GamesMasterSummaryDto {
   @ApiProperty({ example: 3 })
   sessionCount: number;
 
-  static fromEntity(entity: GamesMaster | null | undefined): GamesMasterSummaryDto | null {
+  static fromEntity(
+    entity: GamesMaster | null | undefined,
+  ): GamesMasterSummaryDto | null {
     if (!entity) {
       return null;
     }

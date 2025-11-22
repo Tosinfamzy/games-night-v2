@@ -80,9 +80,7 @@ export class GameGateway extends BaseGateway {
   }): void {
     const room = `game:${payload.gameId}`;
 
-    this.logger.log(
-      `Broadcasting score submitted for game: ${payload.gameId}`,
-    );
+    this.logger.log(`Broadcasting score submitted for game: ${payload.gameId}`);
 
     this.emitToRoom(room, 'game:score-submitted', {
       gameId: payload.gameId,
@@ -177,7 +175,10 @@ export class GameGateway extends BaseGateway {
   /**
    * Broadcast leaderboard update
    */
-  broadcastLeaderboardUpdate(gameId: string, leaderboard: TeamStandingDto[]): void {
+  broadcastLeaderboardUpdate(
+    gameId: string,
+    leaderboard: TeamStandingDto[],
+  ): void {
     const room = `game:${gameId}`;
     this.emitToRoom(room, 'game:leaderboard-updated', {
       gameId,

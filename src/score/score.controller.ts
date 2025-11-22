@@ -93,7 +93,9 @@ export class ScoreController {
   async findAll(): Promise<ScoreResponseDto[]> {
     return this.service
       .findAll()
-      .then((scores) => scores.map((score) => ScoreResponseDto.fromEntity(score)));
+      .then((scores) =>
+        scores.map((score) => ScoreResponseDto.fromEntity(score)),
+      );
   }
 
   @Get('games/:gameId')

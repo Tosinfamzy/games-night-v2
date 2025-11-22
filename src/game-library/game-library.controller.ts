@@ -12,7 +12,6 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { GameLibraryService } from './game-library.service';
 import { CreateGameLibraryDto } from './dto/create-game-library.dto';
 import { UpdateGameLibraryDto } from './dto/update-game-library.dto';
-import { GameLibrary } from './game-library.entity';
 import { GameLibraryResponseDto } from '../common/dto/game-library.response';
 
 @ApiTags('Game Library')
@@ -85,11 +84,13 @@ export class GameLibraryController {
         .then((games) =>
           games.map((game) => GameLibraryResponseDto.fromEntity(game)),
         );
-  }
+    }
 
     return this.gameLibraryService
       .findAll()
-      .then((games) => games.map(GameLibraryResponseDto.fromEntity));
+      .then((games) =>
+        games.map((game) => GameLibraryResponseDto.fromEntity(game)),
+      );
   }
 
   @Get(':id')

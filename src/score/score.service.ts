@@ -285,9 +285,7 @@ export class ScoreService {
   /**
    * Get session-wide leaderboard by aggregating scores across all session games
    */
-  async getSessionLeaderboard(
-    sessionId: string,
-  ): Promise<
+  async getSessionLeaderboard(sessionId: string): Promise<
     Array<{
       teamId: string;
       teamName: string;

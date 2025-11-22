@@ -1,28 +1,34 @@
 import { Injectable, ExecutionContext } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Observable } from 'rxjs';
-import { User } from '../../user/user.entity';
+import { catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 @Injectable()
 export class OptionalJwtAuthGuard extends AuthGuard('jwt') {
-  handleRequest<TUser = any>(
-    err: any,
-    user: any,
-    info: any,
+  canActivate(
     context: ExecutionContext,
-    status?: any,
-  ): TUser {
-    // Allow request even if no token is provided
-    // Just return null user if authentication fails
-    if (err || !user) {
-      return null as TUser;
+  ): boolean | Promise<boolean> | Observable<boolean> {
+    const result = super.canActivate(context);
+
+    // Handle Promise
+    if (result instanceof Promise) {
+      return result.catch(() => true);
     }
-    return user;
+
+    // Handle Observable
+    if (result instanceof Observable) {
+      return result.pipe(catchError(() => of(true)));
+    }
+
+    // Handle boolean
+    return result;
   }
 
-  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
-    // Always return true to allow the request
-    // The user will be null if authentication fails
-    return super.canActivate(context) as boolean | Promise<boolean> | Observable<boolean>;
+  handleRequest<TUser = unknown>(err: unknown, user: TUser): TUser {
+    // Return user if authenticated, null otherwise (no exception thrown)
+    // We intentionally ignore err as we allow authentication to fail
+    void err;
+    return user || (null as TUser);
   }
 }

@@ -20,7 +20,10 @@ export class PlayerResponseDto {
   @ApiProperty({ example: ['team-uuid-1', 'team-uuid-2'] })
   teamIds: string[];
 
-  @ApiProperty({ example: ['score-uuid-1'], description: 'Scores recorded for the player' })
+  @ApiProperty({
+    example: ['score-uuid-1'],
+    description: 'Scores recorded for the player',
+  })
   scoreIds: string[];
 
   @ApiProperty({ example: '2025-07-19T16:00:00.000Z' })

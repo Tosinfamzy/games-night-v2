@@ -45,7 +45,9 @@ export class TeamService {
 
   async findAll(relations: string[] = []): Promise<Team[]> {
     const defaultRelations = ['session', 'game', 'players', 'scores'];
-    const mergedRelations = Array.from(new Set([...defaultRelations, ...relations]));
+    const mergedRelations = Array.from(
+      new Set([...defaultRelations, ...relations]),
+    );
     return this.repo.find({
       relations: mergedRelations,
       order: { name: 'ASC' },

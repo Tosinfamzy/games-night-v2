@@ -127,13 +127,29 @@ export class AuthService {
           : user.playerProfile?.id,
     };
 
-    const expiresIn = this.configService.get<string>('JWT_EXPIRATION') || '15m';
-    const refreshExpiresIn =
+    // Convert string duration to seconds for JWT library
+    const parseExpiration = (exp: string): number => {
+      const unit = exp.slice(-1);
+      const value = parseInt(exp.slice(0, -1), 10);
+      const multipliers: Record<string, number> = {
+        s: 1,
+        m: 60,
+        h: 3600,
+        d: 86400,
+      };
+      return value * (multipliers[unit] || 1);
+    };
+
+    const accessExpiration =
+      this.configService.get<string>('JWT_EXPIRATION') || '15m';
+    const refreshExpiration =
       this.configService.get<string>('JWT_REFRESH_EXPIRATION') || '7d';
 
-    const accessToken = this.jwtService.sign(payload, { expiresIn: expiresIn as any });
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: parseExpiration(accessExpiration),
+    });
     const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: refreshExpiresIn as any,
+      expiresIn: parseExpiration(refreshExpiration),
     });
 
     return {
