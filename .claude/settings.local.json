@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Read(//Users/oluwatosinfamurewa/Projects/games-nightv2-ui/**)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm test:*)"
     ],
     "deny": [],
     "ask": []
