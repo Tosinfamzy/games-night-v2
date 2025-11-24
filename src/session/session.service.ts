@@ -825,4 +825,50 @@ export class SessionService {
       completedAt: session.updatedAt.toISOString(),
     };
   }
+
+  async kickPlayer(sessionId: string, playerId: string): Promise<Session> {
+    const session = await this.findOne(sessionId);
+
+    if (session.status === SessionStatus.COMPLETED) {
+      throw new BadRequestException('Cannot kick players from completed session');
+    }
+
+    // Find the player
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId },
+    });
+
+    if (!player) {
+      throw new NotFoundException(`Player with ID ${playerId} not found`);
+    }
+
+    // Check if player is in this session
+    const playerInSession = session.players?.some((p) => p.id === playerId);
+    if (!playerInSession) {
+      throw new BadRequestException('Player is not in this session');
+    }
+
+    // Remove player from session
+    session.players = session.players.filter((p) => p.id !== playerId);
+
+    // Remove player from all teams in this session
+    const teams = await this.teamRepo.find({
+      where: { session: { id: sessionId } },
+      relations: ['players'],
+    });
+
+    for (const team of teams) {
+      if (team.players) {
+        team.players = team.players.filter((p) => p.id !== playerId);
+        await this.teamRepo.save(team);
+      }
+    }
+
+    await this.repo.save(session);
+
+    // Delete the player entity
+    await this.playerRepo.remove(player);
+
+    return session;
+  }
 }

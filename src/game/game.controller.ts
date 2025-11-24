@@ -440,4 +440,44 @@ export class GameController {
       .updateGameStatus(id, dto.status)
       .then(() => this.serializeGame(id));
   }
+
+  @Post(':id/reset')
+  @ApiOperation({
+    summary: 'Reset game to initial state (GM control action)',
+  })
+  @ApiParam({ name: 'id', description: 'Game ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Game reset successfully. All scores deleted and game returned to PENDING status.',
+    type: GameResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Cannot reset completed games.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Game not found.',
+  })
+  resetGame(@Param('id', ParseUUIDPipe) id: string): Promise<GameResponseDto> {
+    return this.service.resetGame(id).then(() => this.serializeGame(id));
+  }
+
+  @Get(':id/timer')
+  @ApiOperation({
+    summary: 'Get current timer status for a game',
+  })
+  @ApiParam({ name: 'id', description: 'Game ID' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Current timer status including elapsed time and remaining time.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Game not found.',
+  })
+  getTimerStatus(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.getTimerStatus(id);
+  }
 }

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { GameService } from './game.service';
 import { GameController } from './game.controller';
 import { GameGateway } from './game.gateway';
+import { GameTimerService } from './game-timer.service';
 import { Game } from './game.entity';
 import { Session } from '../session/session.entity';
 import { Team } from '../team/team.entity';
@@ -16,8 +17,8 @@ import { ScoreModule } from '../score/score.module';
     TeamModule,
     forwardRef(() => ScoreModule),
   ],
-  providers: [GameService, GameGateway],
+  providers: [GameService, GameGateway, GameTimerService],
   controllers: [GameController],
-  exports: [GameService, GameGateway],
+  exports: [GameService, GameGateway, GameTimerService],
 })
 export class GameModule {}

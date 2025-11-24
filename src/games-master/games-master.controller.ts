@@ -19,6 +19,7 @@ import { GamesMasterService } from './games-master.service';
 import { CreateGamesMasterDto } from './dto/create-games-master.dto';
 import { UpdateGamesMasterDto } from './dto/update-games-master.dto';
 import { GamesMasterResponseDto } from '../common/dto/games-master.response';
+import { GamesMasterDashboardDto } from './dto/dashboard.dto';
 
 @ApiTags('games-master')
 @Controller('games-master')
@@ -83,6 +84,23 @@ export class GamesMasterController {
   ): Promise<GamesMasterResponseDto> {
     const master = await this.service.findWithActiveSessions(id);
     return GamesMasterResponseDto.fromEntity(master);
+  }
+
+  @Get(':id/dashboard')
+  @ApiOperation({
+    summary: 'Get comprehensive dashboard for games master control panel',
+  })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Games master dashboard with all sessions, games, and stats',
+    type: GamesMasterDashboardDto,
+  })
+  @ApiNotFoundResponse({ description: 'Games master not found' })
+  async getDashboard(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<GamesMasterDashboardDto> {
+    return this.service.getDashboard(id);
   }
 
   @Put(':id')

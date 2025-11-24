@@ -198,4 +198,80 @@ export class GameGateway extends BaseGateway {
       timestamp: new Date().toISOString(),
     });
   }
+
+  /**
+   * Broadcast turn started with timer info
+   */
+  broadcastTurnStarted(
+    gameId: string,
+    teamId: string,
+    teamName: string,
+    turnTimeLimit?: number,
+  ): void {
+    const room = `game:${gameId}`;
+    this.emitToRoom(room, 'game:turn-started', {
+      gameId,
+      teamId,
+      teamName,
+      turnTimeLimit,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Broadcast timer tick (every second during countdown)
+   */
+  broadcastTimerTick(
+    gameId: string,
+    remainingSeconds: number,
+    isWarning: boolean,
+  ): void {
+    const room = `game:${gameId}`;
+    this.emitToRoom(room, 'game:timer-tick', {
+      gameId,
+      remainingSeconds,
+      isWarning,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Broadcast timer expired
+   */
+  broadcastTimerExpired(
+    gameId: string,
+    teamId: string,
+    teamName: string,
+    willAutoAdvance: boolean,
+  ): void {
+    const room = `game:${gameId}`;
+    this.emitToRoom(room, 'game:timer-expired', {
+      gameId,
+      teamId,
+      teamName,
+      willAutoAdvance,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Broadcast turn advanced (manual or auto)
+   */
+  broadcastTurnAdvanced(
+    gameId: string,
+    previousTeamId: string,
+    newTeamId: string,
+    newTeamName: string,
+    wasAutomatic: boolean,
+  ): void {
+    const room = `game:${gameId}`;
+    this.emitToRoom(room, 'game:turn-advanced', {
+      gameId,
+      previousTeamId,
+      newTeamId,
+      newTeamName,
+      wasAutomatic,
+      timestamp: new Date().toISOString(),
+    });
+  }
 }

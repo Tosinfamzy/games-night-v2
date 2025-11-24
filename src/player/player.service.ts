@@ -236,4 +236,72 @@ export class PlayerService {
       await this.repo.save(player);
     }
   }
+
+  /**
+   * Find player by userId (for authenticated players)
+   */
+  async findByUserId(userId: string): Promise<Player | null> {
+    return this.repo.findOne({
+      where: { userId },
+      relations: ['session'],
+    });
+  }
+
+  /**
+   * Mark player as online with current socket ID
+   */
+  async setPlayerOnline(
+    playerId: string,
+    socketId: string,
+  ): Promise<Player> {
+    const player = await this.findOne(playerId);
+
+    player.isOnline = true;
+    player.currentSocketId = socketId;
+    player.lastConnectedAt = new Date();
+
+    // Update status if player was disconnected
+    if (player.status === PlayerStatus.DISCONNECTED) {
+      player.status = PlayerStatus.JOINED;
+    }
+
+    return await this.repo.save(player);
+  }
+
+  /**
+   * Mark player as offline
+   */
+  async setPlayerOffline(playerId: string): Promise<Player> {
+    const player = await this.findOne(playerId);
+
+    player.isOnline = false;
+    player.currentSocketId = undefined;
+    player.status = PlayerStatus.DISCONNECTED;
+
+    return await this.repo.save(player);
+  }
+
+  /**
+   * Get all online players in a session
+   */
+  async getAllOnlinePlayers(sessionId: string): Promise<Player[]> {
+    return this.repo.find({
+      where: {
+        session: { id: sessionId },
+        isOnline: true,
+      },
+      relations: ['session', 'teams'],
+      order: { name: 'ASC' },
+    });
+  }
+
+  /**
+   * Find player by socket ID (for connection tracking)
+   */
+  async findBySocketId(socketId: string): Promise<Player | null> {
+    return this.repo.findOne({
+      where: { currentSocketId: socketId },
+      relations: ['session'],
+    });
+  }
 }

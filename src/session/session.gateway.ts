@@ -11,6 +11,7 @@ import { BaseGateway } from '../common/gateways/base.gateway';
 import { Player } from '../player/player.entity';
 import { Team } from '../team/team.entity';
 import { Session } from './session.entity';
+import { PlayerService } from '../player/player.service';
 
 interface SessionReadiness {
   canStart: boolean;
@@ -33,6 +34,80 @@ export class SessionGateway extends BaseGateway {
   declare server: Server;
 
   protected logger = new Logger(SessionGateway.name);
+
+  constructor(private readonly playerService: PlayerService) {
+    super();
+  }
+
+  /**
+   * Handle client connection and update player online status
+   */
+  async handleConnection(client: Socket): Promise<void> {
+    super.handleConnection(client);
+
+    try {
+      // Extract playerId from handshake query or auth
+      const playerId = client.handshake.query.playerId as string;
+
+      if (!playerId) {
+        this.logger.warn(`Connection without playerId: ${client.id}`);
+        return;
+      }
+
+      // Mark player as online
+      const player = await this.playerService.setPlayerOnline(
+        playerId,
+        client.id,
+      );
+
+      this.logger.log(
+        `Player ${player.name} connected to session ${player.session.id}`,
+      );
+
+      // Broadcast player online status to session room
+      this.broadcastPlayerOnline(player.session.id, player.id, player.name);
+
+      // Auto-join the player to their session room
+      const room = `session:${player.session.id}`;
+      this.joinRoom(client, room);
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle player connection: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Handle client disconnection and update player offline status
+   */
+  async handleDisconnect(client: Socket): Promise<void> {
+    try {
+      // Find player by socket ID
+      const player = await this.playerService.findBySocketId(client.id);
+
+      if (!player) {
+        this.logger.warn(`Disconnect from unknown socket: ${client.id}`);
+        super.handleDisconnect(client);
+        return;
+      }
+
+      // Mark player as offline
+      await this.playerService.setPlayerOffline(player.id);
+
+      this.logger.log(
+        `Player ${player.name} disconnected from session ${player.session.id}`,
+      );
+
+      // Broadcast player offline status to session room
+      this.broadcastPlayerOffline(player.session.id, player.id, player.name);
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle player disconnection: ${error.message}`,
+      );
+    }
+
+    super.handleDisconnect(client);
+  }
 
   /**
    * Client joins a session room to receive updates
@@ -206,6 +281,40 @@ export class SessionGateway extends BaseGateway {
     this.emitToRoom(room, 'session:can-start-changed', {
       sessionId,
       canStart,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Broadcast player came online
+   */
+  broadcastPlayerOnline(
+    sessionId: string,
+    playerId: string,
+    playerName: string,
+  ): void {
+    const room = `session:${sessionId}`;
+    this.emitToRoom(room, 'session:player-online', {
+      sessionId,
+      playerId,
+      playerName,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Broadcast player went offline
+   */
+  broadcastPlayerOffline(
+    sessionId: string,
+    playerId: string,
+    playerName: string,
+  ): void {
+    const room = `session:${sessionId}`;
+    this.emitToRoom(room, 'session:player-offline', {
+      sessionId,
+      playerId,
+      playerName,
       timestamp: new Date().toISOString(),
     });
   }

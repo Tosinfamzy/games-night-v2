@@ -611,4 +611,41 @@ export class SessionController {
   ): Promise<SessionLeaderboardDto> {
     return this.service.getLeaderboard(id);
   }
+
+  @Delete(':id/players/:playerId')
+  @ApiOperation({
+    summary: 'Kick a player from the session (GM control action)',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    description: 'Session ID',
+  })
+  @ApiParam({
+    name: 'playerId',
+    type: 'string',
+    description: 'Player ID to remove',
+  })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description:
+      'Player removed from session and all teams. Player entity deleted.',
+    type: SessionResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Cannot kick players from completed session or player not in session.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Session or player not found.',
+  })
+  kickPlayer(
+    @Param('id', ParseUUIDPipe) sessionId: string,
+    @Param('playerId', ParseUUIDPipe) playerId: string,
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .kickPlayer(sessionId, playerId)
+      .then((session) => SessionResponseDto.fromEntity(session));
+  }
 }

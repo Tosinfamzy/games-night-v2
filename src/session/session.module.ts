@@ -11,6 +11,7 @@ import { Player } from '../player/player.entity';
 import { Team } from '../team/team.entity';
 import { ScoreModule } from '../score/score.module';
 import { AuthModule } from '../auth/auth.module';
+import { PlayerModule } from '../player/player.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { AuthModule } from '../auth/auth.module';
     ]),
     forwardRef(() => ScoreModule),
     AuthModule,
+    PlayerModule,
   ],
   providers: [SessionService, SessionGateway],
   controllers: [SessionController],

@@ -67,6 +67,21 @@ export class Player {
   @Column({ type: 'timestamp', nullable: true })
   lastConnectedAt?: Date;
 
+  @ApiProperty({
+    example: true,
+    description: 'Whether the player is currently online (WebSocket connected)',
+  })
+  @Column({ default: false })
+  isOnline: boolean;
+
+  @ApiProperty({
+    example: 'socket-abc123',
+    description: 'Current WebSocket connection ID',
+    required: false,
+  })
+  @Column({ nullable: true })
+  currentSocketId?: string;
+
   @ApiProperty({ type: () => Session })
   @ManyToOne(() => Session, (session) => session.players, { eager: true })
   session: Session;

@@ -38,6 +38,8 @@ export class GameService {
     private readonly scoreService: ScoreService,
     @Inject(forwardRef(() => GameGateway))
     private readonly gameGateway: GameGateway,
+    @Inject(forwardRef(() => 'GameTimerService'))
+    private readonly gameTimerService: any,
   ) {}
 
   async create(dto: CreateGameDto): Promise<Game> {
@@ -337,10 +339,47 @@ export class GameService {
       nextTeamId = teams[nextIndex].id;
     }
 
+    const previousTeamId = game.currentTurnTeamId;
     game.currentTurnTeamId = nextTeamId;
     game.turnStartedAt = new Date();
 
-    return await this.repo.save(game);
+    const savedGame = await this.repo.save(game);
+
+    // Broadcast turn started with timer info and start timer if needed
+    const nextTeam = teams.find((team) => team.id === nextTeamId);
+    if (nextTeam) {
+      this.gameGateway.broadcastTurnStarted(
+        game.id,
+        nextTeam.id,
+        nextTeam.name,
+        game.turnTimeLimit,
+      );
+
+      // Start timer if game has time limit
+      if (game.turnTimeLimit && this.gameTimerService) {
+        this.gameTimerService.startTimer(
+          game.id,
+          nextTeam.id,
+          nextTeam.name,
+          game.turnTimeLimit,
+          game.turnStartedAt,
+        );
+      }
+
+      // Also broadcast turn advanced (only if not called from auto-advance)
+      // Auto-advance is handled by timer service
+      if (!dto?.['_auto']) {
+        this.gameGateway.broadcastTurnAdvanced(
+          game.id,
+          previousTeamId || '',
+          nextTeam.id,
+          nextTeam.name,
+          false, // Manual advance (not automatic)
+        );
+      }
+    }
+
+    return savedGame;
   }
 
   /**
@@ -538,5 +577,76 @@ export class GameService {
       relations: ['session', 'teams', 'teams.players', 'scores'],
       order: { createdAt: 'ASC' },
     });
+  }
+
+  async resetGame(id: string): Promise<Game> {
+    const game = await this.findOne(id);
+
+    if (game.status === GameStatus.COMPLETED) {
+      throw new BadRequestException('Cannot reset a completed game');
+    }
+
+    // Reset game state
+    game.status = GameStatus.PENDING;
+    game.currentRound = 0;
+    game.currentTurnTeamId = undefined;
+    game.turnStartedAt = undefined;
+    game.winnerId = undefined;
+    game.results = undefined;
+    game.completedAt = undefined;
+
+    return await this.repo.save(game);
+  }
+
+  async getTimerStatus(id: string) {
+    const game = await this.findOne(id);
+
+    if (!game.turnStartedAt) {
+      return {
+        gameId: game.id,
+        currentTurnTeamId: game.currentTurnTeamId,
+        currentTurnTeamName: null,
+        turnStartedAt: null,
+        turnTimeLimit: game.turnTimeLimit,
+        elapsedSeconds: 0,
+        remainingSeconds: game.turnTimeLimit,
+        isExpired: false,
+        percentageUsed: null,
+      };
+    }
+
+    const elapsedMs = Date.now() - game.turnStartedAt.getTime();
+    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+
+    let remainingSeconds: number | null = null;
+    let isExpired = false;
+    let percentageUsed: number | null = null;
+
+    if (game.turnTimeLimit) {
+      remainingSeconds = Math.max(0, game.turnTimeLimit - elapsedSeconds);
+      isExpired = remainingSeconds === 0;
+      percentageUsed = Math.min(
+        100,
+        (elapsedSeconds / game.turnTimeLimit) * 100,
+      );
+    }
+
+    // Get current team name
+    const teams = await this.teamService.findByGame(id);
+    const currentTeam = teams.find(
+      (team) => team.id === game.currentTurnTeamId,
+    );
+
+    return {
+      gameId: game.id,
+      currentTurnTeamId: game.currentTurnTeamId,
+      currentTurnTeamName: currentTeam?.name || null,
+      turnStartedAt: game.turnStartedAt,
+      turnTimeLimit: game.turnTimeLimit,
+      elapsedSeconds,
+      remainingSeconds,
+      isExpired,
+      percentageUsed,
+    };
   }
 }
