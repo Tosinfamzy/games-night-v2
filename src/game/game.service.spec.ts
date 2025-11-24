@@ -24,9 +24,30 @@ describe('GameService', () => {
   let sessionRepo: ReturnType<typeof createMockRepository>;
   let teamRepo: ReturnType<typeof createMockRepository>;
   let playerRepo: ReturnType<typeof createMockRepository>;
-  let teamService: any;
-  let scoreService: any;
-  let gameGateway: any;
+  let teamService: jest.Mocked<
+    Pick<TeamService, 'findByGame' | 'createTeamsForGame' | 'getTeamStats'>
+  >;
+  let scoreService: jest.Mocked<
+    Pick<ScoreService, 'getRankedGameScores' | 'determineWinner'>
+  >;
+  let gameGateway: jest.Mocked<
+    Pick<
+      GameGateway,
+      | 'broadcastGameCompleted'
+      | 'broadcastGameStarted'
+      | 'broadcastGamePaused'
+      | 'broadcastGameResumed'
+      | 'broadcastTurnStarted'
+      | 'broadcastTurnAdvanced'
+    >
+  >;
+  let gameTimerService: jest.Mocked<{
+    startTimer: jest.Mock;
+    pauseTimer: jest.Mock;
+    resumeTimer: jest.Mock;
+    stopTimer: jest.Mock;
+    getRemainingTime: jest.Mock;
+  }>;
 
   beforeEach(async () => {
     gameRepo = createMockRepository<Game>();
@@ -38,19 +59,49 @@ describe('GameService', () => {
       findByGame: jest.fn(),
       createTeamsForGame: jest.fn(),
       getTeamStats: jest.fn(),
-    };
+    } as jest.Mocked<
+      Pick<TeamService, 'findByGame' | 'createTeamsForGame' | 'getTeamStats'>
+    >;
 
     scoreService = {
       getRankedGameScores: jest.fn(),
       determineWinner: jest.fn(),
-    };
+    } as jest.Mocked<
+      Pick<ScoreService, 'getRankedGameScores' | 'determineWinner'>
+    >;
 
     gameGateway = {
       broadcastGameCompleted: jest.fn(),
       broadcastGameStarted: jest.fn(),
       broadcastGamePaused: jest.fn(),
       broadcastGameResumed: jest.fn(),
-    };
+      broadcastTurnStarted: jest.fn(),
+      broadcastTurnAdvanced: jest.fn(),
+    } as jest.Mocked<
+      Pick<
+        GameGateway,
+        | 'broadcastGameCompleted'
+        | 'broadcastGameStarted'
+        | 'broadcastGamePaused'
+        | 'broadcastGameResumed'
+        | 'broadcastTurnStarted'
+        | 'broadcastTurnAdvanced'
+      >
+    >;
+
+    gameTimerService = {
+      startTimer: jest.fn(),
+      pauseTimer: jest.fn(),
+      resumeTimer: jest.fn(),
+      stopTimer: jest.fn(),
+      getRemainingTime: jest.fn(),
+    } as jest.Mocked<{
+      startTimer: jest.Mock;
+      pauseTimer: jest.Mock;
+      resumeTimer: jest.Mock;
+      stopTimer: jest.Mock;
+      getRemainingTime: jest.Mock;
+    }>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -82,6 +133,10 @@ describe('GameService', () => {
         {
           provide: GameGateway,
           useValue: gameGateway,
+        },
+        {
+          provide: 'GameTimerService',
+          useValue: gameTimerService,
         },
       ],
     }).compile();
@@ -132,7 +187,10 @@ describe('GameService', () => {
   describe('State Transitions', () => {
     describe('startGame', () => {
       it('should start a game with valid teams', async () => {
-        const game = createMockGame({ id: 'game-1', status: GameStatus.PENDING });
+        const game = createMockGame({
+          id: 'game-1',
+          status: GameStatus.PENDING,
+        });
         const teams = [
           createMockTeam({ id: 'team-1' }),
           createMockTeam({ id: 'team-2' }),
@@ -574,7 +632,9 @@ describe('GameService', () => {
           currentTurnTeamId: 'team-3',
         });
 
-        const result = await service.nextTurn('game-1', { nextTeamId: 'team-3' });
+        const result = await service.nextTurn('game-1', {
+          nextTeamId: 'team-3',
+        });
 
         expect(result.currentTurnTeamId).toBe('team-3');
       });
