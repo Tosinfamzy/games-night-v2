@@ -21,7 +21,11 @@ import { GameStatus } from './enums/game-status.enum';
 @WebSocketGateway({
   namespace: 'games',
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: [
+      'http://localhost:5173',
+      /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
+      /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
+    ],
     credentials: true,
   },
 })

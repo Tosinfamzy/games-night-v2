@@ -21,8 +21,40 @@ export class GamesMasterService {
     private readonly repo: Repository<GamesMaster>,
   ) {}
 
+  /**
+   * Generate a unique 6-character host code
+   * Uses uppercase letters and numbers (excluding confusing characters like O, 0, I, 1)
+   */
+  private generateHostCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    return Array.from({ length: 6 }, () =>
+      chars.charAt(Math.floor(Math.random() * chars.length)),
+    ).join('');
+  }
+
+  /**
+   * Generate a unique host code (retry if collision)
+   */
+  private async generateUniqueHostCode(): Promise<string> {
+    let code = this.generateHostCode();
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (attempts < maxAttempts) {
+      const existing = await this.repo.findOne({ where: { hostCode: code } });
+      if (!existing) {
+        return code;
+      }
+      code = this.generateHostCode();
+      attempts++;
+    }
+
+    throw new Error('Failed to generate unique host code');
+  }
+
   async create(dto: CreateGamesMasterDto): Promise<GamesMaster> {
-    const gm = this.repo.create(dto);
+    const hostCode = await this.generateUniqueHostCode();
+    const gm = this.repo.create({ ...dto, hostCode });
     return await this.repo.save(gm);
   }
 
@@ -41,6 +73,27 @@ export class GamesMasterService {
 
     if (!gm) {
       throw new NotFoundException(`GamesMaster with ID ${id} not found`);
+    }
+
+    return gm;
+  }
+
+  async findByName(name: string): Promise<GamesMaster[]> {
+    return this.repo.find({
+      where: { name },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findByCode(hostCode: string): Promise<GamesMaster> {
+    const gm = await this.repo.findOne({
+      where: { hostCode },
+    });
+
+    if (!gm) {
+      throw new NotFoundException(
+        `GamesMaster with host code ${hostCode} not found`,
+      );
     }
 
     return gm;

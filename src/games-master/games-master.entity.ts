@@ -23,6 +23,13 @@ export class GamesMaster {
   name: string;
 
   @ApiProperty({
+    example: 'ABC123',
+    description: '6-character unique host code for GM identification',
+  })
+  @Column({ unique: true, length: 6, nullable: true })
+  hostCode: string;
+
+  @ApiProperty({
     example: '123e4567-e89b-12d3-a456-426614174000',
     description: 'Linked user ID (if authenticated)',
     required: false,

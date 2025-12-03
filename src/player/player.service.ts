@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,6 +15,7 @@ import { JoinSessionDto } from './dto/join-session.dto';
 import { UpdatePlayerStatusDto } from './dto/update-player-status.dto';
 import { Session } from '../session/session.entity';
 import { SessionStatus } from '../session/enums/session-status.enum';
+import { SessionGateway } from '../session/session.gateway';
 
 @Injectable()
 export class PlayerService {
@@ -21,6 +24,8 @@ export class PlayerService {
     private readonly repo: Repository<Player>,
     @InjectRepository(Session)
     private readonly sessionRepo: Repository<Session>,
+    @Inject(forwardRef(() => SessionGateway))
+    private readonly sessionGateway: SessionGateway,
   ) {}
 
   async create(dto: CreatePlayerDto): Promise<Player> {
@@ -71,7 +76,12 @@ export class PlayerService {
       lastConnectedAt: new Date(),
     });
 
-    return await this.repo.save(player);
+    const savedPlayer = await this.repo.save(player);
+
+    // Broadcast player joined event via WebSocket
+    this.sessionGateway.broadcastPlayerJoined(session.id, savedPlayer);
+
+    return savedPlayer;
   }
 
   async updatePlayerStatus(

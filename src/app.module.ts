@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { redisStore } from 'cache-manager-redis-store';
 import { GamesMasterModule } from './games-master/games-master.module';
 import { SessionModule } from './session/session.module';
@@ -77,6 +78,7 @@ import * as Joi from 'joi';
         limit: 10, // 10 requests per minute
       },
     ]),
+    EventEmitterModule.forRoot(),
     GamesMasterModule,
     SessionModule,
     PlayerModule,

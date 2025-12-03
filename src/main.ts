@@ -8,9 +8,13 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable WebSocket adapter for Socket.IO
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   // Enable validation pipe globally
   app.useGlobalPipes(
@@ -30,9 +34,23 @@ async function bootstrap() {
     defaultVersion: '1',
   });
 
-  // Enable CORS
+  // Enable CORS - allow localhost and local network IPs
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or Postman)
+      if (!origin) return callback(null, true);
+
+      // Allow localhost and local network IPs (192.168.x.x, 10.x.x.x)
+      const allowedPatterns = [
+        /^http:\/\/localhost(:\d+)?$/,
+        /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+        /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
+        /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
+      ];
+
+      const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
+      callback(null, isAllowed);
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,

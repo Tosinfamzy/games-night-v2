@@ -594,6 +594,18 @@ export class SessionService {
     const startCheck = await this.canStartSession(sessionId);
 
     return {
+      // Frontend-expected top-level fields
+      sessionId: session.id,
+      totalPlayers: session.players.length,
+      readyPlayers: activePlayers.filter((p) => p.status === PlayerStatus.READY).length,
+      allReady: activePlayers.length > 0 && activePlayers.every((p) => p.status === PlayerStatus.READY),
+      playersStatus: activePlayers.map((p) => ({
+        playerId: p.id,
+        playerName: p.name,
+        isReady: p.status === PlayerStatus.READY,
+        status: p.status,
+      })),
+      // Backward compatibility fields
       session: {
         id: session.id,
         name: session.name,

@@ -32,6 +32,15 @@ export class GameResponseDto {
   @ApiProperty({ example: 'library-uuid' })
   gameLibraryId: string | null;
 
+  @ApiProperty({ example: 2, description: 'Minimum number of players required' })
+  minPlayers: number;
+
+  @ApiProperty({ example: 10, description: 'Maximum number of players allowed' })
+  maxPlayers: number;
+
+  @ApiProperty({ example: 'A fun word-guessing game', nullable: true })
+  description: string | null;
+
   @ApiProperty({ example: ['team-uuid-1'] })
   teamIds: string[];
 
@@ -56,6 +65,9 @@ export class GameResponseDto {
     dto.turnTimeLimit = entity.turnTimeLimit ?? null;
     dto.sessionId = entity.session?.id ?? null;
     dto.gameLibraryId = entity.gameLibrary?.id ?? null;
+    dto.minPlayers = entity.gameLibrary?.minPlayers ?? 0;
+    dto.maxPlayers = entity.gameLibrary?.maxPlayers ?? 0;
+    dto.description = entity.gameLibrary?.description ?? null;
     dto.teamIds = entity.teams?.map((team) => team.id) ?? [];
     dto.scoreIds = entity.scores?.map((score) => score.id) ?? [];
     dto.createdAt = entity.createdAt;

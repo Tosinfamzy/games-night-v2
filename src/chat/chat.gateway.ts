@@ -19,7 +19,12 @@ import { PlayerService } from '../player/player.service';
 @WebSocketGateway({
   namespace: 'chat',
   cors: {
-    origin: '*',
+    origin: [
+      'http://localhost:5173',
+      /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
+      /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
+    ],
+    credentials: true,
   },
 })
 export class ChatGateway extends BaseGateway {

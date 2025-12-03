@@ -8,6 +8,9 @@ export class GamesMasterSummaryDto {
   @ApiProperty({ example: 'Demo Host' })
   name: string;
 
+  @ApiProperty({ example: 'ABC123', description: '6-character unique host code' })
+  hostCode: string;
+
   @ApiProperty({ example: 3 })
   sessionCount: number;
 
@@ -21,6 +24,7 @@ export class GamesMasterSummaryDto {
     const dto = new GamesMasterSummaryDto();
     dto.id = entity.id;
     dto.name = entity.name;
+    dto.hostCode = entity.hostCode;
     dto.sessionCount = entity.sessions?.length ?? 0;
     return dto;
   }
@@ -40,6 +44,7 @@ export class GamesMasterResponseDto extends GamesMasterSummaryDto {
     const dto = new GamesMasterResponseDto();
     dto.id = entity.id;
     dto.name = entity.name;
+    dto.hostCode = entity.hostCode;
     dto.sessionCount = entity.sessions?.length ?? 0;
     dto.createdAt = entity.createdAt;
     dto.updatedAt = entity.updatedAt;

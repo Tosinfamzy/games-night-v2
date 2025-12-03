@@ -22,6 +22,7 @@ import { GameStatus } from './enums/game-status.enum';
 import { CreateTeamsDto } from '../team/dto/team-formation.dto';
 import { GameResultsDto } from '../common/dto/game-results.dto';
 import { GameGateway } from './game.gateway';
+import { GameTimerService } from './game-timer.service';
 
 @Injectable()
 export class GameService {
@@ -38,8 +39,8 @@ export class GameService {
     private readonly scoreService: ScoreService,
     @Inject(forwardRef(() => GameGateway))
     private readonly gameGateway: GameGateway,
-    @Inject(forwardRef(() => 'GameTimerService'))
-    private readonly gameTimerService: any,
+    @Inject(forwardRef(() => GameTimerService))
+    private readonly gameTimerService: GameTimerService,
   ) {}
 
   async create(dto: CreateGameDto): Promise<Game> {

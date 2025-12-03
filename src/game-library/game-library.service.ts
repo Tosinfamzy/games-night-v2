@@ -18,30 +18,48 @@ export class GameLibraryService implements OnModuleInit {
   }
 
   private async seedInitialGames() {
-    // Check if we already have games in the library
-    const existingGames = await this.gameLibraryRepo.count();
-    if (existingGames > 0) {
-      return; // Already seeded
+    // Define initial games to seed
+    const gamesToSeed: CreateGameLibraryDto[] = [
+      {
+        name: 'Articulate',
+        description:
+          'A fun word-guessing game where teams compete to describe words without saying them directly. Players must get their teammates to guess words by describing them without using rhymes, sounds-like clues, or direct translations.',
+        minPlayers: 4,
+        maxPlayers: 12,
+        estimatedDuration: 30,
+        difficulty: 'Easy',
+        categories: ['Word Game', 'Team Game', 'Party Game'],
+        equipment: 'Articulate cards, Timer, Score pad',
+        rules:
+          'Teams take turns describing words while teammates guess. No rhyming, sounds-like, or direct translations allowed. Teams move around the board based on correct guesses.',
+        isActive: true,
+      },
+      {
+        name: 'Cards Against Humanity',
+        description:
+          'A party game for horrible people. Each round, one player asks a question from a black card, and everyone else answers with their funniest white card. The judge picks their favorite answer, and that player wins the round.',
+        minPlayers: 2,
+        maxPlayers: 10,
+        estimatedDuration: 45,
+        difficulty: 'Easy',
+        categories: ['Party Game', 'Card Game', 'Adult Humor'],
+        equipment: 'Cards Against Humanity deck (black cards and white cards)',
+        rules:
+          'One player is the Card Czar each round. The Czar reads a black card question. All other players submit their funniest white card as an answer. The Czar picks their favorite, and that player gets a point. First to 5-7 points wins.',
+        isActive: true,
+      },
+    ];
+
+    // Check and seed each game individually (idempotent seeding)
+    for (const gameDto of gamesToSeed) {
+      const existingGame = await this.findByName(gameDto.name);
+      if (!existingGame) {
+        await this.create(gameDto);
+        console.log(`✅ Game library seeded with ${gameDto.name}`);
+      } else {
+        console.log(`ℹ️  ${gameDto.name} already exists in game library`);
+      }
     }
-
-    // Create Articulate as the first game
-    const articulate: CreateGameLibraryDto = {
-      name: 'Articulate',
-      description:
-        'A fun word-guessing game where teams compete to describe words without saying them directly. Players must get their teammates to guess words by describing them without using rhymes, sounds-like clues, or direct translations.',
-      minPlayers: 4,
-      maxPlayers: 12,
-      estimatedDuration: 30,
-      difficulty: 'Easy',
-      categories: ['Word Game', 'Team Game', 'Party Game'],
-      equipment: 'Articulate cards, Timer, Score pad',
-      rules:
-        'Teams take turns describing words while teammates guess. No rhyming, sounds-like, or direct translations allowed. Teams move around the board based on correct guesses.',
-      isActive: true,
-    };
-
-    await this.create(articulate);
-    console.log('✅ Game library seeded with Articulate');
   }
 
   async create(dto: CreateGameLibraryDto): Promise<GameLibrary> {
