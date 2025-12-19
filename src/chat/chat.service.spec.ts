@@ -112,9 +112,7 @@ describe('ChatService', () => {
 
       sessionRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.saveMessage(dto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.saveMessage(dto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException if player not found', async () => {
@@ -128,9 +126,7 @@ describe('ChatService', () => {
       sessionRepo.findOne.mockResolvedValue(session);
       playerRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.saveMessage(dto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.saveMessage(dto)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ForbiddenException if player not in session', async () => {

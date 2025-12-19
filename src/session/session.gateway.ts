@@ -6,12 +6,13 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import { BaseGateway } from '../common/gateways/base.gateway';
 import { Player } from '../player/player.entity';
 import { Team } from '../team/team.entity';
 import { Session } from './session.entity';
 import { PlayerService } from '../player/player.service';
+import { WsPlayerAuthGuard } from '../auth/guards/ws-player-auth.guard';
 
 interface SessionReadiness {
   canStart: boolean;
@@ -21,6 +22,7 @@ interface SessionReadiness {
 /**
  * WebSocket Gateway for real-time session updates
  * Handles player joins, readiness updates, team formation, etc.
+ * Protected by WsPlayerAuthGuard - all connections require valid player token
  */
 @WebSocketGateway({
   namespace: 'sessions',
@@ -33,6 +35,7 @@ interface SessionReadiness {
     credentials: true,
   },
 })
+@UseGuards(WsPlayerAuthGuard)
 export class SessionGateway extends BaseGateway {
   @WebSocketServer()
   declare server: Server;
@@ -45,18 +48,24 @@ export class SessionGateway extends BaseGateway {
 
   /**
    * Handle client connection and update player online status
+   * Player is already authenticated by WsPlayerAuthGuard
    */
   async handleConnection(client: Socket): Promise<void> {
     super.handleConnection(client);
 
     try {
-      // Extract playerId from handshake query or auth
-      const playerId = client.handshake.query.playerId as string;
+      // Extract authenticated player data from socket (set by WsPlayerAuthGuard)
+      const playerData = client.data.player;
 
-      if (!playerId) {
-        this.logger.warn(`Connection without playerId: ${client.id}`);
+      if (!playerData) {
+        this.logger.error(
+          `Connection without authenticated player data: ${client.id}`,
+        );
+        client.disconnect();
         return;
       }
+
+      const { playerId, sessionId, playerName } = playerData;
 
       // Mark player as online
       const player = await this.playerService.setPlayerOnline(
@@ -65,19 +74,18 @@ export class SessionGateway extends BaseGateway {
       );
 
       this.logger.log(
-        `Player ${player.name} connected to session ${player.session.id}`,
+        `Player ${playerName} (${playerId}) connected to session ${sessionId}`,
       );
 
       // Broadcast player online status to session room
-      this.broadcastPlayerOnline(player.session.id, player.id, player.name);
+      this.broadcastPlayerOnline(sessionId, playerId, playerName);
 
       // Auto-join the player to their session room
-      const room = `session:${player.session.id}`;
+      const room = `session:${sessionId}`;
       this.joinRoom(client, room);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle player connection: ${error.message}`,
-      );
+      this.logger.error(`Failed to handle player connection: ${error.message}`);
+      client.disconnect();
     }
   }
 
@@ -115,16 +123,42 @@ export class SessionGateway extends BaseGateway {
 
   /**
    * Client joins a session room to receive updates
+   * Validates that player belongs to the session
    */
   @SubscribeMessage('join-session')
   handleJoinSession(
     @MessageBody() sessionId: string,
     @ConnectedSocket() client: Socket,
-  ): { status: string; sessionId: string } {
+  ): { status: string; sessionId: string; error?: string } {
+    // Validate player belongs to this session
+    const playerData = client.data.player;
+
+    if (!playerData) {
+      this.logger.warn(`Unauthenticated join-session attempt: ${client.id}`);
+      return {
+        status: 'error',
+        sessionId,
+        error: 'Unauthorized',
+      };
+    }
+
+    if (playerData.sessionId !== sessionId) {
+      this.logger.warn(
+        `Player ${playerData.playerId} attempted to join session ${sessionId} but belongs to ${playerData.sessionId}`,
+      );
+      return {
+        status: 'error',
+        sessionId,
+        error: 'Cannot join session you do not belong to',
+      };
+    }
+
     const room = `session:${sessionId}`;
     this.joinRoom(client, room);
 
-    this.logger.log(`Client ${client.id} joined session: ${sessionId}`);
+    this.logger.log(
+      `Player ${playerData.playerName} joined session room: ${sessionId}`,
+    );
 
     return {
       status: 'joined',

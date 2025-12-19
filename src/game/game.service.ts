@@ -23,6 +23,7 @@ import { CreateTeamsDto } from '../team/dto/team-formation.dto';
 import { GameResultsDto } from '../common/dto/game-results.dto';
 import { GameGateway } from './game.gateway';
 import { GameTimerService } from './game-timer.service';
+import { HistoryService } from '../history/history.service';
 
 @Injectable()
 export class GameService {
@@ -41,6 +42,8 @@ export class GameService {
     private readonly gameGateway: GameGateway,
     @Inject(forwardRef(() => GameTimerService))
     private readonly gameTimerService: GameTimerService,
+    @Inject(forwardRef(() => HistoryService))
+    private readonly historyService: HistoryService,
   ) {}
 
   async create(dto: CreateGameDto): Promise<Game> {
@@ -110,7 +113,12 @@ export class GameService {
     game.status = GameStatus.IN_PROGRESS;
     game.currentRound = 1;
 
-    return await this.repo.save(game);
+    const savedGame = await this.repo.save(game);
+
+    // Broadcast game started event
+    this.gameGateway.broadcastGameStarted(savedGame.id, savedGame);
+
+    return savedGame;
   }
 
   async startFirstRound(id: string): Promise<Game> {
@@ -129,7 +137,12 @@ export class GameService {
     }
 
     game.status = GameStatus.ROUND_IN_PROGRESS;
-    return await this.repo.save(game);
+    const savedGame = await this.repo.save(game);
+
+    // Broadcast round started event
+    this.gameGateway.broadcastRoundStarted(savedGame.id, 1);
+
+    return savedGame;
   }
 
   async startNextRound(id: string): Promise<Game> {
@@ -148,7 +161,15 @@ export class GameService {
     game.currentRound += 1;
     game.status = GameStatus.ROUND_IN_PROGRESS;
 
-    return await this.repo.save(game);
+    const savedGame = await this.repo.save(game);
+
+    // Broadcast round started event
+    this.gameGateway.broadcastRoundStarted(
+      savedGame.id,
+      savedGame.currentRound,
+    );
+
+    return savedGame;
   }
 
   async endCurrentRound(id: string): Promise<Game> {
@@ -164,7 +185,12 @@ export class GameService {
       game.status = GameStatus.COMPLETED;
     }
 
-    return await this.repo.save(game);
+    const savedGame = await this.repo.save(game);
+
+    // Broadcast round ended event
+    this.gameGateway.broadcastRoundEnded(savedGame.id, savedGame.currentRound);
+
+    return savedGame;
   }
 
   async cancelGame(id: string): Promise<Game> {
@@ -399,7 +425,12 @@ export class GameService {
     }
 
     game.status = GameStatus.PAUSED;
-    return await this.repo.save(game);
+    const savedGame = await this.repo.save(game);
+
+    // Broadcast game paused event
+    this.gameGateway.broadcastGamePaused(savedGame.id);
+
+    return savedGame;
   }
 
   /**
@@ -417,7 +448,12 @@ export class GameService {
         ? GameStatus.IN_PROGRESS
         : GameStatus.ROUND_IN_PROGRESS;
     game.turnStartedAt = new Date(); // Reset turn timer
-    return await this.repo.save(game);
+    const savedGame = await this.repo.save(game);
+
+    // Broadcast game resumed event
+    this.gameGateway.broadcastGameResumed(savedGame.id);
+
+    return savedGame;
   }
 
   /**
@@ -520,6 +556,14 @@ export class GameService {
 
     // Broadcast game completion via WebSocket
     this.gameGateway.broadcastGameCompleted(id, savedGame);
+
+    // Create game result record for history
+    try {
+      await this.historyService.createGameResult(id);
+    } catch (error) {
+      console.error('Failed to create game result:', error);
+      // Don't fail the entire game completion if history creation fails
+    }
 
     return savedGame;
   }

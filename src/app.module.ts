@@ -17,6 +17,7 @@ import { GameLibraryModule } from './game-library/game-library.module';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
+import { HistoryModule } from './history/history.module';
 import * as Joi from 'joi';
 
 @Module({
@@ -89,6 +90,7 @@ import * as Joi from 'joi';
     UserModule,
     AuthModule,
     ChatModule,
+    HistoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

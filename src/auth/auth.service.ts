@@ -116,6 +116,60 @@ export class AuthService {
     return this.userService.findById(userId);
   }
 
+  /**
+   * Generate player-specific JWT token for session participation
+   * Used for both guest and authenticated players
+   * Token lasts 24 hours (duration of a typical game night)
+   */
+  generatePlayerToken(
+    playerId: string,
+    sessionId: string,
+    playerName: string,
+  ): string {
+    const payload = {
+      type: 'player',
+      playerId,
+      sessionId,
+      playerName,
+    };
+
+    // 24 hours expiration for game night duration
+    return this.jwtService.sign(payload, {
+      expiresIn: 86400, // 24 hours in seconds
+    });
+  }
+
+  /**
+   * Validate and decode a player token
+   * Returns null if token is invalid or expired
+   */
+  validatePlayerToken(
+    token: string,
+  ): { playerId: string; sessionId: string; playerName: string } | null {
+    try {
+      const payload = this.jwtService.verify<{
+        type: string;
+        playerId: string;
+        sessionId: string;
+        playerName: string;
+      }>(token, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
+
+      if (payload.type !== 'player') {
+        return null;
+      }
+
+      return {
+        playerId: payload.playerId,
+        sessionId: payload.sessionId,
+        playerName: payload.playerName,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   private generateTokens(user: User) {
     const payload = {
       sub: user.id,

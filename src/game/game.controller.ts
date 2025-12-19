@@ -471,7 +471,8 @@ export class GameController {
   @ApiParam({ name: 'id', description: 'Game ID' })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Current timer status including elapsed time and remaining time.',
+    description:
+      'Current timer status including elapsed time and remaining time.',
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,

@@ -32,10 +32,16 @@ export class GameResponseDto {
   @ApiProperty({ example: 'library-uuid' })
   gameLibraryId: string | null;
 
-  @ApiProperty({ example: 2, description: 'Minimum number of players required' })
+  @ApiProperty({
+    example: 2,
+    description: 'Minimum number of players required',
+  })
   minPlayers: number;
 
-  @ApiProperty({ example: 10, description: 'Maximum number of players allowed' })
+  @ApiProperty({
+    example: 10,
+    description: 'Maximum number of players allowed',
+  })
   maxPlayers: number;
 
   @ApiProperty({ example: 'A fun word-guessing game', nullable: true })

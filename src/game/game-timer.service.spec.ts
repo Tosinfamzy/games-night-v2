@@ -77,7 +77,13 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime);
 
-      service.startTimer(gameId, teamId, teamName, turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        teamId,
+        teamName,
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       expect(service.getActiveTimerCount()).toBe(1);
     });
@@ -89,10 +95,22 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime);
 
-      service.startTimer(gameId, teamId1, 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        teamId1,
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
       expect(service.getActiveTimerCount()).toBe(1);
 
-      service.startTimer(gameId, teamId2, 'Team 2', turnTimeLimit, new Date(currentTime));
+      service.startTimer(
+        gameId,
+        teamId2,
+        'Team 2',
+        turnTimeLimit,
+        new Date(currentTime),
+      );
       expect(service.getActiveTimerCount()).toBe(1);
     });
 
@@ -100,8 +118,20 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime);
 
-      service.startTimer('game-1', 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
-      service.startTimer('game-2', 'team-2', 'Team 2', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        'game-1',
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
+      service.startTimer(
+        'game-2',
+        'team-2',
+        'Team 2',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       expect(service.getActiveTimerCount()).toBe(2);
     });
@@ -113,7 +143,13 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime);
 
-      service.startTimer(gameId, 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
       expect(service.getActiveTimerCount()).toBe(1);
 
       service.stopTimer(gameId);
@@ -131,7 +167,13 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime);
 
-      service.startTimer(gameId, 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       // Advance 5 seconds
       currentTime += 5000;
@@ -149,7 +191,13 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime); // Start now
 
-      service.startTimer(gameId, 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       // Advance to 30 seconds (30 seconds remaining)
       currentTime += 30000;
@@ -167,7 +215,13 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime); // Start now
 
-      service.startTimer(gameId, 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       // Advance to 50 seconds (10 seconds remaining)
       currentTime += 50000;
@@ -185,7 +239,13 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime); // Start now
 
-      service.startTimer(gameId, 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       // Advance to 55 seconds (5 seconds remaining)
       currentTime += 55000;
@@ -203,7 +263,13 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime); // Start now
 
-      service.startTimer(gameId, 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       // Advance to 30s warning
       currentTime += 30000;
@@ -249,7 +315,13 @@ describe('GameTimerService', () => {
 
       gameService.nextTurn.mockResolvedValue(game);
 
-      service.startTimer(gameId, teamId, teamName, turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        teamId,
+        teamName,
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       // Advance to expiration (5 seconds + 1 to trigger)
       currentTime += 6000;
@@ -282,7 +354,13 @@ describe('GameTimerService', () => {
 
       gameService.nextTurn.mockResolvedValue(game);
 
-      service.startTimer(gameId, teamId, 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        teamId,
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       // Advance to expiration
       currentTime += 6000;
@@ -312,7 +390,13 @@ describe('GameTimerService', () => {
       gameService.nextTurn.mockResolvedValue(game);
       gameService['teamService'].findByGame.mockResolvedValue([nextTeam]);
 
-      service.startTimer(gameId, teamId, 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        teamId,
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       // Verify timer is active
       expect(service.getActiveTimerCount()).toBe(1);
@@ -337,7 +421,13 @@ describe('GameTimerService', () => {
 
       gameService.nextTurn.mockRejectedValue(new Error('Auto-advance failed'));
 
-      service.startTimer(gameId, teamId, 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        teamId,
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       // Advance to expiration
       currentTime += 6000;
@@ -356,9 +446,27 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime);
 
-      service.startTimer('game-1', 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
-      service.startTimer('game-2', 'team-2', 'Team 2', turnTimeLimit, turnStartedAt);
-      service.startTimer('game-3', 'team-3', 'Team 3', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        'game-1',
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
+      service.startTimer(
+        'game-2',
+        'team-2',
+        'Team 2',
+        turnTimeLimit,
+        turnStartedAt,
+      );
+      service.startTimer(
+        'game-3',
+        'team-3',
+        'Team 3',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       expect(service.getActiveTimerCount()).toBe(3);
 
@@ -377,10 +485,22 @@ describe('GameTimerService', () => {
       const turnTimeLimit = 60;
       const turnStartedAt = new Date(currentTime);
 
-      service.startTimer('game-1', 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        'game-1',
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
       expect(service.getActiveTimerCount()).toBe(1);
 
-      service.startTimer('game-2', 'team-2', 'Team 2', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        'game-2',
+        'team-2',
+        'Team 2',
+        turnTimeLimit,
+        turnStartedAt,
+      );
       expect(service.getActiveTimerCount()).toBe(2);
 
       service.stopTimer('game-1');
@@ -402,7 +522,13 @@ describe('GameTimerService', () => {
 
       gameService.nextTurn.mockResolvedValue(game);
 
-      service.startTimer(gameId, 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       currentTime += 2000;
       jest.advanceTimersByTime(2000);
@@ -423,7 +549,13 @@ describe('GameTimerService', () => {
 
       gameService.nextTurn.mockResolvedValue(game);
 
-      service.startTimer(gameId, 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
+      service.startTimer(
+        gameId,
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
 
       currentTime += 1000;
       jest.advanceTimersByTime(1000);
@@ -438,9 +570,27 @@ describe('GameTimerService', () => {
       const turnStartedAt = new Date(currentTime);
 
       // Rapidly start timers for the same game
-      service.startTimer(gameId, 'team-1', 'Team 1', turnTimeLimit, turnStartedAt);
-      service.startTimer(gameId, 'team-2', 'Team 2', turnTimeLimit, new Date(currentTime));
-      service.startTimer(gameId, 'team-3', 'Team 3', turnTimeLimit, new Date(currentTime));
+      service.startTimer(
+        gameId,
+        'team-1',
+        'Team 1',
+        turnTimeLimit,
+        turnStartedAt,
+      );
+      service.startTimer(
+        gameId,
+        'team-2',
+        'Team 2',
+        turnTimeLimit,
+        new Date(currentTime),
+      );
+      service.startTimer(
+        gameId,
+        'team-3',
+        'Team 3',
+        turnTimeLimit,
+        new Date(currentTime),
+      );
 
       // Should only have 1 timer (last one)
       expect(service.getActiveTimerCount()).toBe(1);

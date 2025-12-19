@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { WsPlayerAuthGuard } from './guards/ws-player-auth.guard';
 import { UserModule } from '../user/user.module';
 import { GamesMasterModule } from '../games-master/games-master.module';
 
@@ -28,7 +29,7 @@ import { GamesMasterModule } from '../games-master/games-master.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService, JwtStrategy, PassportModule],
+  providers: [AuthService, JwtStrategy, WsPlayerAuthGuard],
+  exports: [AuthService, JwtStrategy, PassportModule, WsPlayerAuthGuard],
 })
 export class AuthModule {}

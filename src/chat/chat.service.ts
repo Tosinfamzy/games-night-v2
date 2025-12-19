@@ -35,9 +35,7 @@ export class ChatService {
     });
 
     if (!session) {
-      throw new NotFoundException(
-        `Session with ID ${dto.sessionId} not found`,
-      );
+      throw new NotFoundException(`Session with ID ${dto.sessionId} not found`);
     }
 
     // Validate player exists and belongs to session
@@ -51,9 +49,7 @@ export class ChatService {
     }
 
     if (player.session.id !== dto.sessionId) {
-      throw new ForbiddenException(
-        'Player does not belong to this session',
-      );
+      throw new ForbiddenException('Player does not belong to this session');
     }
 
     // Sanitize content (basic XSS prevention)

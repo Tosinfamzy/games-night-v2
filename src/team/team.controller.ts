@@ -7,6 +7,8 @@ import {
   Put,
   Delete,
   ParseUUIDPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -14,6 +16,7 @@ import {
   ApiResponse,
   ApiParam,
   ApiNotFoundResponse,
+  ApiBadRequestResponse,
 } from '@nestjs/swagger';
 import { TeamService } from './team.service';
 import { CreateTeamDto } from './dto/create-team.dto';
@@ -23,6 +26,7 @@ import {
   AssignPlayersDto,
   TeamFormationStrategy,
 } from './dto/team-formation.dto';
+import { SwapPlayerDto, ReassignPlayerDto } from './dto/team-management.dto';
 import { TeamResponseDto } from '../common/dto/team.response';
 
 @ApiTags('teams')
@@ -100,6 +104,24 @@ export class TeamController {
         this.service.findOne(team.id, ['session', 'game', 'players', 'scores']),
       )
       .then((team) => TeamResponseDto.fromEntity(team));
+  }
+
+  @Delete(':id/dissolve')
+  @ApiOperation({
+    summary: 'Dissolve a team and return its players to the unassigned pool',
+  })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Team dissolved successfully',
+  })
+  @ApiNotFoundResponse({ description: 'Team not found' })
+  @HttpCode(HttpStatus.OK)
+  async dissolveTeam(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ message: string }> {
+    await this.service.dissolveTeam(id);
+    return { message: 'Team dissolved successfully' };
   }
 
   @Delete(':id')
@@ -224,5 +246,50 @@ export class TeamController {
     return this.service
       .rebalanceTeams(gameId, strategy)
       .then((teams) => teams.map((team) => TeamResponseDto.fromEntity(team)));
+  }
+
+  @Post('swap-player')
+  @ApiOperation({ summary: 'Swap a player from one team to another' })
+  @ApiResponse({
+    status: 200,
+    description: 'Player swapped successfully',
+    type: TeamResponseDto,
+    isArray: true,
+  })
+  @ApiNotFoundResponse({ description: 'Team or player not found' })
+  @ApiBadRequestResponse({
+    description: 'Player not in source team or teams from different games',
+  })
+  @HttpCode(HttpStatus.OK)
+  async swapPlayer(@Body() dto: SwapPlayerDto): Promise<TeamResponseDto[]> {
+    const result = await this.service.swapPlayerToTeam(
+      dto.playerId,
+      dto.fromTeamId,
+      dto.toTeamId,
+    );
+
+    return [
+      TeamResponseDto.fromEntity(result.fromTeam),
+      TeamResponseDto.fromEntity(result.toTeam),
+    ];
+  }
+
+  @Post('reassign-player')
+  @ApiOperation({
+    summary:
+      'Reassign a player to a different team (removes from current team if any)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Player reassigned successfully',
+    type: TeamResponseDto,
+  })
+  @ApiNotFoundResponse({ description: 'Team or player not found' })
+  @HttpCode(HttpStatus.OK)
+  async reassignPlayer(
+    @Body() dto: ReassignPlayerDto,
+  ): Promise<TeamResponseDto> {
+    const team = await this.service.reassignPlayer(dto.playerId, dto.newTeamId);
+    return TeamResponseDto.fromEntity(team);
   }
 }

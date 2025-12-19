@@ -6,15 +6,17 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import { BaseGateway } from '../common/gateways/base.gateway';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessageHistoryQueryDto } from './dto/message-history-query.dto';
 import { PlayerService } from '../player/player.service';
+import { WsPlayerAuthGuard } from '../auth/guards/ws-player-auth.guard';
 
 /**
  * WebSocket Gateway for real-time chat functionality
+ * Protected by WsPlayerAuthGuard - all connections require valid player token
  */
 @WebSocketGateway({
   namespace: 'chat',
@@ -27,6 +29,7 @@ import { PlayerService } from '../player/player.service';
     credentials: true,
   },
 })
+@UseGuards(WsPlayerAuthGuard)
 export class ChatGateway extends BaseGateway {
   @WebSocketServer()
   declare server: Server;
@@ -42,35 +45,35 @@ export class ChatGateway extends BaseGateway {
 
   /**
    * Handle client connection
+   * Player is already authenticated by WsPlayerAuthGuard
    */
   async handleConnection(client: Socket): Promise<void> {
     super.handleConnection(client);
 
     try {
-      // Extract playerId from handshake query
-      const playerId = client.handshake.query.playerId as string;
+      // Extract authenticated player data from socket (set by WsPlayerAuthGuard)
+      const playerData = client.data.player;
 
-      if (!playerId) {
-        this.logger.warn(
-          `Chat connection without playerId: ${client.id}`,
+      if (!playerData) {
+        this.logger.error(
+          `Chat connection without authenticated player data: ${client.id}`,
         );
+        client.disconnect();
         return;
       }
 
-      // Get player details to find their session
-      const player = await this.playerService.findOne(playerId, ['session']);
+      const { playerId, sessionId, playerName } = playerData;
 
       this.logger.log(
-        `Player ${player.name} connected to chat for session ${player.session.id}`,
+        `Player ${playerName} (${playerId}) connected to chat for session ${sessionId}`,
       );
 
       // Auto-join the player to their session's chat room
-      const room = `chat:session:${player.session.id}`;
+      const room = `chat:session:${sessionId}`;
       this.joinRoom(client, room);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle chat connection: ${error.message}`,
-      );
+      this.logger.error(`Failed to handle chat connection: ${error.message}`);
+      client.disconnect();
     }
   }
 
@@ -140,17 +143,41 @@ export class ChatGateway extends BaseGateway {
 
   /**
    * Handle join-chat event (explicit join for a session)
+   * Validates that player belongs to the session
    */
   @SubscribeMessage('join-chat')
   handleJoinChat(
-    @MessageBody() data: { sessionId: string; playerId: string },
+    @MessageBody() data: { sessionId: string },
     @ConnectedSocket() client: Socket,
-  ): { status: string; sessionId: string } {
+  ): { status: string; sessionId: string; error?: string } {
+    // Validate player belongs to this session
+    const playerData = client.data.player;
+
+    if (!playerData) {
+      this.logger.warn(`Unauthenticated join-chat attempt: ${client.id}`);
+      return {
+        status: 'error',
+        sessionId: data.sessionId,
+        error: 'Unauthorized',
+      };
+    }
+
+    if (playerData.sessionId !== data.sessionId) {
+      this.logger.warn(
+        `Player ${playerData.playerId} attempted to join chat for session ${data.sessionId} but belongs to ${playerData.sessionId}`,
+      );
+      return {
+        status: 'error',
+        sessionId: data.sessionId,
+        error: 'Cannot join chat for session you do not belong to',
+      };
+    }
+
     const room = `chat:session:${data.sessionId}`;
     this.joinRoom(client, room);
 
     this.logger.log(
-      `Player ${data.playerId} explicitly joined chat room for session ${data.sessionId}`,
+      `Player ${playerData.playerName} explicitly joined chat room for session ${data.sessionId}`,
     );
 
     return {
@@ -164,14 +191,15 @@ export class ChatGateway extends BaseGateway {
    */
   @SubscribeMessage('leave-chat')
   handleLeaveChat(
-    @MessageBody() data: { sessionId: string; playerId: string },
+    @MessageBody() data: { sessionId: string },
     @ConnectedSocket() client: Socket,
   ): { status: string; sessionId: string } {
+    const playerData = client.data.player;
     const room = `chat:session:${data.sessionId}`;
     this.leaveRoom(client, room);
 
     this.logger.log(
-      `Player ${data.playerId} left chat room for session ${data.sessionId}`,
+      `Player ${playerData?.playerName || 'unknown'} left chat room for session ${data.sessionId}`,
     );
 
     return {

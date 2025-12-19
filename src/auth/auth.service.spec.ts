@@ -11,7 +11,10 @@ import { UserService } from '../user/user.service';
 import { GamesMasterService } from '../games-master/games-master.service';
 import { UserRole } from '../user/user.entity';
 import * as bcrypt from 'bcrypt';
-import { createMockUser, createMockGamesMaster } from '../../test/utils/test-helpers';
+import {
+  createMockUser,
+  createMockGamesMaster,
+} from '../../test/utils/test-helpers';
 
 // Mock bcrypt
 jest.mock('bcrypt');
@@ -146,9 +149,7 @@ describe('AuthService', () => {
       });
       gamesMasterService.create.mockResolvedValue(mockGamesMaster);
       userService.update.mockResolvedValue(mockUser);
-      configService.get
-        .mockReturnValueOnce('15m')
-        .mockReturnValueOnce('7d');
+      configService.get.mockReturnValueOnce('15m').mockReturnValueOnce('7d');
       jwtService.sign
         .mockReturnValueOnce('access-token')
         .mockReturnValueOnce('refresh-token');
@@ -242,9 +243,7 @@ describe('AuthService', () => {
       userService.findByEmail.mockResolvedValue(null);
       (bcrypt.hash as jest.Mock).mockResolvedValue('hashed');
       userService.create.mockResolvedValue(mockUser);
-      configService.get
-        .mockReturnValueOnce('15m')
-        .mockReturnValueOnce('7d');
+      configService.get.mockReturnValueOnce('15m').mockReturnValueOnce('7d');
       jwtService.sign.mockImplementation((payload) => JSON.stringify(payload));
 
       await service.signup(signupDto);

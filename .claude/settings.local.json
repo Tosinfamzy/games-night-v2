@@ -4,7 +4,11 @@
       "Read(//Users/oluwatosinfamurewa/Projects/games-nightv2-ui/**)",
       "Bash(npm run build:*)",
       "Bash(npm test:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(curl:*)",
+      "Bash(npm run check:*)",
+      "Bash(ls:*)",
+      "Bash(npm run lint:*)"
     ],
     "deny": [],
     "ask": []

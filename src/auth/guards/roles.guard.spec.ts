@@ -74,7 +74,9 @@ describe('RolesGuard', () => {
         .mockReturnValue([UserRole.GAMES_MASTER]);
 
       expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
-      expect(() => guard.canActivate(context)).toThrow('User not authenticated');
+      expect(() => guard.canActivate(context)).toThrow(
+        'User not authenticated',
+      );
     });
 
     it('should throw ForbiddenException when user lacks required role', () => {
@@ -89,7 +91,9 @@ describe('RolesGuard', () => {
         .mockReturnValue([UserRole.GAMES_MASTER]);
 
       expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
-      expect(() => guard.canActivate(context)).toThrow('Insufficient permissions');
+      expect(() => guard.canActivate(context)).toThrow(
+        'Insufficient permissions',
+      );
     });
   });
 });

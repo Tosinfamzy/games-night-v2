@@ -8,7 +8,10 @@ export class GamesMasterSummaryDto {
   @ApiProperty({ example: 'Demo Host' })
   name: string;
 
-  @ApiProperty({ example: 'ABC123', description: '6-character unique host code' })
+  @ApiProperty({
+    example: 'ABC123',
+    description: '6-character unique host code',
+  })
   hostCode: string;
 
   @ApiProperty({ example: 3 })

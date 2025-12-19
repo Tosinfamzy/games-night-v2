@@ -88,8 +88,9 @@ export class PlayerService {
     id: string,
     dto: UpdatePlayerStatusDto,
   ): Promise<Player> {
-    const player = await this.findOne(id);
+    const player = await this.findOne(id, ['session']);
 
+    const previousStatus = player.status;
     player.status = dto.status;
     if (dto.lastConnectedAt) {
       player.lastConnectedAt = dto.lastConnectedAt;
@@ -97,7 +98,22 @@ export class PlayerService {
       player.lastConnectedAt = new Date();
     }
 
-    return await this.repo.save(player);
+    const savedPlayer = await this.repo.save(player);
+
+    // Broadcast player readiness change if status changed to/from READY
+    if (
+      (dto.status === PlayerStatus.READY ||
+        previousStatus === PlayerStatus.READY) &&
+      player.session
+    ) {
+      this.sessionGateway.broadcastPlayerReadiness(
+        player.session.id,
+        savedPlayer.id,
+        dto.status === PlayerStatus.READY,
+      );
+    }
+
+    return savedPlayer;
   }
 
   async setPlayerReady(id: string): Promise<Player> {
@@ -122,7 +138,12 @@ export class PlayerService {
       );
     }
 
+    const sessionId = player.session.id;
+
     await this.repo.remove(player);
+
+    // Broadcast player left event
+    this.sessionGateway.broadcastPlayerLeft(sessionId, id);
   }
 
   private async validatePlayerNameInSession(
@@ -260,10 +281,7 @@ export class PlayerService {
   /**
    * Mark player as online with current socket ID
    */
-  async setPlayerOnline(
-    playerId: string,
-    socketId: string,
-  ): Promise<Player> {
+  async setPlayerOnline(playerId: string, socketId: string): Promise<Player> {
     const player = await this.findOne(playerId);
 
     player.isOnline = true;

@@ -80,7 +80,9 @@ describe('JwtStrategy', () => {
       await expect(strategy.validate(payload)).rejects.toThrow(
         UnauthorizedException,
       );
-      await expect(strategy.validate(payload)).rejects.toThrow('User not found');
+      await expect(strategy.validate(payload)).rejects.toThrow(
+        'User not found',
+      );
       expect(userService.findById).toHaveBeenCalledWith('non-existent-user');
     });
 

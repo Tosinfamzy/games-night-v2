@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -16,6 +18,7 @@ import {
 import { Game } from '../game/game.entity';
 import { Session } from '../session/session.entity';
 import { Player, PlayerStatus } from '../player/player.entity';
+import { SessionGateway } from '../session/session.gateway';
 
 @Injectable()
 export class TeamService {
@@ -28,10 +31,15 @@ export class TeamService {
     private readonly sessionRepo: Repository<Session>,
     @InjectRepository(Player)
     private readonly playerRepo: Repository<Player>,
+    @Inject(forwardRef(() => SessionGateway))
+    private readonly sessionGateway: SessionGateway,
   ) {}
 
   async create(dto: CreateTeamDto): Promise<Team> {
-    const game = await this.gameRepo.findOneBy({ id: dto.gameId });
+    const game = await this.gameRepo.findOne({
+      where: { id: dto.gameId },
+      relations: ['session'],
+    });
     if (!game) {
       throw new NotFoundException(`Game with ID ${dto.gameId} not found`);
     }
@@ -40,7 +48,14 @@ export class TeamService {
       name: dto.name,
       game,
     });
-    return await this.repo.save(team);
+    const savedTeam = await this.repo.save(team);
+
+    // Broadcast team created event
+    if (game.session) {
+      this.sessionGateway.broadcastTeamCreated(game.session.id, savedTeam);
+    }
+
+    return savedTeam;
   }
 
   async findAll(relations: string[] = []): Promise<Team[]> {
@@ -68,10 +83,13 @@ export class TeamService {
   }
 
   async update(id: string, dto: UpdateTeamDto): Promise<Team> {
-    const team = await this.findOne(id);
+    const team = await this.findOne(id, ['game', 'game.session']);
 
     if (dto.gameId) {
-      const game = await this.gameRepo.findOneBy({ id: dto.gameId });
+      const game = await this.gameRepo.findOne({
+        where: { id: dto.gameId },
+        relations: ['session'],
+      });
       if (!game) {
         throw new NotFoundException(`Game with ID ${dto.gameId} not found`);
       }
@@ -82,12 +100,28 @@ export class TeamService {
       name: dto.name ?? team.name,
     });
 
-    return await this.repo.save(team);
+    const savedTeam = await this.repo.save(team);
+
+    // Broadcast team updated event
+    if (team.game?.session) {
+      this.sessionGateway.broadcastTeamUpdated(team.game.session.id, savedTeam);
+    }
+
+    return savedTeam;
   }
 
   async delete(id: string): Promise<void> {
-    const team = await this.findOne(id);
+    const team = await this.findOne(id, ['game', 'game.session']);
+    const sessionId = team.game?.session?.id;
+    const teamId = team.id;
+    const teamName = team.name;
+
     await this.repo.remove(team);
+
+    // Broadcast team deleted event
+    if (sessionId) {
+      this.sessionGateway.broadcastTeamDeleted(sessionId, teamId);
+    }
   }
 
   async findByGame(gameId: string): Promise<Team[]> {
@@ -153,7 +187,11 @@ export class TeamService {
         session: game.session,
         players: [],
       });
-      teams.push(await this.repo.save(team));
+      const savedTeam = await this.repo.save(team);
+      teams.push(savedTeam);
+
+      // Broadcast team created event
+      this.sessionGateway.broadcastTeamCreated(game.session.id, savedTeam);
     }
 
     // Assign players based on strategy with improved algorithms
@@ -169,7 +207,17 @@ export class TeamService {
   async clearTeamsForGame(gameId: string): Promise<void> {
     const existingTeams = await this.findByGame(gameId);
     if (existingTeams.length > 0) {
+      // Capture session ID before removing
+      const sessionId = existingTeams[0]?.session?.id;
+
       await this.repo.remove(existingTeams);
+
+      // Broadcast team deleted event for each team
+      if (sessionId) {
+        for (const team of existingTeams) {
+          this.sessionGateway.broadcastTeamDeleted(sessionId, team.id);
+        }
+      }
     }
   }
 
@@ -374,6 +422,7 @@ export class TeamService {
     dto: AssignPlayersDto,
   ): Promise<Team[]> {
     const teams = await this.findByGame(gameId);
+    const sessionId = teams[0]?.session?.id;
 
     for (const [teamId, playerIds] of Object.entries(dto.teamAssignments)) {
       const team = teams.find((t) => t.id === teamId);
@@ -385,7 +434,22 @@ export class TeamService {
         where: { id: In(playerIds) },
       });
       team.players = players;
-      await this.repo.save(team);
+      const savedTeam = await this.repo.save(team);
+
+      // Broadcast player assignments and team update
+      if (sessionId) {
+        // Broadcast each player assignment
+        for (const player of players) {
+          this.sessionGateway.broadcastPlayerAssignedToTeam(
+            sessionId,
+            teamId,
+            player.id,
+          );
+        }
+
+        // Broadcast team updated
+        this.sessionGateway.broadcastTeamUpdated(sessionId, savedTeam);
+      }
     }
 
     return this.findByGame(gameId);
@@ -545,5 +609,169 @@ export class TeamService {
     await this.assignPlayersByStrategy(existingTeams, activePlayers, strategy);
 
     return this.findByGame(gameId);
+  }
+
+  /**
+   * Swap a player from one team to another
+   */
+  async swapPlayerToTeam(
+    playerId: string,
+    fromTeamId: string,
+    toTeamId: string,
+  ): Promise<{ fromTeam: Team; toTeam: Team }> {
+    // Validate teams exist
+    const fromTeam = await this.findOne(fromTeamId, [
+      'players',
+      'game',
+      'session',
+    ]);
+    const toTeam = await this.findOne(toTeamId, ['players', 'game', 'session']);
+
+    // Ensure both teams belong to the same game
+    if (fromTeam.game.id !== toTeam.game.id) {
+      throw new BadRequestException(
+        'Cannot swap players between teams from different games',
+      );
+    }
+
+    // Find the player
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId },
+    });
+
+    if (!player) {
+      throw new NotFoundException(`Player with ID ${playerId} not found`);
+    }
+
+    // Check if player is in the source team
+    const playerInFromTeam = fromTeam.players.some((p) => p.id === playerId);
+    if (!playerInFromTeam) {
+      throw new BadRequestException(
+        `Player ${player.name} is not in team ${fromTeam.name}`,
+      );
+    }
+
+    // Remove player from source team
+    fromTeam.players = fromTeam.players.filter((p) => p.id !== playerId);
+
+    // Add player to destination team
+    toTeam.players.push(player);
+
+    // Save both teams
+    const savedFromTeam = await this.repo.save(fromTeam);
+    const savedToTeam = await this.repo.save(toTeam);
+
+    // Broadcast updates
+    const sessionId = fromTeam.session?.id;
+    if (sessionId) {
+      this.sessionGateway.broadcastTeamUpdated(sessionId, savedFromTeam);
+      this.sessionGateway.broadcastTeamUpdated(sessionId, savedToTeam);
+      this.sessionGateway.broadcastPlayerAssignedToTeam(
+        sessionId,
+        toTeamId,
+        playerId,
+      );
+    }
+
+    return {
+      fromTeam: savedFromTeam,
+      toTeam: savedToTeam,
+    };
+  }
+
+  /**
+   * Dissolve a team and return its players to the unassigned pool
+   */
+  async dissolveTeam(teamId: string): Promise<void> {
+    const team = await this.findOne(teamId, [
+      'players',
+      'game',
+      'game.session',
+      'session',
+    ]);
+
+    const sessionId = team.session?.id || team.game?.session?.id;
+    const playerIds = team.players.map((p) => p.id);
+
+    // Remove the team (this unassigns all players)
+    await this.repo.remove(team);
+
+    // Broadcast events
+    if (sessionId) {
+      this.sessionGateway.broadcastTeamDeleted(sessionId, teamId);
+
+      // Notify that players are now unassigned
+      for (const playerId of playerIds) {
+        this.sessionGateway.server
+          .to(`session:${sessionId}`)
+          .emit('team:player-unassigned', {
+            sessionId,
+            playerId,
+            teamId,
+            message: `Player unassigned from dissolved team ${team.name}`,
+          });
+      }
+    }
+  }
+
+  /**
+   * Reassign a player to a different team (removes from current team if any)
+   */
+  async reassignPlayer(playerId: string, newTeamId: string): Promise<Team> {
+    const player = await this.playerRepo.findOne({
+      where: { id: playerId },
+      relations: ['teams', 'teams.game', 'teams.session'],
+    });
+
+    if (!player) {
+      throw new NotFoundException(`Player with ID ${playerId} not found`);
+    }
+
+    const newTeam = await this.findOne(newTeamId, [
+      'players',
+      'game',
+      'session',
+    ]);
+
+    // Find player's current team (if any) in the same game
+    const currentTeamInSameGame = player.teams?.find(
+      (t) => t.game.id === newTeam.game.id,
+    );
+
+    // Remove from current team if exists
+    if (currentTeamInSameGame) {
+      currentTeamInSameGame.players = currentTeamInSameGame.players.filter(
+        (p) => p.id !== playerId,
+      );
+      await this.repo.save(currentTeamInSameGame);
+
+      // Broadcast update for old team
+      const sessionId =
+        currentTeamInSameGame.session?.id ||
+        currentTeamInSameGame.game?.session?.id;
+      if (sessionId) {
+        this.sessionGateway.broadcastTeamUpdated(
+          sessionId,
+          currentTeamInSameGame,
+        );
+      }
+    }
+
+    // Add to new team
+    newTeam.players.push(player);
+    const savedTeam = await this.repo.save(newTeam);
+
+    // Broadcast updates
+    const sessionId = newTeam.session?.id || newTeam.game?.session?.id;
+    if (sessionId) {
+      this.sessionGateway.broadcastTeamUpdated(sessionId, savedTeam);
+      this.sessionGateway.broadcastPlayerAssignedToTeam(
+        sessionId,
+        newTeamId,
+        playerId,
+      );
+    }
+
+    return savedTeam;
   }
 }

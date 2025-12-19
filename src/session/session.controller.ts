@@ -20,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { SessionService } from './session.service';
 import { CreateSessionDto } from './dto/create-session.dto';
+import { CreateSessionResponseDto } from './dto/create-session-response.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
 import { JoinSessionDto } from './dto/join-session.dto';
 import {
@@ -54,15 +55,13 @@ export class SessionController {
   @ApiOperation({ summary: 'Create a new session' })
   @ApiResponse({
     status: HttpStatus.CREATED,
-    description: 'Session has been successfully created.',
-    type: SessionResponseDto,
+    description:
+      'Session has been successfully created. GM is automatically added as a player.',
+    type: CreateSessionResponseDto,
   })
-  create(@Body() dto: CreateSessionDto): Promise<SessionResponseDto> {
-    // Service will validate that gamesMasterId exists
-    return this.service
-      .create(dto)
-      .then((session) => this.service.findOne(session.id, ['host']))
-      .then((session) => SessionResponseDto.fromEntity(session));
+  create(@Body() dto: CreateSessionDto): Promise<CreateSessionResponseDto> {
+    // Service will validate that gamesMasterId exists and auto-create player
+    return this.service.create(dto);
   }
 
   @Get()
@@ -174,6 +173,30 @@ export class SessionController {
       .then((session) => SessionResponseDto.fromEntity(session));
   }
 
+  @Post(':id/regenerate-code')
+  @ApiOperation({ summary: 'Regenerate join code for a session' })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Join code regenerated successfully.',
+    type: SessionResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Cannot regenerate code for completed or cancelled session.',
+  })
+  @HttpCode(HttpStatus.OK)
+  async regenerateJoinCode(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .regenerateJoinCode(id)
+      .then((session) =>
+        this.service.findOne(session.id, ['host', 'games', 'teams', 'players']),
+      )
+      .then((session) => SessionResponseDto.fromEntity(session));
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
@@ -219,12 +242,44 @@ export class SessionController {
   ): Promise<SessionJoinResponseDto> {
     return this.service
       .joinSession(dto, user?.id)
-      .then(({ session, player, message }) =>
+      .then(({ session, player, message, playerToken }) =>
         SessionJoinResponseDto.fromEntities({
           session,
           playerId: player.id,
           playerName: player.name,
           message,
+          playerToken,
+        }),
+      );
+  }
+
+  @Post('rejoin')
+  @ApiOperation({ summary: 'Rejoin a session using player token' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'Successfully rejoined session.',
+    type: SessionJoinResponseDto,
+  })
+  @ApiResponse({
+    status: HttpStatus.BAD_REQUEST,
+    description: 'Invalid or expired token.',
+  })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'Player or session not found.',
+  })
+  rejoinSession(
+    @Body() dto: { playerToken: string },
+  ): Promise<SessionJoinResponseDto> {
+    return this.service
+      .rejoinSession(dto.playerToken)
+      .then(({ session, player, message, playerToken }) =>
+        SessionJoinResponseDto.fromEntities({
+          session,
+          playerId: player.id,
+          playerName: player.name,
+          message,
+          playerToken,
         }),
       );
   }
@@ -339,7 +394,10 @@ export class SessionController {
   async getSessionGames(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<GameResponseDto[]> {
-    const session = await this.service.findOne(id, ['games', 'games.gameLibrary']);
+    const session = await this.service.findOne(id, [
+      'games',
+      'games.gameLibrary',
+    ]);
     return session.games.map((game) => GameResponseDto.fromEntity(game));
   }
 
@@ -525,7 +583,8 @@ export class SessionController {
   })
   @ApiResponse({
     status: HttpStatus.BAD_REQUEST,
-    description: 'Cannot kick players from completed session or player not in session.',
+    description:
+      'Cannot kick players from completed session or player not in session.',
   })
   @ApiResponse({
     status: HttpStatus.NOT_FOUND,

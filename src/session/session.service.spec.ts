@@ -411,9 +411,7 @@ describe('SessionService', () => {
         const session = createMockSession({
           status: SessionStatus.SCHEDULED,
           games: [],
-          players: [
-            createMockPlayer({ status: PlayerStatus.READY }) as Player,
-          ],
+          players: [createMockPlayer({ status: PlayerStatus.READY }) as Player],
         });
 
         sessionRepo.findOne.mockResolvedValue(session);
@@ -438,9 +436,7 @@ describe('SessionService', () => {
         const session = createMockSession({
           status: SessionStatus.IN_PROGRESS,
           games: [game as Game],
-          players: [
-            createMockPlayer({ status: PlayerStatus.READY }) as Player,
-          ],
+          players: [createMockPlayer({ status: PlayerStatus.READY }) as Player],
         });
 
         sessionRepo.findOne.mockResolvedValue(session);
@@ -658,7 +654,9 @@ describe('SessionService', () => {
         const result = await service.startSession('session-1');
 
         expect(result.status).toBe(SessionStatus.IN_PROGRESS);
-        expect(sessionGateway.broadcastSessionStatusChange).toHaveBeenCalledWith(
+        expect(
+          sessionGateway.broadcastSessionStatusChange,
+        ).toHaveBeenCalledWith(
           'session-1',
           SessionStatus.IN_PROGRESS,
           expect.any(Object),
@@ -790,6 +788,142 @@ describe('SessionService', () => {
       await expect(service.findOne('invalid-id')).rejects.toThrow(
         NotFoundException,
       );
+    });
+  });
+
+  describe('getSessionReadiness', () => {
+    it('should return flattened readiness structure with top-level totalPlayers and readyPlayers', async () => {
+      // Arrange - Create a session with 2 players (1 ready, 1 joined)
+      const gamesMaster = createMockGamesMaster();
+      const gameLibrary = createMockGameLibrary();
+      const session = createMockSession(gamesMaster) as Session;
+      session.status = SessionStatus.SCHEDULED;
+
+      const readyPlayer = createMockPlayer({
+        status: PlayerStatus.READY,
+        name: 'ReadyPlayer',
+        session,
+      }) as Player;
+
+      const joinedPlayer = createMockPlayer({
+        status: PlayerStatus.JOINED,
+        name: 'JoinedPlayer',
+        session,
+      }) as Player;
+
+      session.players = [readyPlayer, joinedPlayer];
+      session.games = [];
+
+      sessionRepo.findOne.mockResolvedValue(session);
+
+      // Act
+      const result = await service.getSessionReadiness(session.id);
+
+      // Assert - Bug #2 fix: Verify top-level fields exist
+      expect(result).toHaveProperty('sessionId', session.id);
+      expect(result).toHaveProperty('totalPlayers', 2);
+      expect(result).toHaveProperty('readyPlayers', 1);
+      expect(result).toHaveProperty('allReady', false);
+      expect(result).toHaveProperty('playersStatus');
+
+      // Verify playersStatus array
+      expect(result.playersStatus).toHaveLength(2);
+      expect(result.playersStatus[0]).toMatchObject({
+        playerId: readyPlayer.id,
+        playerName: 'ReadyPlayer',
+        isReady: true,
+        status: PlayerStatus.READY,
+      });
+      expect(result.playersStatus[1]).toMatchObject({
+        playerId: joinedPlayer.id,
+        playerName: 'JoinedPlayer',
+        isReady: false,
+        status: PlayerStatus.JOINED,
+      });
+    });
+
+    it('should set allReady to true when all active players are ready', async () => {
+      // Arrange
+      const gamesMaster = createMockGamesMaster();
+      const session = createMockSession(gamesMaster) as Session;
+
+      const player1 = createMockPlayer({
+        status: PlayerStatus.READY,
+        session,
+      }) as Player;
+
+      const player2 = createMockPlayer({
+        status: PlayerStatus.READY,
+        session,
+      }) as Player;
+
+      session.players = [player1, player2];
+      session.games = [];
+
+      sessionRepo.findOne.mockResolvedValue(session);
+
+      // Act
+      const result = await service.getSessionReadiness(session.id);
+
+      // Assert
+      expect(result.totalPlayers).toBe(2);
+      expect(result.readyPlayers).toBe(2);
+      expect(result.allReady).toBe(true);
+    });
+
+    it('should exclude disconnected players from active player count', async () => {
+      // Arrange
+      const gamesMaster = createMockGamesMaster();
+      const session = createMockSession(gamesMaster) as Session;
+
+      const readyPlayer = createMockPlayer({
+        status: PlayerStatus.READY,
+        session,
+      }) as Player;
+
+      const disconnectedPlayer = createMockPlayer({
+        status: PlayerStatus.DISCONNECTED,
+        session,
+      }) as Player;
+
+      session.players = [readyPlayer, disconnectedPlayer];
+      session.games = [];
+
+      sessionRepo.findOne.mockResolvedValue(session);
+
+      // Act
+      const result = await service.getSessionReadiness(session.id);
+
+      // Assert
+      expect(result.totalPlayers).toBe(2); // Total includes disconnected
+      expect(result.playersStatus).toHaveLength(1); // But playersStatus only shows active
+      expect(result.allReady).toBe(true); // All ACTIVE players are ready
+    });
+
+    it('should maintain backward compatibility with nested structure', async () => {
+      // Arrange
+      const gamesMaster = createMockGamesMaster();
+      const session = createMockSession(gamesMaster) as Session;
+      session.players = [];
+      session.games = [];
+
+      sessionRepo.findOne.mockResolvedValue(session);
+
+      // Act
+      const result = await service.getSessionReadiness(session.id);
+
+      // Assert - Verify backward compatibility fields still exist
+      expect(result).toHaveProperty('session');
+      expect(result.session).toMatchObject({
+        id: session.id,
+        name: session.name,
+        status: session.status,
+        joinCode: session.joinCode,
+      });
+      expect(result).toHaveProperty('players');
+      expect(result).toHaveProperty('games');
+      expect(result).toHaveProperty('validation');
+      expect(result).toHaveProperty('readiness');
     });
   });
 });

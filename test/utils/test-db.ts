@@ -8,24 +8,26 @@ import { Repository } from 'typeorm';
  * Note: For unit tests, prefer using mock repositories instead of a real database.
  * This configuration is primarily for integration/E2E tests.
  */
-export const getTestDatabaseConfig = (): TypeOrmModuleOptions => ({
-  type: 'better-sqlite3',
-  database: ':memory:',
-  entities: [__dirname + '/../../src/**/*.entity.{ts,js}'],
-  synchronize: true,
-  dropSchema: true,
-  logging: false,
-} as TypeOrmModuleOptions);
+export const getTestDatabaseConfig = (): TypeOrmModuleOptions =>
+  ({
+    type: 'better-sqlite3',
+    database: ':memory:',
+    entities: [__dirname + '/../../src/**/*.entity.{ts,js}'],
+    synchronize: true,
+    dropSchema: true,
+    logging: false,
+  }) as TypeOrmModuleOptions;
 
 /**
  * Helper to create a clean test database configuration for each test suite
  * Use this in Test.createTestingModule() to get a fresh database for each test file
  */
-export const createTestDatabaseConfig = (): TypeOrmModuleOptions => ({
-  ...getTestDatabaseConfig(),
-  // Generate unique database name for parallel test execution
-  database: ':memory:',
-} as TypeOrmModuleOptions);
+export const createTestDatabaseConfig = (): TypeOrmModuleOptions =>
+  ({
+    ...getTestDatabaseConfig(),
+    // Generate unique database name for parallel test execution
+    database: ':memory:',
+  }) as TypeOrmModuleOptions;
 
 /**
  * Create a mock TypeORM repository for unit testing

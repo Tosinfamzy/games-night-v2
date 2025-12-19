@@ -10,12 +10,16 @@ import { Team } from '../team/team.entity';
 import { Player } from '../player/player.entity';
 import { TeamModule } from '../team/team.module';
 import { ScoreModule } from '../score/score.module';
+import { HistoryModule } from '../history/history.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Game, Session, Team, Player]),
     TeamModule,
     forwardRef(() => ScoreModule),
+    forwardRef(() => HistoryModule),
+    AuthModule,
   ],
   providers: [GameService, GameGateway, GameTimerService],
   controllers: [GameController],

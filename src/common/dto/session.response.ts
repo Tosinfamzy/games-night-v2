@@ -97,17 +97,25 @@ export class SessionJoinResponseDto {
   @ApiProperty({ example: 'Player name' })
   playerName: string;
 
+  @ApiProperty({
+    description: 'JWT token for player authentication (valid for 24 hours)',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  playerToken: string;
+
   static fromEntities(params: {
     session: Session;
     playerId: string;
     playerName: string;
     message: string;
+    playerToken: string;
   }): SessionJoinResponseDto {
     const dto = new SessionJoinResponseDto();
     dto.session = SessionResponseDto.fromEntity(params.session);
     dto.playerId = params.playerId;
     dto.playerName = params.playerName;
     dto.message = params.message;
+    dto.playerToken = params.playerToken;
     return dto;
   }
 }

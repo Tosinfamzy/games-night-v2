@@ -6,17 +6,19 @@ import {
   ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { BaseGateway } from '../common/gateways/base.gateway';
 import { Game } from './game.entity';
 import { Score } from '../score/score.entity';
 import { TeamStandingDto } from '../common/dto/team-standing.dto';
 import { GameStatus } from './enums/game-status.enum';
+import { WsPlayerAuthGuard } from '../auth/guards/ws-player-auth.guard';
 
 /**
  * WebSocket Gateway for real-time game updates
  * Handles live scoring, game flow, round progression, etc.
+ * Protected by WsPlayerAuthGuard - all connections require valid player token
  */
 @WebSocketGateway({
   namespace: 'games',
@@ -29,6 +31,7 @@ import { GameStatus } from './enums/game-status.enum';
     credentials: true,
   },
 })
+@UseGuards(WsPlayerAuthGuard)
 export class GameGateway extends BaseGateway {
   @WebSocketServer()
   declare server: Server;

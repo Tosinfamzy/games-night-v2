@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Session } from './session.entity';
 import { CreateSessionDto } from './dto/create-session.dto';
+import { CreateSessionResponseDto } from './dto/create-session-response.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
 import { GamesMaster } from '../games-master/games-master.entity';
 import { SessionStatus } from './enums/session-status.enum';
@@ -30,6 +31,7 @@ import { Team } from '../team/team.entity';
 import { SessionGateway } from './session.gateway';
 import { ScoreService } from '../score/score.service';
 import { SessionLeaderboardDto } from '../common/dto/session-leaderboard.dto';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class SessionService {
@@ -50,9 +52,10 @@ export class SessionService {
     private readonly sessionGateway: SessionGateway,
     @Inject(forwardRef(() => ScoreService))
     private readonly scoreService: ScoreService,
+    private readonly authService: AuthService,
   ) {}
 
-  async create(dto: CreateSessionDto): Promise<Session> {
+  async create(dto: CreateSessionDto): Promise<CreateSessionResponseDto> {
     const host = await this.gamesMasterRepo.findOneBy({
       id: dto.gamesMasterId,
     });
@@ -93,7 +96,37 @@ export class SessionService {
       status: SessionStatus.SCHEDULED,
       joinCode,
     });
-    return await this.repo.save(session);
+    const savedSession = await this.repo.save(session);
+
+    // AUTO-ENROLL GM AS PLAYER
+    const gmPlayer = this.playerRepo.create({
+      name: host.name,
+      session: savedSession,
+      status: PlayerStatus.JOINED,
+      lastConnectedAt: new Date(),
+      userId: host.id, // Link to GM's user ID for tracking
+      isGuest: false,
+    });
+    const savedPlayer = await this.playerRepo.save(gmPlayer);
+
+    // Reload session with player included
+    const updatedSession = await this.findOne(savedSession.id, [
+      'host',
+      'players',
+    ]);
+
+    // Return response with player token
+    return {
+      session: updatedSession,
+      gmPlayer: savedPlayer,
+      message: `Session created successfully. You have been added as a player.`,
+
+      playerToken: this.authService.generatePlayerToken(
+        savedPlayer.id,
+        updatedSession.id,
+        savedPlayer.name,
+      ),
+    };
   }
 
   async findByJoinCode(joinCode: string): Promise<Session> {
@@ -114,7 +147,12 @@ export class SessionService {
   async joinSession(
     dto: JoinSessionDto,
     userId?: string,
-  ): Promise<{ session: Session; player: Player; message: string }> {
+  ): Promise<{
+    session: Session;
+    player: Player;
+    message: string;
+    playerToken: string;
+  }> {
     const session = await this.findByJoinCode(dto.joinCode);
 
     if (session.status === SessionStatus.COMPLETED) {
@@ -131,28 +169,31 @@ export class SessionService {
       );
     }
 
-    // Check if player name is unique within the session
+    // Check if player name already exists in the session
     const existingPlayer = await this.playerRepo.findOne({
       where: { name: dto.playerName, session: { id: session.id } },
     });
 
+    let savedPlayer: Player;
+
     if (existingPlayer) {
-      throw new BadRequestException(
-        `Player name "${dto.playerName}" is already taken in this session`,
-      );
+      // Player is rejoining - update their lastConnectedAt and return existing player
+      existingPlayer.lastConnectedAt = new Date();
+      existingPlayer.status = PlayerStatus.JOINED;
+      savedPlayer = await this.playerRepo.save(existingPlayer);
+    } else {
+      // Create new player
+      const player = this.playerRepo.create({
+        name: dto.playerName,
+        session,
+        status: PlayerStatus.JOINED,
+        lastConnectedAt: new Date(),
+        userId: userId, // Link to user if authenticated (undefined if not)
+        isGuest: !userId, // Mark as guest if no userId provided
+      });
+
+      savedPlayer = await this.playerRepo.save(player);
     }
-
-    // Create the player and associate with session
-    const player = this.playerRepo.create({
-      name: dto.playerName,
-      session,
-      status: PlayerStatus.JOINED,
-      lastConnectedAt: new Date(),
-      userId: userId, // Link to user if authenticated (undefined if not)
-      isGuest: !userId, // Mark as guest if no userId provided
-    });
-
-    const savedPlayer = await this.playerRepo.save(player);
 
     // Broadcast player joined event via WebSocket
     this.sessionGateway.broadcastPlayerJoined(session.id, savedPlayer);
@@ -160,10 +201,81 @@ export class SessionService {
     // Reload session with updated players
     const updatedSession = await this.findByJoinCode(dto.joinCode);
 
+    // Return response with player token
     return {
       session: updatedSession,
       player: savedPlayer,
       message: `Successfully joined session hosted by ${session.host.name}`,
+
+      playerToken: this.authService.generatePlayerToken(
+        savedPlayer.id,
+        updatedSession.id,
+        savedPlayer.name,
+      ),
+    };
+  }
+
+  /**
+   * Rejoin a session using a valid player token
+   * Allows players to recover their session if they lose localStorage data
+   */
+  async rejoinSession(playerToken: string): Promise<{
+    session: Session;
+    player: Player;
+    message: string;
+    playerToken: string;
+  }> {
+    // Validate and decode the token
+
+    const tokenData = this.authService.validatePlayerToken(playerToken) as {
+      playerId: string;
+      sessionId: string;
+      playerName: string;
+    } | null;
+
+    if (!tokenData) {
+      throw new BadRequestException('Invalid or expired player token');
+    }
+
+    // Find the player
+    const player = await this.playerRepo.findOne({
+      where: { id: tokenData.playerId },
+      relations: ['session'],
+    });
+
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+
+    // Verify the session matches the token
+    if (player.session.id !== tokenData.sessionId) {
+      throw new BadRequestException('Token session mismatch');
+    }
+
+    // Update player's last connected time
+    player.lastConnectedAt = new Date();
+    player.status = PlayerStatus.JOINED;
+    await this.playerRepo.save(player);
+
+    // Load full session with relations
+    const session = await this.findOne(player.session.id, [
+      'host',
+      'games',
+      'teams',
+      'players',
+    ]);
+
+    // Return response with fresh token
+    return {
+      session,
+      player,
+      message: `Welcome back, ${player.name}!`,
+
+      playerToken: this.authService.generatePlayerToken(
+        player.id,
+        session.id,
+        player.name,
+      ),
     };
   }
 
@@ -328,6 +440,63 @@ export class SessionService {
     });
 
     return await this.repo.save(session);
+  }
+
+  /**
+   * Regenerate the join code for a session
+   * Useful for security/privacy if the old code was shared too widely
+   */
+  async regenerateJoinCode(id: string): Promise<Session> {
+    const session = await this.findOne(id, ['host']);
+
+    // Don't allow regeneration for completed or cancelled sessions
+    if (
+      session.status === SessionStatus.COMPLETED ||
+      session.status === SessionStatus.CANCELLED
+    ) {
+      throw new BadRequestException(
+        `Cannot regenerate join code for ${session.status.toLowerCase()} session`,
+      );
+    }
+
+    // Generate unique join code (same logic as create)
+    let joinCode = generateJoinCode();
+    let isUnique = false;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (!isUnique && attempts < maxAttempts) {
+      const existingSession = await this.repo.findOne({
+        where: { joinCode },
+      });
+      if (!existingSession || existingSession.id === session.id) {
+        isUnique = true;
+      } else {
+        joinCode = generateJoinCode();
+        attempts++;
+      }
+    }
+
+    if (!isUnique) {
+      throw new BadRequestException('Failed to generate unique join code');
+    }
+
+    const oldJoinCode = session.joinCode;
+    session.joinCode = joinCode;
+
+    const updatedSession = await this.repo.save(session);
+
+    // Broadcast join code changed event via WebSocket
+    this.sessionGateway.server
+      .to(`session:${id}`)
+      .emit('session:join-code-changed', {
+        sessionId: id,
+        oldJoinCode,
+        newJoinCode: joinCode,
+        message: 'Session join code has been regenerated',
+      });
+
+    return updatedSession;
   }
 
   async remove(id: string): Promise<void> {
@@ -597,8 +766,11 @@ export class SessionService {
       // Frontend-expected top-level fields
       sessionId: session.id,
       totalPlayers: session.players.length,
-      readyPlayers: activePlayers.filter((p) => p.status === PlayerStatus.READY).length,
-      allReady: activePlayers.length > 0 && activePlayers.every((p) => p.status === PlayerStatus.READY),
+      readyPlayers: activePlayers.filter((p) => p.status === PlayerStatus.READY)
+        .length,
+      allReady:
+        activePlayers.length > 0 &&
+        activePlayers.every((p) => p.status === PlayerStatus.READY),
       playersStatus: activePlayers.map((p) => ({
         playerId: p.id,
         playerName: p.name,
@@ -671,7 +843,12 @@ export class SessionService {
       position: 1, // Default position, can be adjusted later
     });
 
-    return await this.teamRepo.save(team);
+    const savedTeam = await this.teamRepo.save(team);
+
+    // Broadcast team created
+    this.sessionGateway.broadcastTeamCreated(sessionId, savedTeam);
+
+    return savedTeam;
   }
 
   async assignPlayersToTeam(
@@ -706,7 +883,20 @@ export class SessionService {
 
     // Update team with new players (replacing existing ones)
     team.players = players;
-    return await this.teamRepo.save(team);
+    const savedTeam = await this.teamRepo.save(team);
+
+    // Broadcast player assignments and team update
+    for (const player of players) {
+      this.sessionGateway.broadcastPlayerAssignedToTeam(
+        sessionId,
+        teamId,
+        player.id,
+      );
+    }
+
+    this.sessionGateway.broadcastTeamUpdated(sessionId, savedTeam);
+
+    return savedTeam;
   }
 
   // Player status management methods
@@ -737,7 +927,19 @@ export class SessionService {
     player.status = ready ? PlayerStatus.READY : PlayerStatus.JOINED;
     player.lastConnectedAt = new Date();
 
-    return await this.playerRepo.save(player);
+    const savedPlayer = await this.playerRepo.save(player);
+
+    // Broadcast player readiness change
+    this.sessionGateway.broadcastPlayerReadiness(sessionId, playerId, ready);
+
+    // Also broadcast session readiness update
+    const readiness = await this.canStartSession(sessionId);
+    this.sessionGateway.broadcastSessionReadiness(sessionId, {
+      canStart: readiness.canStart,
+      reasons: readiness.reasons,
+    });
+
+    return savedPlayer;
   }
 
   async updatePlayerStatus(
@@ -842,7 +1044,9 @@ export class SessionService {
     const session = await this.findOne(sessionId);
 
     if (session.status === SessionStatus.COMPLETED) {
-      throw new BadRequestException('Cannot kick players from completed session');
+      throw new BadRequestException(
+        'Cannot kick players from completed session',
+      );
     }
 
     // Find the player

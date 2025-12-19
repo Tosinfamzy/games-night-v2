@@ -48,7 +48,7 @@ async function bootstrap() {
         /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
       ];
 
-      const isAllowed = allowedPatterns.some(pattern => pattern.test(origin));
+      const isAllowed = allowedPatterns.some((pattern) => pattern.test(origin));
       callback(null, isAllowed);
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],

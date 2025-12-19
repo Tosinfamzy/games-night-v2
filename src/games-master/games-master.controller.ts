@@ -62,21 +62,29 @@ export class GamesMasterController {
     description: 'Games masters found with the given name',
     type: [GamesMasterResponseDto],
   })
-  async findByName(@Param('name') name: string): Promise<GamesMasterResponseDto[]> {
+  async findByName(
+    @Param('name') name: string,
+  ): Promise<GamesMasterResponseDto[]> {
     const masters = await this.service.findByName(name);
     return masters.map((master) => GamesMasterResponseDto.fromEntity(master));
   }
 
   @Get('by-code/:code')
   @ApiOperation({ summary: 'Get a games master by host code' })
-  @ApiParam({ name: 'code', type: 'string', description: '6-character host code' })
+  @ApiParam({
+    name: 'code',
+    type: 'string',
+    description: '6-character host code',
+  })
   @ApiResponse({
     status: 200,
     description: 'Games master found',
     type: GamesMasterResponseDto,
   })
   @ApiNotFoundResponse({ description: 'Games master not found with this code' })
-  async findByCode(@Param('code') code: string): Promise<GamesMasterResponseDto> {
+  async findByCode(
+    @Param('code') code: string,
+  ): Promise<GamesMasterResponseDto> {
     const master = await this.service.findByCode(code.toUpperCase());
     return GamesMasterResponseDto.fromEntity(master);
   }

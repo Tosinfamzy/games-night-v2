@@ -161,7 +161,9 @@ export const createMockAuthRequest = (user: Partial<User> = {}) => {
  * Create mock execution context for testing guards
  */
 export const createMockExecutionContext = (user?: Partial<User>) => {
-  const request = user ? createMockAuthRequest(user) : { headers: {}, get: jest.fn() };
+  const request = user
+    ? createMockAuthRequest(user)
+    : { headers: {}, get: jest.fn() };
 
   return {
     switchToHttp: () => ({

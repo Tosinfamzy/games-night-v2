@@ -69,7 +69,8 @@ export const createMockSession = (
   overrides: Partial<Session> = {},
 ): Partial<Session> => {
   sessionCounter++;
-  const joinCode = overrides.joinCode || String(Math.floor(100000 + Math.random() * 900000));
+  const joinCode =
+    overrides.joinCode || String(Math.floor(100000 + Math.random() * 900000));
 
   return {
     id: overrides.id || `session-${sessionCounter}`,
@@ -122,7 +123,9 @@ export const createMockTeam = (
   return {
     id: overrides.id || `team-${teamCounter}`,
     name: overrides.name || `Team ${teamCounter}`,
-    color: overrides.color || `#${Math.floor(Math.random() * 16777215).toString(16)}`,
+    color:
+      overrides.color ||
+      `#${Math.floor(Math.random() * 16777215).toString(16)}`,
     position: overrides.position ?? teamCounter,
     isActive: overrides.isActive ?? true,
     game: overrides.game as Game,
@@ -193,7 +196,8 @@ export const createMockGameLibrary = (
   return {
     id: overrides.id || `game-lib-${Date.now()}`,
     name: overrides.name || 'Test Board Game',
-    description: overrides.description || 'A fun test game for testing purposes',
+    description:
+      overrides.description || 'A fun test game for testing purposes',
     minPlayers: overrides.minPlayers ?? 2,
     maxPlayers: overrides.maxPlayers ?? 6,
     estimatedDuration: overrides.estimatedDuration ?? 30,

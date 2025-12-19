@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { WsException } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
@@ -32,7 +37,9 @@ export class WsJwtAuthGuard implements CanActivate {
         profileId: payload.profileId,
       };
 
-      this.logger.log(`WebSocket authenticated: ${client.id} (User: ${payload.email})`);
+      this.logger.log(
+        `WebSocket authenticated: ${client.id} (User: ${payload.email})`,
+      );
 
       return true;
     } catch (error) {

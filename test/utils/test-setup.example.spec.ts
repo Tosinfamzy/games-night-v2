@@ -136,7 +136,7 @@ describe('Test Infrastructure Example', () => {
       const mockRepo = createMockRepository();
       const mockUser = createMockUser();
 
-      (mockRepo.findOne as jest.Mock).mockResolvedValue(mockUser);
+      mockRepo.findOne.mockResolvedValue(mockUser);
 
       expect(mockRepo.findOne).toHaveBeenCalledTimes(0);
     });
