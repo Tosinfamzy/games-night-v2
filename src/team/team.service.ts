@@ -595,8 +595,10 @@ export class TeamService {
       throw new NotFoundException(`Game with ID ${gameId} not found`);
     }
 
-    const activePlayers = game.session.players.filter(
-      (player) => player.status === PlayerStatus.PLAYING,
+    const activePlayers = game.session.players.filter((player) =>
+      [PlayerStatus.PLAYING, PlayerStatus.JOINED, PlayerStatus.READY].includes(
+        player.status,
+      ),
     );
 
     // Clear current player assignments but keep teams
@@ -630,8 +632,10 @@ export class TeamService {
       throw new NotFoundException(`Game with ID ${gameId} not found`);
     }
 
-    const activePlayers = game.session.players.filter(
-      (player) => player.status === PlayerStatus.PLAYING,
+    const activePlayers = game.session.players.filter((player) =>
+      [PlayerStatus.PLAYING, PlayerStatus.JOINED, PlayerStatus.READY].includes(
+        player.status,
+      ),
     );
 
     // Shuffle the players array
