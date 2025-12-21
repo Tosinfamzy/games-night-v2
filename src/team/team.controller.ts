@@ -237,14 +237,33 @@ export class TeamController {
   @ApiNotFoundResponse({ description: 'Game or teams not found' })
   async rebalanceTeams(
     @Param('gameId', ParseUUIDPipe) gameId: string,
-    @Body() body: { strategy: 'automatic' | 'balanced' | 'random' | 'manual' },
+    @Body() body: { strategy?: 'automatic' | 'balanced' | 'random' | 'manual' },
   ): Promise<TeamResponseDto[]> {
     const strategy =
       TeamFormationStrategy[
-        body.strategy.toUpperCase() as keyof typeof TeamFormationStrategy
-      ] || TeamFormationStrategy.AUTOMATIC;
+        (body.strategy?.toUpperCase() || 'BALANCED') as keyof typeof TeamFormationStrategy
+      ] || TeamFormationStrategy.BALANCED;
     return this.service
       .rebalanceTeams(gameId, strategy)
+      .then((teams) => teams.map((team) => TeamResponseDto.fromEntity(team)));
+  }
+
+  @Put('game/:gameId/shuffle')
+  @ApiOperation({
+    summary: 'Shuffle players randomly across existing teams',
+  })
+  @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Players shuffled successfully',
+    type: [TeamResponseDto],
+  })
+  @ApiNotFoundResponse({ description: 'Game or teams not found' })
+  async shufflePlayers(
+    @Param('gameId', ParseUUIDPipe) gameId: string,
+  ): Promise<TeamResponseDto[]> {
+    return this.service
+      .shufflePlayers(gameId)
       .then((teams) => teams.map((team) => TeamResponseDto.fromEntity(team)));
   }
 

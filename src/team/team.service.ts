@@ -612,6 +612,56 @@ export class TeamService {
   }
 
   /**
+   * Shuffle players randomly across existing teams
+   */
+  async shufflePlayers(gameId: string): Promise<Team[]> {
+    const existingTeams = await this.findByGame(gameId);
+
+    if (existingTeams.length === 0) {
+      throw new BadRequestException('No teams found to shuffle');
+    }
+
+    const game = await this.gameRepo.findOne({
+      where: { id: gameId },
+      relations: ['session', 'session.players'],
+    });
+
+    if (!game) {
+      throw new NotFoundException(`Game with ID ${gameId} not found`);
+    }
+
+    const activePlayers = game.session.players.filter(
+      (player) => player.status === PlayerStatus.PLAYING,
+    );
+
+    // Shuffle the players array
+    const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);
+
+    // Clear current player assignments but keep teams
+    for (const team of existingTeams) {
+      team.players = [];
+      await this.repo.save(team);
+    }
+
+    // Distribute shuffled players evenly across teams
+    const playersPerTeam = Math.floor(shuffled.length / existingTeams.length);
+    const remainder = shuffled.length % existingTeams.length;
+
+    let playerIndex = 0;
+    for (let i = 0; i < existingTeams.length; i++) {
+      const team = existingTeams[i];
+      const teamSize = playersPerTeam + (i < remainder ? 1 : 0);
+
+      team.players = shuffled.slice(playerIndex, playerIndex + teamSize);
+      playerIndex += teamSize;
+
+      await this.repo.save(team);
+    }
+
+    return this.findByGame(gameId);
+  }
+
+  /**
    * Swap a player from one team to another
    */
   async swapPlayerToTeam(
