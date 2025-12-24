@@ -9,7 +9,8 @@
       "Bash(npm run check:*)",
       "Bash(ls:*)",
       "Bash(npm run lint:*)",
-      "Bash(railway --help:*)"
+      "Bash(railway --help:*)",
+      "Bash(railway logs:*)"
     ],
     "deny": [],
     "ask": []
