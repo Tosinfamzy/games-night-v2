@@ -241,7 +241,8 @@ export class TeamController {
   ): Promise<TeamResponseDto[]> {
     const strategy =
       TeamFormationStrategy[
-        (body.strategy?.toUpperCase() || 'BALANCED') as keyof typeof TeamFormationStrategy
+        (body.strategy?.toUpperCase() ||
+          'BALANCED') as keyof typeof TeamFormationStrategy
       ] || TeamFormationStrategy.BALANCED;
     return this.service
       .rebalanceTeams(gameId, strategy)

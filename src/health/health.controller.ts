@@ -1,8 +1,8 @@
-import { Controller, Get } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger'
+import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('Health')
-@Controller('health')
+@Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
   @Get()
   @ApiOperation({ summary: 'Health check endpoint' })
@@ -12,7 +12,7 @@ export class HealthController {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-    }
+    };
   }
 
   @Get('ready')
@@ -22,6 +22,6 @@ export class HealthController {
     return {
       status: 'ready',
       timestamp: new Date().toISOString(),
-    }
+    };
   }
 }

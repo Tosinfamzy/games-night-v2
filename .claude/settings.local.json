@@ -8,7 +8,8 @@
       "Bash(curl:*)",
       "Bash(npm run check:*)",
       "Bash(ls:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(railway --help:*)"
     ],
     "deny": [],
     "ask": []

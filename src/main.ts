@@ -34,21 +34,31 @@ async function bootstrap() {
     defaultVersion: '1',
   });
 
-  // Enable CORS - allow localhost and local network IPs
+  // Enable CORS
+  const frontendUrl = process.env.FRONTEND_URL;
+  const allowedPatterns = [
+    /^http:\/\/localhost(:\d+)?$/,
+    /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+    /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
+    /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
+    /^https:\/\/.*\.vercel\.app$/,
+  ];
+
   app.enableCors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or Postman)
-      if (!origin) return callback(null, true);
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Allow requests with no origin (like mobile apps, Postman, or healthchecks)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
 
-      // Allow localhost and local network IPs (192.168.x.x, 10.x.x.x)
-      const allowedPatterns = [
-        /^http:\/\/localhost(:\d+)?$/,
-        /^http:\/\/127\.0\.0\.1(:\d+)?$/,
-        /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
-        /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
-      ];
-
-      const isAllowed = allowedPatterns.some((pattern) => pattern.test(origin));
+      // Check if origin matches FRONTEND_URL or any allowed pattern
+      const isAllowed =
+        (frontendUrl && origin === frontendUrl) ||
+        allowedPatterns.some((pattern) => pattern.test(origin));
       callback(null, isAllowed);
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
