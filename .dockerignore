@@ -16,5 +16,3 @@ Dockerfile
 .prettierrc
 .gitignore
 eslint.config.mjs
-tsconfig.build.json
-nest-cli.json
