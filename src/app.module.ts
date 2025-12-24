@@ -18,6 +18,7 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { HistoryModule } from './history/history.module';
+import { HealthModule } from './health/health.module';
 import * as Joi from 'joi';
 
 @Module({
@@ -91,6 +92,7 @@ import * as Joi from 'joi';
     AuthModule,
     ChatModule,
     HistoryModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
