@@ -44,7 +44,6 @@ describe('ChatController', () => {
           type: 'TEXT',
           isEdited: false,
           createdAt: new Date(),
-          updatedAt: new Date(),
         },
       ];
 
