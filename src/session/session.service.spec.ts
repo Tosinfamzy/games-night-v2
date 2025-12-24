@@ -125,7 +125,7 @@ describe('SessionService', () => {
           gamesMasterId: 'gm-1',
         });
 
-        expect(result.joinCode).toBe(mockJoinCode);
+        expect(result.session.joinCode).toBe(mockJoinCode);
         expect(joinCodeUtil.generateJoinCode).toHaveBeenCalledTimes(1);
       });
 
@@ -154,7 +154,7 @@ describe('SessionService', () => {
           gamesMasterId: 'gm-1',
         });
 
-        expect(result.joinCode).toBe('222222');
+        expect(result.session.joinCode).toBe('222222');
         expect(joinCodeUtil.generateJoinCode).toHaveBeenCalledTimes(2);
       });
 
