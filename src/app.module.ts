@@ -52,7 +52,9 @@ import * as Joi from 'joi';
         password: configService.get<string>('DB_PASSWORD'),
         database: configService.get<string>('DB_NAME'),
         entities: [__dirname + '/**/*.entity.{ts,js}'],
-        synchronize: configService.get('NODE_ENV') !== 'production',
+        synchronize:
+          configService.get('DB_SYNCHRONIZE') === 'true' ||
+          configService.get('NODE_ENV') !== 'production',
       }),
       inject: [ConfigService],
     }),
