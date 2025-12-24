@@ -36,6 +36,7 @@ import * as Joi from 'joi';
         DB_NAME: Joi.string().default('games_night'),
         REDIS_HOST: Joi.string().default('localhost'),
         REDIS_PORT: Joi.number().default(6379),
+        REDIS_PASSWORD: Joi.string().optional(),
         JWT_SECRET: Joi.string().required(),
         JWT_EXPIRATION: Joi.string().default('15m'),
         JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
@@ -58,11 +59,13 @@ import * as Joi from 'joi';
     CacheModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => {
-        const redisConfig = {
+        const redisPassword = configService.get<string>('REDIS_PASSWORD');
+        const redisConfig: Parameters<typeof redisStore>[0] = {
           socket: {
             host: configService.get<string>('REDIS_HOST'),
             port: configService.get<number>('REDIS_PORT'),
           },
+          ...(redisPassword && { password: redisPassword }),
           ttl: 60 * 60, // 1 hour
         };
 
