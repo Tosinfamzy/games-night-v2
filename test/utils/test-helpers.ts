@@ -11,6 +11,260 @@ import { GameLibrary } from '../../src/game-library/game-library.entity';
 import * as bcrypt from 'bcrypt';
 
 /**
+ * Mock Service Types
+ * Use these types instead of 'any' for service mocks in tests
+ */
+
+export interface MockSessionGateway {
+  broadcastPlayerJoined: jest.Mock;
+  broadcastSessionStatusChange: jest.Mock;
+  broadcastTeamCreated: jest.Mock;
+  broadcastTeamUpdated: jest.Mock;
+  broadcastTeamDeleted: jest.Mock;
+  broadcastPlayerAssignedToTeam: jest.Mock;
+  broadcastPlayerReadiness: jest.Mock;
+  broadcastSessionReadiness: jest.Mock;
+  server: {
+    to: jest.Mock;
+  };
+}
+
+export interface MockScoreService {
+  getSessionLeaderboard: jest.Mock;
+  getRankedGameScores: jest.Mock;
+  getGameScores: jest.Mock;
+  createScore: jest.Mock;
+  updateScore: jest.Mock;
+  deleteScore: jest.Mock;
+}
+
+export interface MockGameService {
+  findOne: jest.Mock;
+  nextTurn: jest.Mock;
+  startGame: jest.Mock;
+  completeGame: jest.Mock;
+  pauseGame: jest.Mock;
+  resumeGame: jest.Mock;
+}
+
+export interface MockGameGateway {
+  broadcastTimerTick: jest.Mock;
+  broadcastTimerExpired: jest.Mock;
+  broadcastTurnStarted: jest.Mock;
+  broadcastTurnAdvanced: jest.Mock;
+  broadcastGameStarted: jest.Mock;
+  broadcastGameCompleted: jest.Mock;
+}
+
+export interface MockTeamService {
+  findByGame: jest.Mock;
+  findOne: jest.Mock;
+  create: jest.Mock;
+  update: jest.Mock;
+  delete: jest.Mock;
+  getTeamStats: jest.Mock;
+}
+
+export interface MockUserService {
+  findByEmail: jest.Mock;
+  findById: jest.Mock;
+  create: jest.Mock;
+  update: jest.Mock;
+}
+
+export interface MockJwtService {
+  sign: jest.Mock;
+  verify: jest.Mock;
+}
+
+export interface MockConfigService {
+  get: jest.Mock;
+}
+
+export interface MockGamesMasterService {
+  create: jest.Mock;
+  findOne: jest.Mock;
+}
+
+export interface MockAuthService {
+  generatePlayerToken: jest.Mock;
+  validatePlayerToken: jest.Mock;
+}
+
+export interface MockSessionReadinessService {
+  validatePlayerCountForGames: jest.Mock;
+  canStartSession: jest.Mock;
+  getSessionReadiness: jest.Mock;
+}
+
+export interface MockSessionLifecycleService {
+  startSession: jest.Mock;
+  completeSession: jest.Mock;
+  cancelSession: jest.Mock;
+}
+
+export interface MockSessionPlayerService {
+  joinSession: jest.Mock;
+  rejoinSession: jest.Mock;
+  setPlayerReady: jest.Mock;
+  updatePlayerStatus: jest.Mock;
+  getSessionPlayers: jest.Mock;
+  removePlayerFromSession: jest.Mock;
+  kickPlayer: jest.Mock;
+}
+
+export interface MockTeamFormationService {
+  createTeamsForGame: jest.Mock;
+  clearTeamsForGame: jest.Mock;
+  suggestTeamFormation: jest.Mock;
+  assignPlayersByStrategy: jest.Mock;
+  validateTeamFormation: jest.Mock;
+}
+
+export interface MockTeamAssignmentService {
+  manualAssignPlayers: jest.Mock;
+  rebalanceTeams: jest.Mock;
+  shufflePlayers: jest.Mock;
+  swapPlayerToTeam: jest.Mock;
+  dissolveTeam: jest.Mock;
+  reassignPlayer: jest.Mock;
+}
+
+export interface MockGameStatsService {
+  getGameStats: jest.Mock;
+  getResults: jest.Mock;
+  getTimerStatus: jest.Mock;
+}
+
+/**
+ * Factory functions for creating typed mock services
+ */
+
+export const createMockSessionGateway = (): MockSessionGateway => ({
+  broadcastPlayerJoined: jest.fn(),
+  broadcastSessionStatusChange: jest.fn(),
+  broadcastTeamCreated: jest.fn(),
+  broadcastTeamUpdated: jest.fn(),
+  broadcastTeamDeleted: jest.fn(),
+  broadcastPlayerAssignedToTeam: jest.fn(),
+  broadcastPlayerReadiness: jest.fn(),
+  broadcastSessionReadiness: jest.fn(),
+  server: {
+    to: jest.fn().mockReturnValue({ emit: jest.fn() }),
+  },
+});
+
+export const createMockScoreService = (): MockScoreService => ({
+  getSessionLeaderboard: jest.fn(),
+  getRankedGameScores: jest.fn(),
+  getGameScores: jest.fn(),
+  createScore: jest.fn(),
+  updateScore: jest.fn(),
+  deleteScore: jest.fn(),
+});
+
+export const createMockGameService = (): MockGameService => ({
+  findOne: jest.fn(),
+  nextTurn: jest.fn(),
+  startGame: jest.fn(),
+  completeGame: jest.fn(),
+  pauseGame: jest.fn(),
+  resumeGame: jest.fn(),
+});
+
+export const createMockGameGateway = (): MockGameGateway => ({
+  broadcastTimerTick: jest.fn(),
+  broadcastTimerExpired: jest.fn(),
+  broadcastTurnStarted: jest.fn(),
+  broadcastTurnAdvanced: jest.fn(),
+  broadcastGameStarted: jest.fn(),
+  broadcastGameCompleted: jest.fn(),
+});
+
+export const createMockTeamService = (): MockTeamService => ({
+  findByGame: jest.fn(),
+  findOne: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  getTeamStats: jest.fn(),
+});
+
+export const createMockUserService = (): MockUserService => ({
+  findByEmail: jest.fn(),
+  findById: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
+});
+
+export const createMockJwtService = (): MockJwtService => ({
+  sign: jest.fn(),
+  verify: jest.fn(),
+});
+
+export const createMockConfigService = (): MockConfigService => ({
+  get: jest.fn(),
+});
+
+export const createMockGamesMasterService = (): MockGamesMasterService => ({
+  create: jest.fn(),
+  findOne: jest.fn(),
+});
+
+export const createMockAuthService = (): MockAuthService => ({
+  generatePlayerToken: jest.fn(),
+  validatePlayerToken: jest.fn(),
+});
+
+export const createMockSessionReadinessService =
+  (): MockSessionReadinessService => ({
+    validatePlayerCountForGames: jest.fn(),
+    canStartSession: jest.fn(),
+    getSessionReadiness: jest.fn(),
+  });
+
+export const createMockSessionLifecycleService =
+  (): MockSessionLifecycleService => ({
+    startSession: jest.fn(),
+    completeSession: jest.fn(),
+    cancelSession: jest.fn(),
+  });
+
+export const createMockSessionPlayerService = (): MockSessionPlayerService => ({
+  joinSession: jest.fn(),
+  rejoinSession: jest.fn(),
+  setPlayerReady: jest.fn(),
+  updatePlayerStatus: jest.fn(),
+  getSessionPlayers: jest.fn(),
+  removePlayerFromSession: jest.fn(),
+  kickPlayer: jest.fn(),
+});
+
+export const createMockTeamFormationService = (): MockTeamFormationService => ({
+  createTeamsForGame: jest.fn(),
+  clearTeamsForGame: jest.fn(),
+  suggestTeamFormation: jest.fn(),
+  assignPlayersByStrategy: jest.fn(),
+  validateTeamFormation: jest.fn(),
+});
+
+export const createMockTeamAssignmentService =
+  (): MockTeamAssignmentService => ({
+    manualAssignPlayers: jest.fn(),
+    rebalanceTeams: jest.fn(),
+    shufflePlayers: jest.fn(),
+    swapPlayerToTeam: jest.fn(),
+    dissolveTeam: jest.fn(),
+    reassignPlayer: jest.fn(),
+  });
+
+export const createMockGameStatsService = (): MockGameStatsService => ({
+  getGameStats: jest.fn(),
+  getResults: jest.fn(),
+  getTimerStatus: jest.fn(),
+});
+
+/**
  * Test data factories for creating mock entities
  * These helpers generate realistic test data with sensible defaults
  */

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { GameService } from './game.service';
+import { GameStatsService } from './services/game-stats.service';
 import { Game } from './game.entity';
 import { Session } from '../session/session.entity';
 import { Team } from '../team/team.entity';
@@ -9,6 +10,8 @@ import { Player } from '../player/player.entity';
 import { TeamService } from '../team/team.service';
 import { ScoreService } from '../score/score.service';
 import { GameGateway } from './game.gateway';
+import { GameTimerService } from './game-timer.service';
+import { HistoryService } from '../history/history.service';
 import { GameStatus } from './enums/game-status.enum';
 import { createMockRepository } from '../../test/utils/test-db';
 import {
@@ -39,6 +42,8 @@ describe('GameService', () => {
       | 'broadcastGameResumed'
       | 'broadcastTurnStarted'
       | 'broadcastTurnAdvanced'
+      | 'broadcastRoundStarted'
+      | 'broadcastRoundEnded'
     >
   >;
   let gameTimerService: jest.Mocked<{
@@ -77,6 +82,8 @@ describe('GameService', () => {
       broadcastGameResumed: jest.fn(),
       broadcastTurnStarted: jest.fn(),
       broadcastTurnAdvanced: jest.fn(),
+      broadcastRoundStarted: jest.fn(),
+      broadcastRoundEnded: jest.fn(),
     } as jest.Mocked<
       Pick<
         GameGateway,
@@ -86,6 +93,8 @@ describe('GameService', () => {
         | 'broadcastGameResumed'
         | 'broadcastTurnStarted'
         | 'broadcastTurnAdvanced'
+        | 'broadcastRoundStarted'
+        | 'broadcastRoundEnded'
       >
     >;
 
@@ -102,6 +111,17 @@ describe('GameService', () => {
       stopTimer: jest.Mock;
       getRemainingTime: jest.Mock;
     }>;
+
+    const historyService = {
+      recordGameEvent: jest.fn(),
+      createGameResult: jest.fn().mockResolvedValue({}),
+    };
+
+    const mockGameStatsService = {
+      getGameStats: jest.fn(),
+      getResults: jest.fn(),
+      getTimerStatus: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -135,8 +155,16 @@ describe('GameService', () => {
           useValue: gameGateway,
         },
         {
-          provide: 'GameTimerService',
+          provide: GameTimerService,
           useValue: gameTimerService,
+        },
+        {
+          provide: HistoryService,
+          useValue: historyService,
+        },
+        {
+          provide: GameStatsService,
+          useValue: mockGameStatsService,
         },
       ],
     }).compile();

@@ -1,6 +1,8 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { GameService } from './game.service';
 import { GameGateway } from './game.gateway';
+import { TeamService } from '../team/team.service';
+import { TIME } from '../common/constants';
 
 interface ActiveTimer {
   gameId: string;
@@ -21,6 +23,7 @@ export class GameTimerService {
     @Inject(forwardRef(() => GameService))
     private readonly gameService: GameService,
     private readonly gameGateway: GameGateway,
+    private readonly teamService: TeamService,
   ) {}
 
   /**
@@ -43,7 +46,7 @@ export class GameTimerService {
     // Create interval that ticks every second
     const intervalId = setInterval(() => {
       this.checkTimer(gameId);
-    }, 1000); // Check every second
+    }, TIME.TIMER_TICK_INTERVAL_MS);
 
     this.activeTimers.set(gameId, {
       gameId,
@@ -79,7 +82,9 @@ export class GameTimerService {
     const remainingSeconds = timer.turnTimeLimit - elapsedSeconds;
 
     // Emit tick event
-    const isWarning = [30, 10, 5].includes(remainingSeconds);
+    const isWarning = (
+      TIME.TIMER_WARNING_THRESHOLDS as readonly number[]
+    ).includes(remainingSeconds);
 
     // Only emit warnings once
     if (isWarning && timer.lastWarningAt !== remainingSeconds) {
@@ -89,8 +94,8 @@ export class GameTimerService {
         `Timer warning for game ${gameId}: ${remainingSeconds}s remaining`,
       );
     } else if (!isWarning) {
-      // Emit regular tick every 5 seconds to reduce noise
-      if (remainingSeconds % 5 === 0) {
+      // Emit regular tick every few seconds to reduce noise
+      if (remainingSeconds % TIME.TIMER_BROADCAST_INTERVAL_SECONDS === 0) {
         this.gameGateway.broadcastTimerTick(gameId, remainingSeconds, false);
       }
     }
@@ -131,7 +136,7 @@ export class GameTimerService {
       // If the new turn also has a timer, start it
       if (game.turnTimeLimit && game.turnStartedAt && game.currentTurnTeamId) {
         // Get team name for the new turn
-        const teams = await this.gameService['teamService'].findByGame(gameId);
+        const teams = await this.teamService.findByGame(gameId);
         const newTeam = teams.find((t) => t.id === game.currentTurnTeamId);
 
         if (newTeam) {

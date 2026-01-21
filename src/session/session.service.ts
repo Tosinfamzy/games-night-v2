@@ -32,6 +32,10 @@ import { SessionGateway } from './session.gateway';
 import { ScoreService } from '../score/score.service';
 import { SessionLeaderboardDto } from '../common/dto/session-leaderboard.dto';
 import { AuthService } from '../auth/auth.service';
+import { LIMITS } from '../common/constants';
+import { SessionReadinessService } from './services/session-readiness.service';
+import { SessionLifecycleService } from './services/session-lifecycle.service';
+import { SessionPlayerService } from './services/session-player.service';
 
 @Injectable()
 export class SessionService {
@@ -53,6 +57,11 @@ export class SessionService {
     @Inject(forwardRef(() => ScoreService))
     private readonly scoreService: ScoreService,
     private readonly authService: AuthService,
+    private readonly readinessService: SessionReadinessService,
+    @Inject(forwardRef(() => SessionLifecycleService))
+    private readonly lifecycleService: SessionLifecycleService,
+    @Inject(forwardRef(() => SessionPlayerService))
+    private readonly playerService: SessionPlayerService,
   ) {}
 
   async create(dto: CreateSessionDto): Promise<CreateSessionResponseDto> {
@@ -69,9 +78,8 @@ export class SessionService {
     let joinCode = generateJoinCode();
     let isUnique = false;
     let attempts = 0;
-    const maxAttempts = 10;
 
-    while (!isUnique && attempts < maxAttempts) {
+    while (!isUnique && attempts < LIMITS.JOIN_CODE_MAX_ATTEMPTS) {
       const existingSession = await this.repo.findOne({
         where: { joinCode },
       });
@@ -147,136 +155,12 @@ export class SessionService {
   async joinSession(
     dto: JoinSessionDto,
     userId?: string,
-  ): Promise<{
-    session: Session;
-    player: Player;
-    message: string;
-    playerToken: string;
-  }> {
-    const session = await this.findByJoinCode(dto.joinCode);
-
-    if (session.status === SessionStatus.COMPLETED) {
-      throw new BadRequestException('Cannot join a completed session');
-    }
-
-    if (session.status === SessionStatus.CANCELLED) {
-      throw new BadRequestException('Cannot join a cancelled session');
-    }
-
-    if (session.status !== SessionStatus.SCHEDULED) {
-      throw new BadRequestException(
-        `Cannot join session - current status: ${session.status}`,
-      );
-    }
-
-    // Check if player name already exists in the session
-    const existingPlayer = await this.playerRepo.findOne({
-      where: { name: dto.playerName, session: { id: session.id } },
-    });
-
-    let savedPlayer: Player;
-
-    if (existingPlayer) {
-      // Player is rejoining - update their lastConnectedAt and return existing player
-      existingPlayer.lastConnectedAt = new Date();
-      existingPlayer.status = PlayerStatus.JOINED;
-      savedPlayer = await this.playerRepo.save(existingPlayer);
-    } else {
-      // Create new player
-      const player = this.playerRepo.create({
-        name: dto.playerName,
-        session,
-        status: PlayerStatus.JOINED,
-        lastConnectedAt: new Date(),
-        userId: userId, // Link to user if authenticated (undefined if not)
-        isGuest: !userId, // Mark as guest if no userId provided
-      });
-
-      savedPlayer = await this.playerRepo.save(player);
-    }
-
-    // Broadcast player joined event via WebSocket
-    this.sessionGateway.broadcastPlayerJoined(session.id, savedPlayer);
-
-    // Reload session with updated players
-    const updatedSession = await this.findByJoinCode(dto.joinCode);
-
-    // Return response with player token
-    return {
-      session: updatedSession,
-      player: savedPlayer,
-      message: `Successfully joined session hosted by ${session.host.name}`,
-
-      playerToken: this.authService.generatePlayerToken(
-        savedPlayer.id,
-        updatedSession.id,
-        savedPlayer.name,
-      ),
-    };
+  ) {
+    return this.playerService.joinSession(dto, userId);
   }
 
-  /**
-   * Rejoin a session using a valid player token
-   * Allows players to recover their session if they lose localStorage data
-   */
-  async rejoinSession(playerToken: string): Promise<{
-    session: Session;
-    player: Player;
-    message: string;
-    playerToken: string;
-  }> {
-    // Validate and decode the token
-
-    const tokenData = this.authService.validatePlayerToken(playerToken) as {
-      playerId: string;
-      sessionId: string;
-      playerName: string;
-    } | null;
-
-    if (!tokenData) {
-      throw new BadRequestException('Invalid or expired player token');
-    }
-
-    // Find the player
-    const player = await this.playerRepo.findOne({
-      where: { id: tokenData.playerId },
-      relations: ['session'],
-    });
-
-    if (!player) {
-      throw new NotFoundException('Player not found');
-    }
-
-    // Verify the session matches the token
-    if (player.session.id !== tokenData.sessionId) {
-      throw new BadRequestException('Token session mismatch');
-    }
-
-    // Update player's last connected time
-    player.lastConnectedAt = new Date();
-    player.status = PlayerStatus.JOINED;
-    await this.playerRepo.save(player);
-
-    // Load full session with relations
-    const session = await this.findOne(player.session.id, [
-      'host',
-      'games',
-      'teams',
-      'players',
-    ]);
-
-    // Return response with fresh token
-    return {
-      session,
-      player,
-      message: `Welcome back, ${player.name}!`,
-
-      playerToken: this.authService.generatePlayerToken(
-        player.id,
-        session.id,
-        player.name,
-      ),
-    };
+  async rejoinSession(playerToken: string) {
+    return this.playerService.rejoinSession(playerToken);
   }
 
   async findAll(relations: string[] = []): Promise<Session[]> {
@@ -300,121 +184,15 @@ export class SessionService {
   }
 
   async startSession(sessionId: string): Promise<Session> {
-    const startCheck = await this.canStartSession(sessionId);
-
-    if (!startCheck.canStart) {
-      throw new BadRequestException(
-        `Cannot start session: ${startCheck.reasons.join(', ')}`,
-      );
-    }
-
-    const session = await this.findOne(sessionId, ['players']);
-
-    // Update session status
-    session.status = SessionStatus.IN_PROGRESS;
-
-    // Set all ready players to playing status
-    const activePlayers = session.players.filter(
-      (player) => player.status !== PlayerStatus.DISCONNECTED,
-    );
-
-    for (const player of activePlayers) {
-      if (player.status === PlayerStatus.READY) {
-        player.status = PlayerStatus.PLAYING;
-        await this.playerRepo.save(player);
-      }
-    }
-
-    const savedSession = await this.repo.save(session);
-
-    // Broadcast session started event
-    this.sessionGateway.broadcastSessionStatusChange(
-      sessionId,
-      SessionStatus.IN_PROGRESS,
-      savedSession,
-    );
-
-    return this.findOne(sessionId, [
-      'games',
-      'games.gameLibrary',
-      'players',
-      'host',
-    ]);
+    return this.lifecycleService.startSession(sessionId);
   }
 
   async completeSession(id: string): Promise<Session> {
-    const session = await this.findOne(id, ['games']);
-
-    if (session.status !== SessionStatus.IN_PROGRESS) {
-      throw new BadRequestException(
-        `Session cannot be completed. Current status: ${session.status}`,
-      );
-    }
-
-    // Check if all games are completed or cancelled
-    const incompleteGames = session.games?.filter(
-      (game) =>
-        ![GameStatus.COMPLETED, GameStatus.CANCELLED].includes(game.status),
-    );
-
-    if (incompleteGames?.length) {
-      throw new BadRequestException(
-        `Cannot complete session. ${incompleteGames.length} games are still in progress.`,
-      );
-    }
-
-    session.status = SessionStatus.COMPLETED;
-    const savedSession = await this.repo.save(session);
-
-    // Broadcast session completed event
-    this.sessionGateway.broadcastSessionStatusChange(
-      id,
-      SessionStatus.COMPLETED,
-      savedSession,
-    );
-
-    return savedSession;
+    return this.lifecycleService.completeSession(id);
   }
 
   async cancelSession(id: string): Promise<Session> {
-    const session = await this.findOne(id, ['games']);
-
-    if (
-      [SessionStatus.COMPLETED, SessionStatus.CANCELLED].includes(
-        session.status,
-      )
-    ) {
-      throw new BadRequestException(
-        `Session cannot be cancelled. Current status: ${session.status}`,
-      );
-    }
-
-    // Cancel all in-progress games
-    if (session.games?.length) {
-      const activeGames = session.games.filter(
-        (game) =>
-          ![GameStatus.COMPLETED, GameStatus.CANCELLED].includes(game.status),
-      );
-
-      await Promise.all(
-        activeGames.map((game) => {
-          game.status = GameStatus.CANCELLED;
-          return this.gameRepo.save(game);
-        }),
-      );
-    }
-
-    session.status = SessionStatus.CANCELLED;
-    const savedSession = await this.repo.save(session);
-
-    // Broadcast session cancelled event
-    this.sessionGateway.broadcastSessionStatusChange(
-      id,
-      SessionStatus.CANCELLED,
-      savedSession,
-    );
-
-    return savedSession;
+    return this.lifecycleService.cancelSession(id);
   }
 
   async update(id: string, dto: UpdateSessionDto): Promise<Session> {
@@ -463,9 +241,8 @@ export class SessionService {
     let joinCode = generateJoinCode();
     let isUnique = false;
     let attempts = 0;
-    const maxAttempts = 10;
 
-    while (!isUnique && attempts < maxAttempts) {
+    while (!isUnique && attempts < LIMITS.JOIN_CODE_MAX_ATTEMPTS) {
       const existingSession = await this.repo.findOne({
         where: { joinCode },
       });
@@ -607,194 +384,16 @@ export class SessionService {
     return this.findOne(sessionId, ['games', 'games.gameLibrary']);
   }
 
-  async validatePlayerCountForGames(sessionId: string): Promise<{
-    isValid: boolean;
-    errors: string[];
-    playerCount: number;
-    gameRequirements: Array<{
-      gameName: string;
-      minPlayers: number;
-      maxPlayers: number;
-      isValidForCurrentPlayers: boolean;
-    }>;
-  }> {
-    const session = await this.findOne(sessionId, [
-      'games',
-      'games.gameLibrary',
-      'players',
-    ]);
-
-    const activePlayerCount = session.players.filter(
-      (player) => player.status !== PlayerStatus.DISCONNECTED,
-    ).length;
-
-    const errors: string[] = [];
-    const gameRequirements: Array<{
-      gameName: string;
-      minPlayers: number;
-      maxPlayers: number;
-      isValidForCurrentPlayers: boolean;
-    }> = [];
-
-    for (const game of session.games) {
-      const { minPlayers, maxPlayers, name } = game.gameLibrary;
-      const isValidForCurrentPlayers =
-        activePlayerCount >= minPlayers && activePlayerCount <= maxPlayers;
-
-      gameRequirements.push({
-        gameName: name,
-        minPlayers,
-        maxPlayers,
-        isValidForCurrentPlayers,
-      });
-
-      if (!isValidForCurrentPlayers) {
-        errors.push(
-          `${name} requires ${minPlayers}-${maxPlayers} players, but ${activePlayerCount} active players in session`,
-        );
-      }
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-      playerCount: activePlayerCount,
-      gameRequirements,
-    };
+  async validatePlayerCountForGames(sessionId: string) {
+    return this.readinessService.validatePlayerCountForGames(sessionId);
   }
 
-  async canStartSession(sessionId: string): Promise<{
-    canStart: boolean;
-    reasons: string[];
-    checks: {
-      hasGames: boolean;
-      playersReady: boolean;
-      playerCountValid: boolean;
-      sessionScheduled: boolean;
-    };
-  }> {
-    const session = await this.findOne(sessionId, [
-      'games',
-      'games.gameLibrary',
-      'players',
-    ]);
-
-    const reasons: string[] = [];
-    const checks = {
-      hasGames: session.games.length > 0,
-      playersReady: false,
-      playerCountValid: false,
-      sessionScheduled: session.status === SessionStatus.SCHEDULED,
-    };
-
-    // Check if session has games
-    if (!checks.hasGames) {
-      reasons.push('Session must have at least one game selected');
-    }
-
-    // Check if session is in correct status
-    if (!checks.sessionScheduled) {
-      reasons.push(
-        `Session status must be SCHEDULED, current: ${session.status}`,
-      );
-    }
-
-    // Check if all players are ready
-    const activePlayers = session.players.filter(
-      (player) => player.status !== PlayerStatus.DISCONNECTED,
-    );
-    checks.playersReady =
-      activePlayers.length > 0 &&
-      activePlayers.every((player) => player.status === PlayerStatus.READY);
-
-    if (!checks.playersReady) {
-      const readyCount = activePlayers.filter(
-        (p) => p.status === PlayerStatus.READY,
-      ).length;
-      reasons.push(
-        `All players must be ready. Currently ${readyCount}/${activePlayers.length} players ready`,
-      );
-    }
-
-    // Check player count validity for all games
-    if (checks.hasGames) {
-      const validation = await this.validatePlayerCountForGames(sessionId);
-      checks.playerCountValid = validation.isValid;
-
-      if (!validation.isValid) {
-        reasons.push(...validation.errors);
-      }
-    }
-
-    return {
-      canStart:
-        checks.hasGames &&
-        checks.playersReady &&
-        checks.playerCountValid &&
-        checks.sessionScheduled,
-      reasons,
-      checks,
-    };
+  async canStartSession(sessionId: string) {
+    return this.readinessService.canStartSession(sessionId);
   }
 
   async getSessionReadiness(sessionId: string) {
-    const session = await this.findOne(sessionId, [
-      'players',
-      'games',
-      'games.gameLibrary',
-    ]);
-
-    const activePlayers = session.players.filter(
-      (player) => player.status !== PlayerStatus.DISCONNECTED,
-    );
-
-    const playerStats = {
-      total: session.players.length,
-      active: activePlayers.length,
-      ready: activePlayers.filter((p) => p.status === PlayerStatus.READY)
-        .length,
-      joined: activePlayers.filter((p) => p.status === PlayerStatus.JOINED)
-        .length,
-      playing: activePlayers.filter((p) => p.status === PlayerStatus.PLAYING)
-        .length,
-    };
-
-    const gameValidation = await this.validatePlayerCountForGames(sessionId);
-    const startCheck = await this.canStartSession(sessionId);
-
-    return {
-      // Frontend-expected top-level fields
-      sessionId: session.id,
-      totalPlayers: session.players.length,
-      readyPlayers: activePlayers.filter((p) => p.status === PlayerStatus.READY)
-        .length,
-      allReady:
-        activePlayers.length > 0 &&
-        activePlayers.every((p) => p.status === PlayerStatus.READY),
-      playersStatus: activePlayers.map((p) => ({
-        playerId: p.id,
-        playerName: p.name,
-        isReady: p.status === PlayerStatus.READY,
-        status: p.status,
-      })),
-      // Backward compatibility fields
-      session: {
-        id: session.id,
-        name: session.name,
-        status: session.status,
-        joinCode: session.joinCode,
-      },
-      players: playerStats,
-      games: session.games.map((game) => ({
-        id: game.id,
-        name: game.gameLibrary.name,
-        minPlayers: game.gameLibrary.minPlayers,
-        maxPlayers: game.gameLibrary.maxPlayers,
-        status: game.status,
-      })),
-      validation: gameValidation,
-      readiness: startCheck,
-    };
+    return this.readinessService.getSessionReadiness(sessionId);
   }
 
   // Team management methods
@@ -899,47 +498,13 @@ export class SessionService {
     return savedTeam;
   }
 
-  // Player status management methods
+  // Player status management methods (delegated to SessionPlayerService)
   async setPlayerReady(
     sessionId: string,
     playerId: string,
     ready: boolean = true,
   ): Promise<Player> {
-    const player = await this.playerRepo.findOne({
-      where: { id: playerId, session: { id: sessionId } },
-      relations: ['session'],
-    });
-
-    if (!player) {
-      throw new NotFoundException(
-        `Player with ID ${playerId} not found in session ${sessionId}`,
-      );
-    }
-
-    // Validate session status
-    if (player.session.status !== SessionStatus.SCHEDULED) {
-      throw new BadRequestException(
-        `Cannot change player status when session is ${player.session.status}`,
-      );
-    }
-
-    // Set player status based on ready flag
-    player.status = ready ? PlayerStatus.READY : PlayerStatus.JOINED;
-    player.lastConnectedAt = new Date();
-
-    const savedPlayer = await this.playerRepo.save(player);
-
-    // Broadcast player readiness change
-    this.sessionGateway.broadcastPlayerReadiness(sessionId, playerId, ready);
-
-    // Also broadcast session readiness update
-    const readiness = await this.canStartSession(sessionId);
-    this.sessionGateway.broadcastSessionReadiness(sessionId, {
-      canStart: readiness.canStart,
-      reasons: readiness.reasons,
-    });
-
-    return savedPlayer;
+    return this.playerService.setPlayerReady(sessionId, playerId, ready);
   }
 
   async updatePlayerStatus(
@@ -947,54 +512,18 @@ export class SessionService {
     playerId: string,
     status: PlayerStatus,
   ): Promise<Player> {
-    const player = await this.playerRepo.findOne({
-      where: { id: playerId, session: { id: sessionId } },
-      relations: ['session'],
-    });
-
-    if (!player) {
-      throw new NotFoundException(
-        `Player with ID ${playerId} not found in session ${sessionId}`,
-      );
-    }
-
-    // Update status and connection time
-    player.status = status;
-    if (status !== PlayerStatus.DISCONNECTED) {
-      player.lastConnectedAt = new Date();
-    }
-
-    return await this.playerRepo.save(player);
+    return this.playerService.updatePlayerStatus(sessionId, playerId, status);
   }
 
   async getSessionPlayers(sessionId: string): Promise<Player[]> {
-    const session = await this.findOne(sessionId, ['players']);
-    return session.players;
+    return this.playerService.getSessionPlayers(sessionId);
   }
 
   async removePlayerFromSession(
     sessionId: string,
     playerId: string,
   ): Promise<void> {
-    const player = await this.playerRepo.findOne({
-      where: { id: playerId, session: { id: sessionId } },
-      relations: ['session'],
-    });
-
-    if (!player) {
-      throw new NotFoundException(
-        `Player with ID ${playerId} not found in session ${sessionId}`,
-      );
-    }
-
-    // Check if session allows player removal
-    if (player.session.status === SessionStatus.IN_PROGRESS) {
-      throw new BadRequestException(
-        'Cannot remove players from a session in progress',
-      );
-    }
-
-    await this.playerRepo.remove(player);
+    return this.playerService.removePlayerFromSession(sessionId, playerId);
   }
 
   /**
@@ -1041,50 +570,6 @@ export class SessionService {
   }
 
   async kickPlayer(sessionId: string, playerId: string): Promise<Session> {
-    const session = await this.findOne(sessionId);
-
-    if (session.status === SessionStatus.COMPLETED) {
-      throw new BadRequestException(
-        'Cannot kick players from completed session',
-      );
-    }
-
-    // Find the player
-    const player = await this.playerRepo.findOne({
-      where: { id: playerId },
-    });
-
-    if (!player) {
-      throw new NotFoundException(`Player with ID ${playerId} not found`);
-    }
-
-    // Check if player is in this session
-    const playerInSession = session.players?.some((p) => p.id === playerId);
-    if (!playerInSession) {
-      throw new BadRequestException('Player is not in this session');
-    }
-
-    // Remove player from session
-    session.players = session.players.filter((p) => p.id !== playerId);
-
-    // Remove player from all teams in this session
-    const teams = await this.teamRepo.find({
-      where: { session: { id: sessionId } },
-      relations: ['players'],
-    });
-
-    for (const team of teams) {
-      if (team.players) {
-        team.players = team.players.filter((p) => p.id !== playerId);
-        await this.teamRepo.save(team);
-      }
-    }
-
-    await this.repo.save(session);
-
-    // Delete the player entity
-    await this.playerRepo.remove(player);
-
-    return session;
+    return this.playerService.kickPlayer(sessionId, playerId);
   }
 }

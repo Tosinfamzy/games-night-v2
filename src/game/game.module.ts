@@ -4,6 +4,7 @@ import { GameService } from './game.service';
 import { GameController } from './game.controller';
 import { GameGateway } from './game.gateway';
 import { GameTimerService } from './game-timer.service';
+import { GameStatsService } from './services/game-stats.service';
 import { Game } from './game.entity';
 import { Session } from '../session/session.entity';
 import { Team } from '../team/team.entity';
@@ -21,8 +22,8 @@ import { AuthModule } from '../auth/auth.module';
     forwardRef(() => HistoryModule),
     AuthModule,
   ],
-  providers: [GameService, GameGateway, GameTimerService],
+  providers: [GameService, GameGateway, GameTimerService, GameStatsService],
   controllers: [GameController],
-  exports: [GameService, GameGateway, GameTimerService],
+  exports: [GameService, GameGateway, GameTimerService, GameStatsService],
 })
 export class GameModule {}

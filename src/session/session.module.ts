@@ -1,6 +1,9 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SessionService } from './session.service';
+import { SessionReadinessService } from './services/session-readiness.service';
+import { SessionLifecycleService } from './services/session-lifecycle.service';
+import { SessionPlayerService } from './services/session-player.service';
 import { SessionController } from './session.controller';
 import { SessionGateway } from './session.gateway';
 import { Session } from './session.entity';
@@ -27,8 +30,20 @@ import { PlayerModule } from '../player/player.module';
     AuthModule,
     PlayerModule,
   ],
-  providers: [SessionService, SessionGateway],
+  providers: [
+    SessionService,
+    SessionReadinessService,
+    SessionLifecycleService,
+    SessionPlayerService,
+    SessionGateway,
+  ],
   controllers: [SessionController],
-  exports: [SessionService, SessionGateway],
+  exports: [
+    SessionService,
+    SessionReadinessService,
+    SessionLifecycleService,
+    SessionPlayerService,
+    SessionGateway,
+  ],
 })
 export class SessionModule {}

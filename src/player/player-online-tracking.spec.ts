@@ -3,11 +3,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { PlayerService } from './player.service';
 import { Player, PlayerStatus } from './player.entity';
 import { Session } from '../session/session.entity';
+import { SessionGateway } from '../session/session.gateway';
 import { createMockRepository } from '../../test/utils/test-db';
 import {
   createMockPlayer,
   createMockSession,
   resetTestCounters,
+  createMockSessionGateway,
 } from '../../test/utils/test-helpers';
 
 describe('Player Online Tracking', () => {
@@ -18,6 +20,7 @@ describe('Player Online Tracking', () => {
   beforeEach(async () => {
     playerRepo = createMockRepository<Player>();
     sessionRepo = createMockRepository<Session>();
+    const sessionGateway = createMockSessionGateway();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -29,6 +32,10 @@ describe('Player Online Tracking', () => {
         {
           provide: getRepositoryToken(Session),
           useValue: sessionRepo,
+        },
+        {
+          provide: SessionGateway,
+          useValue: sessionGateway,
         },
       ],
     }).compile();

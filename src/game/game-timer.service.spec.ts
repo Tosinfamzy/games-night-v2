@@ -2,17 +2,24 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { GameTimerService } from './game-timer.service';
 import { GameService } from './game.service';
 import { GameGateway } from './game.gateway';
+import { TeamService } from '../team/team.service';
 import { GameStatus } from './enums/game-status.enum';
 import {
   createMockGame,
   createMockTeam,
   resetTestCounters,
+  MockGameService,
+  MockGameGateway,
+  MockTeamService,
+  createMockGameGateway,
+  createMockTeamService,
 } from '../../test/utils/test-helpers';
 
 describe('GameTimerService', () => {
   let service: GameTimerService;
-  let gameService: any;
-  let gameGateway: any;
+  let gameService: MockGameService;
+  let gameGateway: MockGameGateway;
+  let teamService: MockTeamService;
   let dateNowSpy: jest.SpyInstance;
   let currentTime: number;
 
@@ -23,25 +30,18 @@ describe('GameTimerService', () => {
     currentTime = new Date('2025-01-01T12:00:00.000Z').getTime();
     dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => currentTime);
 
-    const teamServiceMock = {
-      findByGame: jest.fn(),
-    };
+    teamService = createMockTeamService();
 
     gameService = {
       nextTurn: jest.fn(),
       findOne: jest.fn(),
-      teamService: teamServiceMock,
-      // Also make it accessible via bracket notation
+      startGame: jest.fn(),
+      completeGame: jest.fn(),
+      pauseGame: jest.fn(),
+      resumeGame: jest.fn(),
     };
-    // Add teamService via bracket notation for the actual implementation
-    gameService['teamService'] = teamServiceMock;
 
-    gameGateway = {
-      broadcastTimerTick: jest.fn(),
-      broadcastTimerExpired: jest.fn(),
-      broadcastTurnStarted: jest.fn(),
-      broadcastTurnAdvanced: jest.fn(),
-    };
+    gameGateway = createMockGameGateway();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -53,6 +53,10 @@ describe('GameTimerService', () => {
         {
           provide: GameGateway,
           useValue: gameGateway,
+        },
+        {
+          provide: TeamService,
+          useValue: teamService,
         },
       ],
     }).compile();
@@ -388,7 +392,7 @@ describe('GameTimerService', () => {
       });
 
       gameService.nextTurn.mockResolvedValue(game);
-      gameService['teamService'].findByGame.mockResolvedValue([nextTeam]);
+      teamService.findByGame.mockResolvedValue([nextTeam]);
 
       service.startTimer(
         gameId,

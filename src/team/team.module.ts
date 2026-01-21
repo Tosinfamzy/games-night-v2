@@ -1,6 +1,8 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TeamService } from './team.service';
+import { TeamFormationService } from './services/team-formation.service';
+import { TeamAssignmentService } from './services/team-assignment.service';
 import { TeamController } from './team.controller';
 import { Team } from './team.entity';
 import { Game } from '../game/game.entity';
@@ -13,8 +15,8 @@ import { SessionModule } from '../session/session.module';
     TypeOrmModule.forFeature([Team, Game, Session, Player]),
     forwardRef(() => SessionModule),
   ],
-  providers: [TeamService],
+  providers: [TeamService, TeamFormationService, TeamAssignmentService],
   controllers: [TeamController],
-  exports: [TeamService],
+  exports: [TeamService, TeamFormationService, TeamAssignmentService],
 })
 export class TeamModule {}

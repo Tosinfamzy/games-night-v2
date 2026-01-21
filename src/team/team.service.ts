@@ -19,6 +19,9 @@ import { Game } from '../game/game.entity';
 import { Session } from '../session/session.entity';
 import { Player, PlayerStatus } from '../player/player.entity';
 import { SessionGateway } from '../session/session.gateway';
+import { TeamStats } from '../game/interfaces/game.interface';
+import { TeamFormationService } from './services/team-formation.service';
+import { TeamAssignmentService } from './services/team-assignment.service';
 
 @Injectable()
 export class TeamService {
@@ -33,6 +36,10 @@ export class TeamService {
     private readonly playerRepo: Repository<Player>,
     @Inject(forwardRef(() => SessionGateway))
     private readonly sessionGateway: SessionGateway,
+    @Inject(forwardRef(() => TeamFormationService))
+    private readonly formationService: TeamFormationService,
+    @Inject(forwardRef(() => TeamAssignmentService))
+    private readonly assignmentService: TeamAssignmentService,
   ) {}
 
   async create(dto: CreateTeamDto): Promise<Team> {
@@ -132,158 +139,26 @@ export class TeamService {
     });
   }
 
+  // Team formation methods (delegated to TeamFormationService)
   async createTeamsForGame(
     gameId: string,
     dto: CreateTeamsDto,
   ): Promise<Team[]> {
-    const game = await this.gameRepo.findOne({
-      where: { id: gameId },
-      relations: ['session', 'session.players', 'gameLibrary'],
-    });
-
-    if (!game) {
-      throw new NotFoundException(`Game with ID ${gameId} not found`);
-    }
-
-    // Get active players in the session
-    const activePlayers = game.session.players.filter(
-      (player) => player.status === PlayerStatus.PLAYING,
-    );
-
-    if (activePlayers.length === 0) {
-      throw new BadRequestException(
-        'No active players found for team formation',
-      );
-    }
-
-    // Validate team formation against game requirements
-    const validationResult = this.validateTeamFormation(
-      activePlayers.length,
-      dto.teamCount,
-      game.gameLibrary,
-    );
-
-    if (!validationResult.isValid) {
-      throw new BadRequestException(
-        `Team formation validation failed: ${validationResult.errors.join(', ')}`,
-      );
-    }
-
-    // Clear existing teams for this game
-    await this.clearTeamsForGame(gameId);
-
-    // Generate team names and colors
-    const teamNames = this.generateTeamNames(dto.teamCount, dto.teamNames);
-    const teamColors = this.generateTeamColors(dto.teamCount, dto.teamColors);
-
-    // Create teams
-    const teams: Team[] = [];
-    for (let i = 0; i < dto.teamCount; i++) {
-      const team = this.repo.create({
-        name: teamNames[i],
-        color: teamColors[i],
-        position: i + 1,
-        game,
-        session: game.session,
-        players: [],
-      });
-      const savedTeam = await this.repo.save(team);
-      teams.push(savedTeam);
-
-      // Broadcast team created event
-      this.sessionGateway.broadcastTeamCreated(game.session.id, savedTeam);
-    }
-
-    // Assign players based on strategy with improved algorithms
-    await this.assignPlayersByStrategy(teams, activePlayers, dto.strategy);
-
-    return this.repo.find({
-      where: { game: { id: gameId } },
-      relations: ['players', 'session', 'scores', 'game'],
-      order: { position: 'ASC' },
-    });
+    return this.formationService.createTeamsForGame(gameId, dto);
   }
 
   async clearTeamsForGame(gameId: string): Promise<void> {
-    const existingTeams = await this.findByGame(gameId);
-    if (existingTeams.length > 0) {
-      // Capture session ID before removing
-      const sessionId = existingTeams[0]?.session?.id;
-
-      await this.repo.remove(existingTeams);
-
-      // Broadcast team deleted event for each team
-      if (sessionId) {
-        for (const team of existingTeams) {
-          this.sessionGateway.broadcastTeamDeleted(sessionId, team.id);
-        }
-      }
-    }
+    return this.formationService.clearTeamsForGame(gameId);
   }
 
-  private generateTeamNames(count: number, customNames?: string[]): string[] {
-    const defaultNames = [
-      'Team Alpha',
-      'Team Beta',
-      'Team Gamma',
-      'Team Delta',
-      'Team Epsilon',
-      'Team Zeta',
-      'Team Eta',
-      'Team Theta',
-    ];
-
-    if (customNames && customNames.length >= count) {
-      return customNames.slice(0, count);
-    }
-
-    return defaultNames.slice(0, count);
-  }
-
-  private generateTeamColors(count: number, customColors?: string[]): string[] {
-    const defaultColors = [
-      '#FF5733',
-      '#3366FF',
-      '#28A745',
-      '#FFC107',
-      '#6F42C1',
-      '#FD7E14',
-      '#20C997',
-      '#E83E8C',
-    ];
-
-    if (customColors && customColors.length >= count) {
-      return customColors.slice(0, count);
-    }
-
-    return defaultColors.slice(0, count);
-  }
-
+  // Private methods for assignment strategies are now in TeamFormationService
+  // but kept here for backwards compatibility with rebalanceTeams/shufflePlayers
   private async assignPlayersByStrategy(
     teams: Team[],
     players: Player[],
     strategy: TeamFormationStrategy,
   ): Promise<void> {
-    let assignments: Player[][];
-
-    switch (strategy) {
-      case TeamFormationStrategy.RANDOM:
-        assignments = this.randomAssignment(teams.length, players);
-        break;
-      case TeamFormationStrategy.BALANCED:
-        assignments = this.balancedAssignment(teams.length, players);
-        break;
-      case TeamFormationStrategy.AUTOMATIC:
-      default:
-        assignments = this.automaticAssignment(teams.length, players);
-        break;
-    }
-
-    // Save team assignments
-    for (let i = 0; i < teams.length; i++) {
-      teams[i].players = assignments[i];
-      await this.repo.save(teams[i]);
-    }
+    return this.formationService.assignPlayersByStrategy(teams, players, strategy);
   }
 
   private randomAssignment(teamCount: number, players: Player[]): Player[][] {
@@ -346,116 +221,25 @@ export class TeamService {
 
   /**
    * Validates team formation against game requirements
+   * Delegated to TeamFormationService
    */
   private validateTeamFormation(
     playerCount: number,
     teamCount: number,
     gameLibrary: { minPlayers?: number; maxPlayers?: number } | null,
   ): { isValid: boolean; errors: string[]; warnings: string[] } {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-
-    // Validate minimum/maximum teams
-    if (teamCount < 2) {
-      errors.push('At least 2 teams are required');
-    }
-
-    if (teamCount > 8) {
-      errors.push('Maximum 8 teams allowed');
-    }
-
-    // Validate players per team
-    const playersPerTeam = Math.floor(playerCount / teamCount);
-    const remainder = playerCount % teamCount;
-
-    if (playersPerTeam === 0) {
-      errors.push(`Not enough players (${playerCount}) for ${teamCount} teams`);
-    }
-
-    // Game-specific validations
-    if (gameLibrary) {
-      const { minPlayers, maxPlayers } = gameLibrary;
-
-      if (minPlayers && playerCount < minPlayers) {
-        errors.push(
-          `Game requires at least ${minPlayers} players, but only ${playerCount} available`,
-        );
-      }
-
-      if (maxPlayers && playerCount > maxPlayers) {
-        errors.push(
-          `Game supports maximum ${maxPlayers} players, but ${playerCount} available`,
-        );
-      }
-
-      // Team size recommendations
-      const idealPlayersPerTeam = Math.ceil(playerCount / teamCount);
-      if (idealPlayersPerTeam > 6) {
-        warnings.push(
-          `Teams will be large (${idealPlayersPerTeam} players each). Consider more teams.`,
-        );
-      }
-
-      if (idealPlayersPerTeam < 2) {
-        warnings.push(
-          `Teams will be small (${idealPlayersPerTeam} players each). Consider fewer teams.`,
-        );
-      }
-    }
-
-    // Uneven team distribution warning
-    if (remainder > 0) {
-      warnings.push(
-        `Teams will be uneven: ${teamCount - remainder} teams with ${playersPerTeam} players, ${remainder} teams with ${playersPerTeam + 1} players`,
-      );
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-      warnings,
-    };
+    return this.formationService.validateTeamFormation(playerCount, teamCount, gameLibrary);
   }
 
+  // Team assignment methods (delegated to TeamAssignmentService)
   async manualAssignPlayers(
     gameId: string,
     dto: AssignPlayersDto,
   ): Promise<Team[]> {
-    const teams = await this.findByGame(gameId);
-    const sessionId = teams[0]?.session?.id;
-
-    for (const [teamId, playerIds] of Object.entries(dto.teamAssignments)) {
-      const team = teams.find((t) => t.id === teamId);
-      if (!team) {
-        throw new NotFoundException(`Team with ID ${teamId} not found`);
-      }
-
-      const players = await this.playerRepo.find({
-        where: { id: In(playerIds) },
-      });
-      team.players = players;
-      const savedTeam = await this.repo.save(team);
-
-      // Broadcast player assignments and team update
-      if (sessionId) {
-        // Broadcast each player assignment
-        for (const player of players) {
-          this.sessionGateway.broadcastPlayerAssignedToTeam(
-            sessionId,
-            teamId,
-            player.id,
-          );
-        }
-
-        // Broadcast team updated
-        this.sessionGateway.broadcastTeamUpdated(sessionId, savedTeam);
-      }
-    }
-
-    return this.findByGame(gameId);
+    return this.assignmentService.manualAssignPlayers(gameId, dto);
   }
 
-  async getTeamStats(gameId: string) {
+  async getTeamStats(gameId: string): Promise<TeamStats[]> {
     const teams = await this.findByGame(gameId);
 
     return teams.map((team) => ({
@@ -474,6 +258,7 @@ export class TeamService {
 
   /**
    * Validates and suggests optimal team formation for a game
+   * Delegated to TeamFormationService
    */
   async suggestTeamFormation(gameId: string): Promise<{
     suggestions: Array<{
@@ -486,346 +271,53 @@ export class TeamService {
     }>;
     validation: { isValid: boolean; errors: string[]; warnings: string[] };
   }> {
-    const game = await this.gameRepo.findOne({
-      where: { id: gameId },
-      relations: ['session', 'session.players', 'gameLibrary'],
-    });
-
-    if (!game) {
-      throw new NotFoundException(`Game with ID ${gameId} not found`);
-    }
-
-    const activePlayers = game.session.players.filter(
-      (player) => player.status === PlayerStatus.PLAYING,
-    );
-
-    const playerCount = activePlayers.length;
-    const suggestions: Array<{
-      teamCount: number;
-      strategy: TeamFormationStrategy;
-      playersPerTeam: number;
-      remainder: number;
-      pros: string[];
-      cons: string[];
-    }> = [];
-
-    // Generate suggestions for different team counts
-    for (
-      let teamCount = 2;
-      teamCount <= Math.min(playerCount, 6);
-      teamCount++
-    ) {
-      const playersPerTeam = Math.floor(playerCount / teamCount);
-      const remainder = playerCount % teamCount;
-
-      if (playersPerTeam === 0) continue;
-
-      const pros: string[] = [];
-      const cons: string[] = [];
-
-      // Analyze pros and cons
-      if (playersPerTeam >= 2 && playersPerTeam <= 4) {
-        pros.push('Optimal team size for collaboration');
-      }
-      if (remainder === 0) {
-        pros.push('Even team distribution');
-      }
-      if (teamCount === 2) {
-        pros.push('Simple team dynamics');
-      }
-      if (teamCount >= 3) {
-        pros.push('More competitive variety');
-      }
-
-      if (playersPerTeam > 6) {
-        cons.push('Teams might be too large');
-      }
-      if (playersPerTeam < 2) {
-        cons.push('Teams might be too small');
-      }
-      if (remainder > teamCount / 2) {
-        cons.push('Significantly uneven teams');
-      }
-
-      suggestions.push({
-        teamCount,
-        strategy:
-          teamCount <= 3
-            ? TeamFormationStrategy.BALANCED
-            : TeamFormationStrategy.RANDOM,
-        playersPerTeam,
-        remainder,
-        pros,
-        cons,
-      });
-    }
-
-    const defaultTeamCount =
-      suggestions.length > 0 ? suggestions[0].teamCount : 2;
-
-    return {
-      suggestions,
-      validation: this.validateTeamFormation(
-        playerCount,
-        defaultTeamCount,
-        game.gameLibrary,
-      ),
-    };
+    return this.formationService.suggestTeamFormation(gameId);
   }
 
   /**
    * Rebalances existing teams using a different strategy
+   * Delegated to TeamAssignmentService
    */
   async rebalanceTeams(
     gameId: string,
     strategy: TeamFormationStrategy,
   ): Promise<Team[]> {
-    const existingTeams = await this.findByGame(gameId);
-
-    if (existingTeams.length === 0) {
-      throw new BadRequestException('No teams found to rebalance');
-    }
-
-    const game = await this.gameRepo.findOne({
-      where: { id: gameId },
-      relations: ['session', 'session.players'],
-    });
-
-    if (!game) {
-      throw new NotFoundException(`Game with ID ${gameId} not found`);
-    }
-
-    const activePlayers = game.session.players.filter((player) =>
-      [PlayerStatus.PLAYING, PlayerStatus.JOINED, PlayerStatus.READY].includes(
-        player.status,
-      ),
-    );
-
-    // Clear current player assignments but keep teams
-    for (const team of existingTeams) {
-      team.players = [];
-      await this.repo.save(team);
-    }
-
-    // Reassign players using new strategy
-    await this.assignPlayersByStrategy(existingTeams, activePlayers, strategy);
-
-    return this.findByGame(gameId);
+    return this.assignmentService.rebalanceTeams(gameId, strategy);
   }
 
   /**
    * Shuffle players randomly across existing teams
+   * Delegated to TeamAssignmentService
    */
   async shufflePlayers(gameId: string): Promise<Team[]> {
-    const existingTeams = await this.findByGame(gameId);
-
-    if (existingTeams.length === 0) {
-      throw new BadRequestException('No teams found to shuffle');
-    }
-
-    const game = await this.gameRepo.findOne({
-      where: { id: gameId },
-      relations: ['session', 'session.players'],
-    });
-
-    if (!game) {
-      throw new NotFoundException(`Game with ID ${gameId} not found`);
-    }
-
-    const activePlayers = game.session.players.filter((player) =>
-      [PlayerStatus.PLAYING, PlayerStatus.JOINED, PlayerStatus.READY].includes(
-        player.status,
-      ),
-    );
-
-    // Shuffle the players array
-    const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);
-
-    // Clear current player assignments but keep teams
-    for (const team of existingTeams) {
-      team.players = [];
-      await this.repo.save(team);
-    }
-
-    // Distribute shuffled players evenly across teams
-    const playersPerTeam = Math.floor(shuffled.length / existingTeams.length);
-    const remainder = shuffled.length % existingTeams.length;
-
-    let playerIndex = 0;
-    for (let i = 0; i < existingTeams.length; i++) {
-      const team = existingTeams[i];
-      const teamSize = playersPerTeam + (i < remainder ? 1 : 0);
-
-      team.players = shuffled.slice(playerIndex, playerIndex + teamSize);
-      playerIndex += teamSize;
-
-      await this.repo.save(team);
-    }
-
-    return this.findByGame(gameId);
+    return this.assignmentService.shufflePlayers(gameId);
   }
 
   /**
    * Swap a player from one team to another
+   * Delegated to TeamAssignmentService
    */
   async swapPlayerToTeam(
     playerId: string,
     fromTeamId: string,
     toTeamId: string,
   ): Promise<{ fromTeam: Team; toTeam: Team }> {
-    // Validate teams exist
-    const fromTeam = await this.findOne(fromTeamId, [
-      'players',
-      'game',
-      'session',
-    ]);
-    const toTeam = await this.findOne(toTeamId, ['players', 'game', 'session']);
-
-    // Ensure both teams belong to the same game
-    if (fromTeam.game.id !== toTeam.game.id) {
-      throw new BadRequestException(
-        'Cannot swap players between teams from different games',
-      );
-    }
-
-    // Find the player
-    const player = await this.playerRepo.findOne({
-      where: { id: playerId },
-    });
-
-    if (!player) {
-      throw new NotFoundException(`Player with ID ${playerId} not found`);
-    }
-
-    // Check if player is in the source team
-    const playerInFromTeam = fromTeam.players.some((p) => p.id === playerId);
-    if (!playerInFromTeam) {
-      throw new BadRequestException(
-        `Player ${player.name} is not in team ${fromTeam.name}`,
-      );
-    }
-
-    // Remove player from source team
-    fromTeam.players = fromTeam.players.filter((p) => p.id !== playerId);
-
-    // Add player to destination team
-    toTeam.players.push(player);
-
-    // Save both teams
-    const savedFromTeam = await this.repo.save(fromTeam);
-    const savedToTeam = await this.repo.save(toTeam);
-
-    // Broadcast updates
-    const sessionId = fromTeam.session?.id;
-    if (sessionId) {
-      this.sessionGateway.broadcastTeamUpdated(sessionId, savedFromTeam);
-      this.sessionGateway.broadcastTeamUpdated(sessionId, savedToTeam);
-      this.sessionGateway.broadcastPlayerAssignedToTeam(
-        sessionId,
-        toTeamId,
-        playerId,
-      );
-    }
-
-    return {
-      fromTeam: savedFromTeam,
-      toTeam: savedToTeam,
-    };
+    return this.assignmentService.swapPlayerToTeam(playerId, fromTeamId, toTeamId);
   }
 
   /**
    * Dissolve a team and return its players to the unassigned pool
+   * Delegated to TeamAssignmentService
    */
   async dissolveTeam(teamId: string): Promise<void> {
-    const team = await this.findOne(teamId, [
-      'players',
-      'game',
-      'game.session',
-      'session',
-    ]);
-
-    const sessionId = team.session?.id || team.game?.session?.id;
-    const playerIds = team.players.map((p) => p.id);
-
-    // Remove the team (this unassigns all players)
-    await this.repo.remove(team);
-
-    // Broadcast events
-    if (sessionId) {
-      this.sessionGateway.broadcastTeamDeleted(sessionId, teamId);
-
-      // Notify that players are now unassigned
-      for (const playerId of playerIds) {
-        this.sessionGateway.server
-          .to(`session:${sessionId}`)
-          .emit('team:player-unassigned', {
-            sessionId,
-            playerId,
-            teamId,
-            message: `Player unassigned from dissolved team ${team.name}`,
-          });
-      }
-    }
+    return this.assignmentService.dissolveTeam(teamId);
   }
 
   /**
    * Reassign a player to a different team (removes from current team if any)
+   * Delegated to TeamAssignmentService
    */
   async reassignPlayer(playerId: string, newTeamId: string): Promise<Team> {
-    const player = await this.playerRepo.findOne({
-      where: { id: playerId },
-      relations: ['teams', 'teams.game', 'teams.session'],
-    });
-
-    if (!player) {
-      throw new NotFoundException(`Player with ID ${playerId} not found`);
-    }
-
-    const newTeam = await this.findOne(newTeamId, [
-      'players',
-      'game',
-      'session',
-    ]);
-
-    // Find player's current team (if any) in the same game
-    const currentTeamInSameGame = player.teams?.find(
-      (t) => t.game.id === newTeam.game.id,
-    );
-
-    // Remove from current team if exists
-    if (currentTeamInSameGame) {
-      currentTeamInSameGame.players = currentTeamInSameGame.players.filter(
-        (p) => p.id !== playerId,
-      );
-      await this.repo.save(currentTeamInSameGame);
-
-      // Broadcast update for old team
-      const sessionId =
-        currentTeamInSameGame.session?.id ||
-        currentTeamInSameGame.game?.session?.id;
-      if (sessionId) {
-        this.sessionGateway.broadcastTeamUpdated(
-          sessionId,
-          currentTeamInSameGame,
-        );
-      }
-    }
-
-    // Add to new team
-    newTeam.players.push(player);
-    const savedTeam = await this.repo.save(newTeam);
-
-    // Broadcast updates
-    const sessionId = newTeam.session?.id || newTeam.game?.session?.id;
-    if (sessionId) {
-      this.sessionGateway.broadcastTeamUpdated(sessionId, savedTeam);
-      this.sessionGateway.broadcastPlayerAssignedToTeam(
-        sessionId,
-        newTeamId,
-        playerId,
-      );
-    }
-
-    return savedTeam;
+    return this.assignmentService.reassignPlayer(playerId, newTeamId);
   }
 }

@@ -12,6 +12,7 @@ import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { User, UserRole } from '../user/user.entity';
 import { GamesMasterService } from '../games-master/games-master.service';
+import { TIME, TIME_MULTIPLIERS } from '../common/constants';
 
 @Injectable()
 export class AuthService {
@@ -135,7 +136,7 @@ export class AuthService {
 
     // 24 hours expiration for game night duration
     return this.jwtService.sign(payload, {
-      expiresIn: 86400, // 24 hours in seconds
+      expiresIn: TIME.PLAYER_TOKEN_EXPIRY_SECONDS,
     });
   }
 
@@ -185,13 +186,7 @@ export class AuthService {
     const parseExpiration = (exp: string): number => {
       const unit = exp.slice(-1);
       const value = parseInt(exp.slice(0, -1), 10);
-      const multipliers: Record<string, number> = {
-        s: 1,
-        m: 60,
-        h: 3600,
-        d: 86400,
-      };
-      return value * (multipliers[unit] || 1);
+      return value * (TIME_MULTIPLIERS[unit] || 1);
     };
 
     const accessExpiration =
