@@ -6,7 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { redisStore } from 'cache-manager-redis-store';
+import { createKeyv } from '@keyv/redis';
 import { GamesMasterModule } from './games-master/games-master.module';
 import { SessionModule } from './session/session.module';
 import { PlayerModule } from './player/player.module';
@@ -68,20 +68,17 @@ import * as Joi from 'joi';
     }),
     CacheModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => {
-        const redisPassword = configService.get<string>('REDIS_PASSWORD');
-        const redisConfig: Parameters<typeof redisStore>[0] = {
-          socket: {
-            host: configService.get<string>('REDIS_HOST'),
-            port: configService.get<number>('REDIS_PORT'),
-          },
-          ...(redisPassword && { password: redisPassword }),
-          ttl: 60 * 60, // 1 hour
-        };
-
+      useFactory: (configService: ConfigService) => {
+        const host = configService.get<string>('REDIS_HOST');
+        const port = configService.get<number>('REDIS_PORT');
+        const password = configService.get<string>('REDIS_PASSWORD');
+        const auth = password ? `:${encodeURIComponent(password)}@` : '';
+        const url = `redis://${auth}${host}:${port}`;
         return {
-          store: await redisStore(redisConfig),
-          ttl: redisConfig.ttl,
+          // cache-manager v7 is Keyv-based; @keyv/redis replaces the
+          // deprecated cache-manager-redis-store. TTL is in milliseconds.
+          stores: [createKeyv(url)],
+          ttl: 60 * 60 * 1000, // 1 hour
         };
       },
       inject: [ConfigService],

@@ -50,7 +50,7 @@ export class HistoryController {
     description: 'Game history retrieved successfully',
     type: [GameResult],
   })
-  @CacheTTL(60) // Cache for 60 seconds
+  @CacheTTL(60000) // Cache for 60 seconds
   async getGameHistory(
     @Query() queryDto: QueryHistoryDto,
   ): Promise<GameResult[]> {
@@ -69,7 +69,7 @@ export class HistoryController {
     status: HttpStatus.NOT_FOUND,
     description: 'Game result not found',
   })
-  @CacheTTL(300) // Cache for 5 minutes
+  @CacheTTL(300000) // Cache for 5 minutes
   async getGameResultById(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<GameResult> {
@@ -88,7 +88,7 @@ export class HistoryController {
     status: HttpStatus.NOT_FOUND,
     description: 'Player not found',
   })
-  @CacheTTL(120) // Cache for 2 minutes
+  @CacheTTL(120000) // Cache for 2 minutes
   async getPlayerStats(
     @Param('playerId', ParseUUIDPipe) playerId: string,
   ): Promise<PlayerStatsDto> {
@@ -108,7 +108,7 @@ export class HistoryController {
     description: 'Leaderboard retrieved successfully',
     type: [PlayerStatsDto],
   })
-  @CacheTTL(180) // Cache for 3 minutes
+  @CacheTTL(180000) // Cache for 3 minutes
   async getLeaderboard(
     @Query('limit') limit?: number,
   ): Promise<PlayerStatsDto[]> {

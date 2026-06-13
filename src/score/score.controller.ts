@@ -89,7 +89,7 @@ export class ScoreController {
     description: 'List of all scores.',
     type: [ScoreResponseDto],
   })
-  @CacheTTL(30) // Cache for 30 seconds
+  @CacheTTL(30000) // Cache for 30 seconds
   async findAll(): Promise<ScoreResponseDto[]> {
     return this.service
       .findAll()
@@ -111,7 +111,7 @@ export class ScoreController {
     status: HttpStatus.NOT_FOUND,
     description: 'Game not found.',
   })
-  @CacheTTL(30) // Cache for 30 seconds
+  @CacheTTL(30000) // Cache for 30 seconds
   async getGameScores(
     @Param('gameId', ParseUUIDPipe) gameId: string,
   ): Promise<TeamScore[]> {
@@ -130,7 +130,7 @@ export class ScoreController {
     status: HttpStatus.NOT_FOUND,
     description: 'Score not found.',
   })
-  @CacheTTL(60) // Cache for 1 minute
+  @CacheTTL(60000) // Cache for 1 minute
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<ScoreResponseDto> {
