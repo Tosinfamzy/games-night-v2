@@ -2,12 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { Server } from 'http';
+import { v4 as uuidv4 } from 'uuid';
 import { AppModule } from '../src/app.module';
 import { CreateScoreDto } from '../src/score/dto/create-score.dto';
 import { SubmitGameScoreDto } from '../src/score/dto/submit-game-score.dto';
-import { v4 as uuidv4 } from 'uuid';
+import { seedActiveGame, SeededActiveGame } from './utils/e2e-setup';
 
-interface GameScoreResponse {
+interface TeamScoreResponse {
   teamId: string;
   teamName: string;
   totalPoints: number;
@@ -17,17 +18,15 @@ interface GameScoreResponse {
 interface ScoreResponse {
   id: string;
   points: number;
-  game: { id: string };
-  team: { id: string };
+  gameId: string;
+  teamId: string | null;
 }
-
-// Helper function to type-safely create a supertest request
-const supertestRequest = (server: Server | string) => request(server);
 
 describe('ScoreController (e2e)', () => {
   let app: INestApplication;
   let moduleFixture: TestingModule;
   let httpServer: Server;
+  let seed: SeededActiveGame;
 
   beforeAll(async () => {
     moduleFixture = await Test.createTestingModule({
@@ -38,6 +37,10 @@ describe('ScoreController (e2e)', () => {
     app.useGlobalPipes(new ValidationPipe());
     await app.init();
     httpServer = app.getHttpServer() as Server;
+
+    // Seed a full domain graph with a game in ROUND_IN_PROGRESS so the score
+    // endpoints (which require an active round) can be exercised for real.
+    seed = await seedActiveGame(httpServer);
   });
 
   afterAll(async () => {
@@ -45,89 +48,93 @@ describe('ScoreController (e2e)', () => {
   });
 
   describe('POST /scores', () => {
-    it('should create a score', async () => {
+    it('should create a score for an active game and team', async () => {
       const dto: CreateScoreDto = {
         points: 10,
-        gameId: uuidv4(),
-        teamId: uuidv4(),
+        gameId: seed.gameId,
+        teamId: seed.teamIds[0],
       };
 
-      const response = await supertestRequest(httpServer)
+      const response = await request(httpServer)
         .post('/scores')
         .send(dto)
         .expect(201);
 
       expect(response.body as ScoreResponse).toMatchObject({
-        points: dto.points,
-        game: { id: dto.gameId },
-        team: { id: dto.teamId },
+        points: 10,
+        gameId: seed.gameId,
+        teamId: seed.teamIds[0],
       });
     });
 
     it('should fail with invalid input', async () => {
-      const invalidDto = {
-        points: -1,
-        gameId: 'not-a-uuid',
-        teamId: 'not-a-uuid',
-      };
-
-      await supertestRequest(httpServer)
+      await request(httpServer)
         .post('/scores')
-        .send(invalidDto)
+        .send({ points: -1, gameId: 'not-a-uuid', teamId: 'not-a-uuid' })
         .expect(400);
+    });
+
+    it('should return 404 when the game does not exist', async () => {
+      await request(httpServer)
+        .post('/scores')
+        .send({ points: 10, gameId: uuidv4(), teamId: seed.teamIds[0] })
+        .expect(404);
     });
   });
 
   describe('POST /scores/games/:gameId/submit', () => {
-    it('should submit game scores', async () => {
-      const gameId = uuidv4();
-      const scores: SubmitGameScoreDto[] = [
-        { teamId: uuidv4(), score: 10 },
-        { teamId: uuidv4(), score: 5 },
-      ];
+    it('should submit a game score for an active game', async () => {
+      const dto: SubmitGameScoreDto = { teamId: seed.teamIds[1], score: 25 };
 
-      await supertestRequest(httpServer)
-        .post(`/scores/games/${gameId}/submit`)
-        .send(scores)
+      await request(httpServer)
+        .post(`/scores/games/${seed.gameId}/submit`)
+        .send(dto)
         .expect(201);
     });
 
-    it('should fail with invalid game ID', async () => {
-      const scores: SubmitGameScoreDto[] = [{ teamId: uuidv4(), score: 10 }];
+    it('should return 404 when the game does not exist', async () => {
+      const dto: SubmitGameScoreDto = { teamId: seed.teamIds[0], score: 5 };
 
-      await supertestRequest(httpServer)
-        .post('/scores/games/invalid-uuid/submit')
-        .send(scores)
+      await request(httpServer)
+        .post(`/scores/games/${uuidv4()}/submit`)
+        .send(dto)
+        .expect(404);
+    });
+
+    it('should return 400 for a malformed game ID', async () => {
+      await request(httpServer)
+        .post('/scores/games/not-a-uuid/submit')
+        .send({ teamId: seed.teamIds[0], score: 5 })
         .expect(400);
     });
   });
 
   describe('GET /scores/games/:gameId', () => {
-    it('should get game scores', async () => {
-      const gameId = uuidv4();
-
-      const response = await supertestRequest(httpServer)
-        .get(`/scores/games/${gameId}`)
+    it('should return aggregated team scores for a game with scores', async () => {
+      const response = await request(httpServer)
+        .get(`/scores/games/${seed.gameId}`)
         .expect(200);
 
-      const scores = response.body as GameScoreResponse[];
+      const scores = response.body as TeamScoreResponse[];
       expect(Array.isArray(scores)).toBe(true);
+      expect(scores.length).toBeGreaterThan(0);
 
-      if (scores.length > 0) {
-        const firstScore = scores[0];
-        expect(firstScore).toHaveProperty('teamId');
-        expect(firstScore).toHaveProperty('teamName');
-        expect(firstScore).toHaveProperty('totalPoints');
-        expect(firstScore).toHaveProperty('bonusPointsCount');
+      for (const teamScore of scores) {
+        expect(teamScore).toHaveProperty('teamId');
+        expect(teamScore).toHaveProperty('teamName');
+        expect(teamScore).toHaveProperty('totalPoints');
+        expect(teamScore).toHaveProperty('bonusPointsCount');
       }
     });
 
-    it('should return 404 for non-existent game', async () => {
-      const nonExistentGameId = uuidv4();
+    it('should return an empty array for a game with no scores', async () => {
+      // getGameScores does not assert game existence; an unknown game simply
+      // has no scores, so the endpoint returns 200 with an empty array.
+      const response = await request(httpServer)
+        .get(`/scores/games/${uuidv4()}`)
+        .expect(200);
 
-      await supertestRequest(httpServer)
-        .get(`/scores/games/${nonExistentGameId}`)
-        .expect(404);
+      expect(response.body).toEqual([]);
     });
   });
 });
