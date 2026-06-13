@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SessionController } from './session.controller';
 import { SessionService } from './session.service';
-import { GameResponseDto } from '../common/dto/game.response';
 
 describe('SessionController', () => {
   let controller: SessionController;

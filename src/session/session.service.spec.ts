@@ -12,14 +12,11 @@ import { SessionGateway } from './session.gateway';
 import { ScoreService } from '../score/score.service';
 import { AuthService } from '../auth/auth.service';
 import { SessionStatus } from './enums/session-status.enum';
-import { GameStatus } from '../game/enums/game-status.enum';
 import { createMockRepository } from '../../test/utils/test-db';
 import {
   createMockSession,
   createMockGamesMaster,
   createMockPlayer,
-  createMockGame,
-  createMockGameLibrary,
   resetTestCounters,
   MockSessionGateway,
   MockScoreService,
@@ -58,12 +55,12 @@ describe('SessionService', () => {
   let sessionPlayerService: MockSessionPlayerService;
 
   beforeEach(async () => {
-    sessionRepo = createMockRepository<Session>();
-    gamesMasterRepo = createMockRepository<GamesMaster>();
-    gameRepo = createMockRepository<Game>();
-    gameLibraryRepo = createMockRepository<GameLibrary>();
-    playerRepo = createMockRepository<Player>();
-    teamRepo = createMockRepository<Team>();
+    sessionRepo = createMockRepository();
+    gamesMasterRepo = createMockRepository();
+    gameRepo = createMockRepository();
+    gameLibraryRepo = createMockRepository();
+    playerRepo = createMockRepository();
+    teamRepo = createMockRepository();
 
     sessionGateway = createMockSessionGateway();
     scoreService = createMockScoreService();

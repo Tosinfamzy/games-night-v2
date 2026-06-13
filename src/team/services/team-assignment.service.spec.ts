@@ -31,9 +31,9 @@ describe('TeamAssignmentService', () => {
   let formationService: { assignPlayersByStrategy: jest.Mock };
 
   beforeEach(async () => {
-    teamRepo = createMockRepository<Team>();
-    gameRepo = createMockRepository<Game>();
-    playerRepo = createMockRepository<Player>();
+    teamRepo = createMockRepository();
+    gameRepo = createMockRepository();
+    playerRepo = createMockRepository();
     sessionGateway = createMockSessionGateway();
     formationService = {
       assignPlayersByStrategy: jest.fn(),

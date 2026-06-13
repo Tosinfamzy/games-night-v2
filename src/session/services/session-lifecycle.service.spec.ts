@@ -32,9 +32,9 @@ describe('SessionLifecycleService', () => {
   let readinessService: MockSessionReadinessService;
 
   beforeEach(async () => {
-    sessionRepo = createMockRepository<Session>();
-    gameRepo = createMockRepository<Game>();
-    playerRepo = createMockRepository<Player>();
+    sessionRepo = createMockRepository();
+    gameRepo = createMockRepository();
+    playerRepo = createMockRepository();
     sessionGateway = createMockSessionGateway();
     readinessService = createMockSessionReadinessService();
 

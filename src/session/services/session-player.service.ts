@@ -109,11 +109,7 @@ export class SessionPlayerService {
    * Rejoin a session using a valid player token
    */
   async rejoinSession(playerToken: string): Promise<JoinSessionResult> {
-    const tokenData = this.authService.validatePlayerToken(playerToken) as {
-      playerId: string;
-      sessionId: string;
-      playerName: string;
-    } | null;
+    const tokenData = this.authService.validatePlayerToken(playerToken);
 
     if (!tokenData) {
       throw new BadRequestException('Invalid or expired player token');

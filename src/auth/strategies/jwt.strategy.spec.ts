@@ -1,8 +1,5 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtStrategy, JwtPayload } from './jwt.strategy';
-import { UserService } from '../../user/user.service';
 import { createMockUser } from '../../../test/utils/test-helpers';
 import { UserRole } from '../../user/user.entity';
 
@@ -11,7 +8,7 @@ describe('JwtStrategy', () => {
   let userService: any;
   let configService: any;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     userService = {
       findById: jest.fn(),
     };

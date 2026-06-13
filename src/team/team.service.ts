@@ -1,12 +1,11 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Team } from './team.entity';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
@@ -17,7 +16,7 @@ import {
 } from './dto/team-formation.dto';
 import { Game } from '../game/game.entity';
 import { Session } from '../session/session.entity';
-import { Player, PlayerStatus } from '../player/player.entity';
+import { Player } from '../player/player.entity';
 import { SessionGateway } from '../session/session.gateway';
 import { TeamStats } from '../game/interfaces/game.interface';
 import { TeamFormationService } from './services/team-formation.service';
@@ -121,7 +120,6 @@ export class TeamService {
     const team = await this.findOne(id, ['game', 'game.session']);
     const sessionId = team.game?.session?.id;
     const teamId = team.id;
-    const teamName = team.name;
 
     await this.repo.remove(team);
 

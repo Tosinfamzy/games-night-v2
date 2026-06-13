@@ -5,7 +5,7 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Server } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
 import { BaseGateway } from '../common/gateways/base.gateway';
 import { Player } from '../player/player.entity';
@@ -13,6 +13,8 @@ import { Team } from '../team/team.entity';
 import { Session } from './session.entity';
 import { PlayerService } from '../player/player.service';
 import { WsPlayerAuthGuard } from '../auth/guards/ws-player-auth.guard';
+import { AppSocket } from '../common/types/socket.types';
+import { getErrorMessage } from '../common/utils/error.util';
 
 interface SessionReadiness {
   canStart: boolean;
@@ -50,8 +52,8 @@ export class SessionGateway extends BaseGateway {
    * Handle client connection and update player online status
    * Player is already authenticated by WsPlayerAuthGuard
    */
-  async handleConnection(client: Socket): Promise<void> {
-    super.handleConnection(client);
+  async handleConnection(client: AppSocket): Promise<void> {
+    void super.handleConnection(client);
 
     try {
       // Extract authenticated player data from socket (set by WsPlayerAuthGuard)
@@ -68,10 +70,7 @@ export class SessionGateway extends BaseGateway {
       const { playerId, sessionId, playerName } = playerData;
 
       // Mark player as online
-      const player = await this.playerService.setPlayerOnline(
-        playerId,
-        client.id,
-      );
+      await this.playerService.setPlayerOnline(playerId, client.id);
 
       this.logger.log(
         `Player ${playerName} (${playerId}) connected to session ${sessionId}`,
@@ -84,7 +83,9 @@ export class SessionGateway extends BaseGateway {
       const room = `session:${sessionId}`;
       this.joinRoom(client, room);
     } catch (error) {
-      this.logger.error(`Failed to handle player connection: ${error.message}`);
+      this.logger.error(
+        `Failed to handle player connection: ${getErrorMessage(error)}`,
+      );
       client.disconnect();
     }
   }
@@ -92,14 +93,14 @@ export class SessionGateway extends BaseGateway {
   /**
    * Handle client disconnection and update player offline status
    */
-  async handleDisconnect(client: Socket): Promise<void> {
+  async handleDisconnect(client: AppSocket): Promise<void> {
     try {
       // Find player by socket ID
       const player = await this.playerService.findBySocketId(client.id);
 
       if (!player) {
         this.logger.warn(`Disconnect from unknown socket: ${client.id}`);
-        super.handleDisconnect(client);
+        void super.handleDisconnect(client);
         return;
       }
 
@@ -114,11 +115,11 @@ export class SessionGateway extends BaseGateway {
       this.broadcastPlayerOffline(player.session.id, player.id, player.name);
     } catch (error) {
       this.logger.error(
-        `Failed to handle player disconnection: ${error.message}`,
+        `Failed to handle player disconnection: ${getErrorMessage(error)}`,
       );
     }
 
-    super.handleDisconnect(client);
+    void super.handleDisconnect(client);
   }
 
   /**
@@ -128,7 +129,7 @@ export class SessionGateway extends BaseGateway {
   @SubscribeMessage('join-session')
   handleJoinSession(
     @MessageBody() sessionId: string,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AppSocket,
   ): { status: string; sessionId: string; error?: string } {
     // Validate player belongs to this session
     const playerData = client.data.player;
@@ -172,7 +173,7 @@ export class SessionGateway extends BaseGateway {
   @SubscribeMessage('leave-session')
   handleLeaveSession(
     @MessageBody() sessionId: string,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AppSocket,
   ): { status: string; sessionId: string } {
     const room = `session:${sessionId}`;
     this.leaveRoom(client, room);

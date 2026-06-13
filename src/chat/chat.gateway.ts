@@ -5,7 +5,7 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { Server } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
 import { BaseGateway } from '../common/gateways/base.gateway';
 import { ChatService } from './chat.service';
@@ -13,6 +13,8 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { MessageHistoryQueryDto } from './dto/message-history-query.dto';
 import { PlayerService } from '../player/player.service';
 import { WsPlayerAuthGuard } from '../auth/guards/ws-player-auth.guard';
+import { AppSocket } from '../common/types/socket.types';
+import { getErrorMessage, getErrorName } from '../common/utils/error.util';
 
 /**
  * WebSocket Gateway for real-time chat functionality
@@ -47,8 +49,8 @@ export class ChatGateway extends BaseGateway {
    * Handle client connection
    * Player is already authenticated by WsPlayerAuthGuard
    */
-  async handleConnection(client: Socket): Promise<void> {
-    super.handleConnection(client);
+  handleConnection(client: AppSocket): void {
+    void super.handleConnection(client);
 
     try {
       // Extract authenticated player data from socket (set by WsPlayerAuthGuard)
@@ -72,7 +74,9 @@ export class ChatGateway extends BaseGateway {
       const room = `chat:session:${sessionId}`;
       this.joinRoom(client, room);
     } catch (error) {
-      this.logger.error(`Failed to handle chat connection: ${error.message}`);
+      this.logger.error(
+        `Failed to handle chat connection: ${getErrorMessage(error)}`,
+      );
       client.disconnect();
     }
   }
@@ -83,7 +87,7 @@ export class ChatGateway extends BaseGateway {
   @SubscribeMessage('send-message')
   async handleSendMessage(
     @MessageBody() dto: SendMessageDto,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AppSocket,
   ): Promise<void> {
     try {
       // Save message to database
@@ -100,12 +104,12 @@ export class ChatGateway extends BaseGateway {
         `Message sent by ${message.playerName} in session ${dto.sessionId}`,
       );
     } catch (error) {
-      this.logger.error(`Failed to send message: ${error.message}`);
+      this.logger.error(`Failed to send message: ${getErrorMessage(error)}`);
 
       // Emit error to the sender
       client.emit('chat:error', {
-        error: error.message,
-        code: error.constructor.name,
+        error: getErrorMessage(error),
+        code: getErrorName(error),
       });
     }
   }
@@ -116,7 +120,7 @@ export class ChatGateway extends BaseGateway {
   @SubscribeMessage('load-history')
   async handleLoadHistory(
     @MessageBody() query: MessageHistoryQueryDto,
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AppSocket,
   ): Promise<void> {
     try {
       const result = await this.chatService.getMessageHistory(query);
@@ -132,11 +136,11 @@ export class ChatGateway extends BaseGateway {
         `Loaded ${result.messages.length} messages for session ${query.sessionId}`,
       );
     } catch (error) {
-      this.logger.error(`Failed to load history: ${error.message}`);
+      this.logger.error(`Failed to load history: ${getErrorMessage(error)}`);
 
       client.emit('chat:error', {
-        error: error.message,
-        code: error.constructor.name,
+        error: getErrorMessage(error),
+        code: getErrorName(error),
       });
     }
   }
@@ -148,7 +152,7 @@ export class ChatGateway extends BaseGateway {
   @SubscribeMessage('join-chat')
   handleJoinChat(
     @MessageBody() data: { sessionId: string },
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AppSocket,
   ): { status: string; sessionId: string; error?: string } {
     // Validate player belongs to this session
     const playerData = client.data.player;
@@ -192,7 +196,7 @@ export class ChatGateway extends BaseGateway {
   @SubscribeMessage('leave-chat')
   handleLeaveChat(
     @MessageBody() data: { sessionId: string },
-    @ConnectedSocket() client: Socket,
+    @ConnectedSocket() client: AppSocket,
   ): { status: string; sessionId: string } {
     const playerData = client.data.player;
     const room = `chat:session:${data.sessionId}`;

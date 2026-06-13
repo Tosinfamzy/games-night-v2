@@ -27,19 +27,17 @@ describe('GameStatsService', () => {
   >;
 
   beforeEach(async () => {
-    gameRepo = createMockRepository<Game>();
+    gameRepo = createMockRepository();
 
     teamService = {
       findByGame: jest.fn(),
       getTeamStats: jest.fn(),
-    } as jest.Mocked<Pick<TeamService, 'findByGame' | 'getTeamStats'>>;
+    };
 
     scoreService = {
       getRankedGameScores: jest.fn(),
       determineWinner: jest.fn(),
-    } as jest.Mocked<
-      Pick<ScoreService, 'getRankedGameScores' | 'determineWinner'>
-    >;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -109,7 +107,7 @@ describe('GameStatsService', () => {
       ];
 
       gameRepo.findOne.mockResolvedValue(game);
-      teamService.getTeamStats.mockResolvedValue(teamStats as any);
+      teamService.getTeamStats.mockResolvedValue(teamStats);
 
       const result = await service.getGameStats('game-1');
 
@@ -193,7 +191,7 @@ describe('GameStatsService', () => {
       };
 
       gameRepo.findOne.mockResolvedValue(game);
-      scoreService.getRankedGameScores.mockResolvedValue(standings as any);
+      scoreService.getRankedGameScores.mockResolvedValue(standings);
       scoreService.determineWinner.mockResolvedValue(winner);
 
       const result = await service.getResults('game-1');
@@ -239,7 +237,7 @@ describe('GameStatsService', () => {
       ];
 
       gameRepo.findOne.mockResolvedValue(game);
-      scoreService.getRankedGameScores.mockResolvedValue(standings as any);
+      scoreService.getRankedGameScores.mockResolvedValue(standings);
       scoreService.determineWinner.mockResolvedValue(null);
 
       const result = await service.getResults('game-1');

@@ -18,8 +18,8 @@ describe('Player Online Tracking', () => {
   let sessionRepo: ReturnType<typeof createMockRepository>;
 
   beforeEach(async () => {
-    playerRepo = createMockRepository<Player>();
-    sessionRepo = createMockRepository<Session>();
+    playerRepo = createMockRepository();
+    sessionRepo = createMockRepository();
     const sessionGateway = createMockSessionGateway();
 
     const module: TestingModule = await Test.createTestingModule({

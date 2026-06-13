@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { SessionPlayerService } from './session-player.service';
 import { SessionReadinessService } from './session-readiness.service';
 import { Session } from '../session.entity';
@@ -35,9 +35,9 @@ describe('SessionPlayerService', () => {
   let readinessService: MockSessionReadinessService;
 
   beforeEach(async () => {
-    sessionRepo = createMockRepository<Session>();
-    playerRepo = createMockRepository<Player>();
-    teamRepo = createMockRepository<Team>();
+    sessionRepo = createMockRepository();
+    playerRepo = createMockRepository();
+    teamRepo = createMockRepository();
     sessionGateway = createMockSessionGateway();
     authService = createMockAuthService();
     readinessService = createMockSessionReadinessService();

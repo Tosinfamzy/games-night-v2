@@ -1,12 +1,8 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { Socket } from 'socket.io';
+import { AppSocket, WsAuthUser } from '../../common/types/socket.types';
 
-export interface WsUser {
-  userId: string;
-  email: string;
-  role: string;
-  profileId?: string;
-}
+/** Backwards-compatible alias for the authenticated WebSocket user shape. */
+export type WsUser = WsAuthUser;
 
 /**
  * Decorator to extract authenticated user from WebSocket connection
@@ -14,7 +10,8 @@ export interface WsUser {
  */
 export const WsCurrentUser = createParamDecorator(
   (data: unknown, ctx: ExecutionContext): WsUser => {
-    const client: Socket = ctx.switchToWs().getClient();
-    return client.data.user;
+    const client = ctx.switchToWs().getClient<AppSocket>();
+    // Populated by WsJwtAuthGuard before any handler runs.
+    return client.data.user!;
   },
 );

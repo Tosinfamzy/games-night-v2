@@ -1,5 +1,4 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 
 /**
  * Creates an in-memory SQLite database configuration for testing
@@ -8,15 +7,14 @@ import { Repository } from 'typeorm';
  * Note: For unit tests, prefer using mock repositories instead of a real database.
  * This configuration is primarily for integration/E2E tests.
  */
-export const getTestDatabaseConfig = (): TypeOrmModuleOptions =>
-  ({
-    type: 'better-sqlite3',
-    database: ':memory:',
-    entities: [__dirname + '/../../src/**/*.entity.{ts,js}'],
-    synchronize: true,
-    dropSchema: true,
-    logging: false,
-  }) as TypeOrmModuleOptions;
+export const getTestDatabaseConfig = (): TypeOrmModuleOptions => ({
+  type: 'better-sqlite3',
+  database: ':memory:',
+  entities: [__dirname + '/../../src/**/*.entity.{ts,js}'],
+  synchronize: true,
+  dropSchema: true,
+  logging: false,
+});
 
 /**
  * Helper to create a clean test database configuration for each test suite
@@ -33,7 +31,7 @@ export const createTestDatabaseConfig = (): TypeOrmModuleOptions =>
  * Create a mock TypeORM repository for unit testing
  * This avoids the need for a real database in unit tests
  */
-export const createMockRepository = <T = any>() => ({
+export const createMockRepository = () => ({
   find: jest.fn(),
   findOne: jest.fn(),
   findOneBy: jest.fn(),

@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Message } from './chat.entity';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessageHistoryQueryDto } from './dto/message-history-query.dto';

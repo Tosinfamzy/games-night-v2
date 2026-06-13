@@ -1,6 +1,6 @@
 import { ExecutionContext } from '@nestjs/common';
 import { OptionalJwtAuthGuard } from './optional-jwt-auth.guard';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 import { createMockUser } from '../../../test/utils/test-helpers';
 
 describe('OptionalJwtAuthGuard', () => {
@@ -22,7 +22,7 @@ describe('OptionalJwtAuthGuard', () => {
       switchToRpc: jest.fn(),
       switchToWs: jest.fn(),
       getType: jest.fn(),
-    } as any;
+    };
   };
 
   describe('canActivate', () => {

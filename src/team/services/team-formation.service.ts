@@ -341,7 +341,7 @@ export class TeamFormationService {
       return customNames.slice(0, count);
     }
 
-    return DEFAULT_TEAM_NAMES.slice(0, count) as string[];
+    return DEFAULT_TEAM_NAMES.slice(0, count);
   }
 
   private generateTeamColors(count: number, customColors?: string[]): string[] {
@@ -349,7 +349,7 @@ export class TeamFormationService {
       return customColors.slice(0, count);
     }
 
-    return DEFAULT_TEAM_COLORS.slice(0, count) as string[];
+    return DEFAULT_TEAM_COLORS.slice(0, count);
   }
 
   private randomAssignment(teamCount: number, players: Player[]): Player[][] {

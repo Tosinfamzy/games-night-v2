@@ -26,10 +26,10 @@ describe('ScoreService', () => {
   let eventEmitter: jest.Mocked<EventEmitter2>;
 
   beforeEach(async () => {
-    scoreRepo = createMockRepository<Score>();
-    gameRepo = createMockRepository<Game>();
-    teamRepo = createMockRepository<Team>();
-    playerRepo = createMockRepository<Player>();
+    scoreRepo = createMockRepository();
+    gameRepo = createMockRepository();
+    teamRepo = createMockRepository();
+    playerRepo = createMockRepository();
 
     eventEmitter = {
       emit: jest.fn(),

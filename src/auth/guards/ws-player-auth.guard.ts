@@ -5,8 +5,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { WsException } from '@nestjs/websockets';
-import { Socket } from 'socket.io';
 import { AuthService } from '../auth.service';
+import { AppSocket } from '../../common/types/socket.types';
+import { getErrorMessage } from '../../common/utils/error.util';
 
 /**
  * WebSocket guard for player authentication
@@ -19,7 +20,7 @@ export class WsPlayerAuthGuard implements CanActivate {
   constructor(private readonly authService: AuthService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const client: Socket = context.switchToWs().getClient();
+    const client = context.switchToWs().getClient<AppSocket>();
 
     try {
       // Extract token from handshake auth
@@ -33,11 +34,7 @@ export class WsPlayerAuthGuard implements CanActivate {
       }
 
       // Validate player token
-      const playerData = this.authService.validatePlayerToken(token) as {
-        playerId: string;
-        sessionId: string;
-        playerName: string;
-      } | null;
+      const playerData = this.authService.validatePlayerToken(token);
 
       if (!playerData) {
         this.logger.warn(`WebSocket invalid player token: ${client.id}`);
@@ -45,7 +42,6 @@ export class WsPlayerAuthGuard implements CanActivate {
       }
 
       // Attach player data to socket for later use in handlers
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       client.data.player = {
         playerId: playerData.playerId,
         sessionId: playerData.sessionId,
@@ -57,29 +53,34 @@ export class WsPlayerAuthGuard implements CanActivate {
       );
 
       return true;
-    } catch (error: any) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      this.logger.error(`WebSocket player auth failed: ${error.message}`);
+    } catch (error) {
+      this.logger.error(
+        `WebSocket player auth failed: ${getErrorMessage(error)}`,
+      );
       throw new WsException('Unauthorized: Invalid player token');
     }
   }
 
-  private extractToken(client: Socket): string | null {
+  private extractToken(client: AppSocket): string | null {
+    const auth = client.handshake.auth as {
+      playerToken?: string;
+      token?: string;
+    };
+
     // Try to get token from socket.handshake.auth.playerToken (preferred)
-    if (client.handshake.auth?.playerToken) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return client.handshake.auth.playerToken;
+    if (auth?.playerToken) {
+      return auth.playerToken;
     }
 
     // Fall back to auth.token for backwards compatibility
-    if (client.handshake.auth?.token) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-      return client.handshake.auth.token;
+    if (auth?.token) {
+      return auth.token;
     }
 
     // Fall back to query parameter
-    if (client.handshake.query?.playerToken) {
-      return client.handshake.query.playerToken as string;
+    const queryToken = client.handshake.query?.playerToken;
+    if (typeof queryToken === 'string') {
+      return queryToken;
     }
 
     return null;

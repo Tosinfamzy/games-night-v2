@@ -151,7 +151,7 @@ export class HistoryService {
       players.map(async (player) => {
         try {
           return await this.getPlayerStats(player.id);
-        } catch (error) {
+        } catch {
           // Skip players with no game history
           return null;
         }

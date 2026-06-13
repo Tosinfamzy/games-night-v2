@@ -39,9 +39,9 @@ describe('ChatService', () => {
   let sessionRepo: ReturnType<typeof createMockRepository>;
 
   beforeEach(async () => {
-    messageRepo = createMockRepository<Message>();
-    playerRepo = createMockRepository<Player>();
-    sessionRepo = createMockRepository<Session>();
+    messageRepo = createMockRepository();
+    playerRepo = createMockRepository();
+    sessionRepo = createMockRepository();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -196,7 +196,7 @@ describe('ChatService', () => {
       messageRepo.create.mockReturnValue(savedMessage);
       messageRepo.save.mockResolvedValue(savedMessage);
 
-      const result = await service.saveMessage(dto);
+      await service.saveMessage(dto);
 
       expect(messageRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({

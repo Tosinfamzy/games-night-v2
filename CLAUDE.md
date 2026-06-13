@@ -14,7 +14,8 @@ NestJS backend for a real-time multiplayer games night application. Features ses
 - Always use explicit types
 - Create interfaces for complex objects
 - Use `unknown` with type guards if type is truly unknown
-- One accepted exception exists in a catch clause (`ws-player-auth.guard.ts`); don't add new ones
+- For caught errors, use `catch (error)` (unknown) with the `getErrorMessage`/`getErrorName` helpers in `src/common/utils/error.util.ts`
+- The codebase currently has zero `any` types — keep it that way
 
 ### 3. Dependency Management
 - **Prefer EventEmitter2** for new service↔gateway communication (see docs/CODING_STANDARDS.md).

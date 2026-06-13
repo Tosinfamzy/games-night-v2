@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Session } from '../session.entity';
-import { Player, PlayerStatus } from '../../player/player.entity';
+import { PlayerStatus } from '../../player/player.entity';
 import { SessionStatus } from '../enums/session-status.enum';
 
 export interface PlayerCountValidation {

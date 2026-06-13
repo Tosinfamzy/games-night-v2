@@ -5,7 +5,6 @@ import { createMockRepository } from './test-db';
 import {
   createMockUser,
   createMockSession,
-  createMockGame,
   createCompleteTestScenario,
   resetTestCounters,
 } from './test-helpers';

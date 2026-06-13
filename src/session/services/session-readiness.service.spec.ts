@@ -21,7 +21,7 @@ describe('SessionReadinessService', () => {
   let sessionRepo: ReturnType<typeof createMockRepository>;
 
   beforeEach(async () => {
-    sessionRepo = createMockRepository<Session>();
+    sessionRepo = createMockRepository();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

@@ -27,7 +27,7 @@ export abstract class BaseGateway
   /**
    * Called when a client connects
    */
-  handleConnection(client: Socket): void {
+  handleConnection(client: Socket): void | Promise<void> {
     const clientId = client.id;
     const namespace = client.nsp.name;
 
@@ -44,7 +44,7 @@ export abstract class BaseGateway
   /**
    * Called when a client disconnects
    */
-  handleDisconnect(client: Socket): void {
+  handleDisconnect(client: Socket): void | Promise<void> {
     const clientId = client.id;
     const namespace = client.nsp.name;
 

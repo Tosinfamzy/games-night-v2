@@ -55,25 +55,21 @@ describe('GameService', () => {
   }>;
 
   beforeEach(async () => {
-    gameRepo = createMockRepository<Game>();
-    sessionRepo = createMockRepository<Session>();
-    teamRepo = createMockRepository<Team>();
-    playerRepo = createMockRepository<Player>();
+    gameRepo = createMockRepository();
+    sessionRepo = createMockRepository();
+    teamRepo = createMockRepository();
+    playerRepo = createMockRepository();
 
     teamService = {
       findByGame: jest.fn(),
       createTeamsForGame: jest.fn(),
       getTeamStats: jest.fn(),
-    } as jest.Mocked<
-      Pick<TeamService, 'findByGame' | 'createTeamsForGame' | 'getTeamStats'>
-    >;
+    };
 
     scoreService = {
       getRankedGameScores: jest.fn(),
       determineWinner: jest.fn(),
-    } as jest.Mocked<
-      Pick<ScoreService, 'getRankedGameScores' | 'determineWinner'>
-    >;
+    };
 
     gameGateway = {
       broadcastGameCompleted: jest.fn(),
@@ -84,19 +80,7 @@ describe('GameService', () => {
       broadcastTurnAdvanced: jest.fn(),
       broadcastRoundStarted: jest.fn(),
       broadcastRoundEnded: jest.fn(),
-    } as jest.Mocked<
-      Pick<
-        GameGateway,
-        | 'broadcastGameCompleted'
-        | 'broadcastGameStarted'
-        | 'broadcastGamePaused'
-        | 'broadcastGameResumed'
-        | 'broadcastTurnStarted'
-        | 'broadcastTurnAdvanced'
-        | 'broadcastRoundStarted'
-        | 'broadcastRoundEnded'
-      >
-    >;
+    };
 
     gameTimerService = {
       startTimer: jest.fn(),
@@ -104,13 +88,7 @@ describe('GameService', () => {
       resumeTimer: jest.fn(),
       stopTimer: jest.fn(),
       getRemainingTime: jest.fn(),
-    } as jest.Mocked<{
-      startTimer: jest.Mock;
-      pauseTimer: jest.Mock;
-      resumeTimer: jest.Mock;
-      stopTimer: jest.Mock;
-      getRemainingTime: jest.Mock;
-    }>;
+    };
 
     const historyService = {
       recordGameEvent: jest.fn(),
@@ -388,7 +366,7 @@ describe('GameService', () => {
         const winner = { winnerId: 'team-1', winnerName: 'Team A', score: 100 };
 
         gameRepo.findOne.mockResolvedValue(game);
-        scoreService.getRankedGameScores.mockResolvedValue(standings as any);
+        scoreService.getRankedGameScores.mockResolvedValue(standings);
         scoreService.determineWinner.mockResolvedValue(winner);
         gameRepo.save.mockResolvedValue({
           ...game,
@@ -434,7 +412,7 @@ describe('GameService', () => {
         ];
 
         gameRepo.findOne.mockResolvedValue(game);
-        scoreService.getRankedGameScores.mockResolvedValue(standings as any);
+        scoreService.getRankedGameScores.mockResolvedValue(standings);
         scoreService.determineWinner.mockResolvedValue(null);
         gameRepo.save.mockResolvedValue({
           ...game,

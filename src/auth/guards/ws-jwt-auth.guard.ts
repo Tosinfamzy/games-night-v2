@@ -6,7 +6,9 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { WsException } from '@nestjs/websockets';
-import { Socket } from 'socket.io';
+import { JwtPayload } from '../strategies/jwt.strategy';
+import { AppSocket } from '../../common/types/socket.types';
+import { getErrorMessage } from '../../common/utils/error.util';
 
 @Injectable()
 export class WsJwtAuthGuard implements CanActivate {
@@ -15,7 +17,7 @@ export class WsJwtAuthGuard implements CanActivate {
   constructor(private readonly jwtService: JwtService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const client: Socket = context.switchToWs().getClient();
+    const client = context.switchToWs().getClient<AppSocket>();
 
     try {
       // Extract token from handshake auth or headers
@@ -27,7 +29,7 @@ export class WsJwtAuthGuard implements CanActivate {
       }
 
       // Verify and decode the JWT
-      const payload = await this.jwtService.verifyAsync(token);
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(token);
 
       // Attach user data to socket for later use
       client.data.user = {
@@ -43,15 +45,16 @@ export class WsJwtAuthGuard implements CanActivate {
 
       return true;
     } catch (error) {
-      this.logger.error(`WebSocket auth failed: ${error.message}`);
+      this.logger.error(`WebSocket auth failed: ${getErrorMessage(error)}`);
       throw new WsException('Unauthorized: Invalid token');
     }
   }
 
-  private extractToken(client: Socket): string | null {
+  private extractToken(client: AppSocket): string | null {
     // Try to get token from socket.handshake.auth.token (preferred)
-    if (client.handshake.auth?.token) {
-      return client.handshake.auth.token;
+    const auth = client.handshake.auth as { token?: string };
+    if (auth?.token) {
+      return auth.token;
     }
 
     // Fall back to Authorization header

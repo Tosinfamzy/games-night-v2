@@ -3,6 +3,7 @@ import { GameService } from './game.service';
 import { GameGateway } from './game.gateway';
 import { TeamService } from '../team/team.service';
 import { TIME } from '../common/constants';
+import { getErrorMessage } from '../common/utils/error.util';
 
 interface ActiveTimer {
   gameId: string;
@@ -45,7 +46,7 @@ export class GameTimerService {
 
     // Create interval that ticks every second
     const intervalId = setInterval(() => {
-      this.checkTimer(gameId);
+      void this.checkTimer(gameId);
     }, TIME.TIMER_TICK_INTERVAL_MS);
 
     this.activeTimers.set(gameId, {
@@ -151,7 +152,7 @@ export class GameTimerService {
       }
     } catch (error) {
       this.logger.error(
-        `Failed to auto-advance game ${gameId}: ${error.message}`,
+        `Failed to auto-advance game ${gameId}: ${getErrorMessage(error)}`,
       );
     }
   }
