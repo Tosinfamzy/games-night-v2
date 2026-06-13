@@ -1,7 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GamesMaster } from './games-master.entity';
+import { LIMITS } from '../common/constants';
+import { generateUniqueCode } from '../common/utils/unique-code.util';
 import { CreateGamesMasterDto } from './dto/create-games-master.dto';
 import { UpdateGamesMasterDto } from './dto/update-games-master.dto';
 import {
@@ -36,20 +42,20 @@ export class GamesMasterService {
    * Generate a unique host code (retry if collision)
    */
   private async generateUniqueHostCode(): Promise<string> {
-    let code = this.generateHostCode();
-    let attempts = 0;
-    const maxAttempts = 10;
+    const code = await generateUniqueCode(
+      () => this.generateHostCode(),
+      async (candidate) =>
+        (await this.repo.findOne({ where: { hostCode: candidate } })) !== null,
+      LIMITS.JOIN_CODE_MAX_ATTEMPTS,
+    );
 
-    while (attempts < maxAttempts) {
-      const existing = await this.repo.findOne({ where: { hostCode: code } });
-      if (!existing) {
-        return code;
-      }
-      code = this.generateHostCode();
-      attempts++;
+    if (!code) {
+      throw new InternalServerErrorException(
+        'Failed to generate unique host code',
+      );
     }
 
-    throw new Error('Failed to generate unique host code');
+    return code;
   }
 
   async create(dto: CreateGamesMasterDto): Promise<GamesMaster> {

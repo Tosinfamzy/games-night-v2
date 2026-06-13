@@ -9,6 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { BaseGateway } from '../common/gateways/base.gateway';
+import { WS_CORS_CONFIG } from '../common/config/cors.config';
 import { Game } from './game.entity';
 import { Score } from '../score/score.entity';
 import { WsPlayerAuthGuard } from '../auth/guards/ws-player-auth.guard';
@@ -20,14 +21,7 @@ import { WsPlayerAuthGuard } from '../auth/guards/ws-player-auth.guard';
  */
 @WebSocketGateway({
   namespace: 'games',
-  cors: {
-    origin: [
-      'http://localhost:5173',
-      /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
-      /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
-    ],
-    credentials: true,
-  },
+  cors: WS_CORS_CONFIG,
 })
 @UseGuards(WsPlayerAuthGuard)
 export class GameGateway extends BaseGateway {

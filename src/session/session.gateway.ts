@@ -8,6 +8,7 @@ import {
 import { Server } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
 import { BaseGateway } from '../common/gateways/base.gateway';
+import { WS_CORS_CONFIG } from '../common/config/cors.config';
 import { Player } from '../player/player.entity';
 import { Team } from '../team/team.entity';
 import { Session } from './session.entity';
@@ -28,14 +29,7 @@ interface SessionReadiness {
  */
 @WebSocketGateway({
   namespace: 'sessions',
-  cors: {
-    origin: [
-      'http://localhost:5173',
-      /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
-      /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
-    ],
-    credentials: true,
-  },
+  cors: WS_CORS_CONFIG,
 })
 @UseGuards(WsPlayerAuthGuard)
 export class SessionGateway extends BaseGateway {

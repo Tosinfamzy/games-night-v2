@@ -11,6 +11,7 @@ import { Team } from '../team.entity';
 import { Game } from '../../game/game.entity';
 import { Player } from '../../player/player.entity';
 import { isActivePlayer } from '../../common/utils/player-status.util';
+import { shuffle } from '../../common/utils/shuffle.util';
 import { SessionGateway } from '../../session/session.gateway';
 import {
   AssignPlayersDto,
@@ -136,7 +137,7 @@ export class TeamAssignmentService {
     const activePlayers = game.session.players.filter(isActivePlayer);
 
     // Shuffle the players array
-    const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(activePlayers);
 
     // Clear current player assignments but keep teams
     for (const team of existingTeams) {

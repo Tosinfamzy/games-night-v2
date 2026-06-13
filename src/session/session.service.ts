@@ -16,6 +16,7 @@ import { SessionStatus } from './enums/session-status.enum';
 import { Game } from '../game/game.entity';
 import { GameStatus } from '../game/enums/game-status.enum';
 import { generateJoinCode } from './utils/join-code.util';
+import { generateUniqueCode } from '../common/utils/unique-code.util';
 import { JoinSessionDto } from './dto/join-session.dto';
 import { GameLibrary } from '../game-library/game-library.entity';
 import {
@@ -75,23 +76,14 @@ export class SessionService {
     }
 
     // Generate unique join code
-    let joinCode = generateJoinCode();
-    let isUnique = false;
-    let attempts = 0;
+    const joinCode = await generateUniqueCode(
+      generateJoinCode,
+      async (code) =>
+        (await this.repo.findOne({ where: { joinCode: code } })) !== null,
+      LIMITS.JOIN_CODE_MAX_ATTEMPTS,
+    );
 
-    while (!isUnique && attempts < LIMITS.JOIN_CODE_MAX_ATTEMPTS) {
-      const existingSession = await this.repo.findOne({
-        where: { joinCode },
-      });
-      if (!existingSession) {
-        isUnique = true;
-      } else {
-        joinCode = generateJoinCode();
-        attempts++;
-      }
-    }
-
-    if (!isUnique) {
+    if (!joinCode) {
       throw new BadRequestException('Failed to generate unique join code');
     }
 
@@ -234,24 +226,17 @@ export class SessionService {
       );
     }
 
-    // Generate unique join code (same logic as create)
-    let joinCode = generateJoinCode();
-    let isUnique = false;
-    let attempts = 0;
+    // Generate unique join code (allowing this session's current code)
+    const joinCode = await generateUniqueCode(
+      generateJoinCode,
+      async (code) => {
+        const existing = await this.repo.findOne({ where: { joinCode: code } });
+        return existing !== null && existing.id !== session.id;
+      },
+      LIMITS.JOIN_CODE_MAX_ATTEMPTS,
+    );
 
-    while (!isUnique && attempts < LIMITS.JOIN_CODE_MAX_ATTEMPTS) {
-      const existingSession = await this.repo.findOne({
-        where: { joinCode },
-      });
-      if (!existingSession || existingSession.id === session.id) {
-        isUnique = true;
-      } else {
-        joinCode = generateJoinCode();
-        attempts++;
-      }
-    }
-
-    if (!isUnique) {
+    if (!joinCode) {
       throw new BadRequestException('Failed to generate unique join code');
     }
 

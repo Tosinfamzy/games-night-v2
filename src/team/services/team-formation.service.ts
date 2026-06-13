@@ -11,6 +11,7 @@ import { Team } from '../team.entity';
 import { Game } from '../../game/game.entity';
 import { Player } from '../../player/player.entity';
 import { isPlayingPlayer } from '../../common/utils/player-status.util';
+import { shuffle } from '../../common/utils/shuffle.util';
 import { SessionGateway } from '../../session/session.gateway';
 import {
   CreateTeamsDto,
@@ -350,7 +351,7 @@ export class TeamFormationService {
   }
 
   private randomAssignment(teamCount: number, players: Player[]): Player[][] {
-    const shuffled = [...players].sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(players);
     const assignments: Player[][] = Array.from({ length: teamCount }, () => []);
 
     shuffled.forEach((player, index) => {
@@ -398,7 +399,7 @@ export class TeamFormationService {
     const assignments: Player[][] = Array.from({ length: teamCount }, () => []);
 
     // Shuffle players for fairness
-    const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
+    const shuffledPlayers = shuffle(players);
 
     shuffledPlayers.forEach((player, index) => {
       assignments[index % teamCount].push(player);

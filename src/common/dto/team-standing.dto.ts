@@ -1,9 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { TeamScore } from '../../score/interfaces/team-score.interface';
 
 /**
  * DTO representing a team's standing in a game with ranking information
  */
-export class TeamStandingDto {
+export class TeamStandingDto implements TeamScore {
   @ApiProperty({
     example: 'team-uuid-123',
     description: 'Team ID',

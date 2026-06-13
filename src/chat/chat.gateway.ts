@@ -8,6 +8,7 @@ import {
 import { Server } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
 import { BaseGateway } from '../common/gateways/base.gateway';
+import { WS_CORS_CONFIG } from '../common/config/cors.config';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { MessageHistoryQueryDto } from './dto/message-history-query.dto';
@@ -22,14 +23,7 @@ import { getErrorMessage, getErrorName } from '../common/utils/error.util';
  */
 @WebSocketGateway({
   namespace: 'chat',
-  cors: {
-    origin: [
-      'http://localhost:5173',
-      /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
-      /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
-    ],
-    credentials: true,
-  },
+  cors: WS_CORS_CONFIG,
 })
 @UseGuards(WsPlayerAuthGuard)
 export class ChatGateway extends BaseGateway {
