@@ -66,54 +66,66 @@ export class HistoryService {
   }
 
   /**
-   * Get player statistics
+   * Get statistics for a single player.
    */
   async getPlayerStats(playerId: string): Promise<PlayerStatsDto> {
     const player = await this.playerRepo.findOne({
       where: { id: playerId },
+      relations: ['teams'],
     });
 
     if (!player) {
       throw new NotFoundException(`Player with ID ${playerId} not found`);
     }
 
-    // Get all game results where the player participated
-    const gameResults = await this.gameResultRepo
-      .createQueryBuilder('gameResult')
-      .innerJoin('gameResult.finalScores', 'score')
-      .where(
-        `gameResult.finalScores::jsonb @> '[{"teamId": :playerId}]'::jsonb`,
-        {
-          playerId,
-        },
-      )
-      .getMany();
+    const results = await this.gameResultRepo.find({
+      relations: ['winningTeam'],
+      order: { completedAt: 'DESC' },
+    });
 
-    // Calculate statistics
-    const gamesPlayed = gameResults.length;
+    return this.buildPlayerStats(player, results);
+  }
+
+  /**
+   * Compute a player's stats from pre-loaded game results.
+   *
+   * A player participates in a game through their team(s); finalScores records
+   * per-team scores, so we match the player's team ids against each result's
+   * finalScores. `results` must be ordered by completedAt DESC and have
+   * `winningTeam` loaded.
+   */
+  private buildPlayerStats(
+    player: Player,
+    results: GameResult[],
+  ): PlayerStatsDto {
+    const teamIds = new Set((player.teams ?? []).map((team) => team.id));
+
+    let gamesPlayed = 0;
     let gamesWon = 0;
     let totalScore = 0;
+    let lastPlayedAt: Date | undefined;
     const gameCounts = new Map<string, number>();
 
-    for (const result of gameResults) {
-      // Check if player was on winning team
-      const playerScore = result.finalScores.find((s) => s.teamId === playerId);
-      if (playerScore) {
-        totalScore += playerScore.score;
-        if (
-          result.winningTeam &&
-          playerScore.teamId === result.winningTeam.id
-        ) {
-          gamesWon++;
-        }
+    for (const result of results) {
+      const playerScore = result.finalScores.find((s) => teamIds.has(s.teamId));
+      if (!playerScore) {
+        continue;
       }
 
-      // Track game frequency for favorite game
-      const count = gameCounts.get(result.gameName) || 0;
-      gameCounts.set(result.gameName, count + 1);
+      gamesPlayed++;
+      totalScore += playerScore.score;
+      if (result.winningTeam && playerScore.teamId === result.winningTeam.id) {
+        gamesWon++;
+      }
+      gameCounts.set(
+        result.gameName,
+        (gameCounts.get(result.gameName) ?? 0) + 1,
+      );
+      if (!lastPlayedAt) {
+        lastPlayedAt = result.completedAt; // results are DESC; first match is latest
+      }
     }
 
-    // Find favorite game (most played)
     let favoriteGame: string | undefined;
     let maxCount = 0;
     for (const [gameName, count] of gameCounts.entries()) {
@@ -122,9 +134,6 @@ export class HistoryService {
         favoriteGame = gameName;
       }
     }
-
-    // Get last played timestamp
-    const lastPlayedResult = gameResults[0]; // Already sorted by DESC
 
     return {
       playerId: player.id,
@@ -135,43 +144,31 @@ export class HistoryService {
       totalScore,
       averageScore: gamesPlayed > 0 ? totalScore / gamesPlayed : 0,
       favoriteGame,
-      lastPlayedAt: lastPlayedResult?.completedAt.toISOString(),
+      lastPlayedAt: lastPlayedAt?.toISOString(),
     };
   }
 
   /**
-   * Get leaderboard (top players by win rate)
+   * Get leaderboard (top players by win rate, then games won).
    */
   async getLeaderboard(limit: number = 10): Promise<PlayerStatsDto[]> {
-    // Get all players who have played at least one game
-    const players = await this.playerRepo.find();
+    // Load players (with their teams) and all results once, then compute in
+    // memory — avoids an N+1 query over the player table.
+    const players = await this.playerRepo.find({ relations: ['teams'] });
+    const results = await this.gameResultRepo.find({
+      relations: ['winningTeam'],
+      order: { completedAt: 'DESC' },
+    });
 
-    // Get stats for each player
-    const playerStats = await Promise.all(
-      players.map(async (player) => {
-        try {
-          return await this.getPlayerStats(player.id);
-        } catch {
-          // Skip players with no game history
-          return null;
-        }
-      }),
-    );
-
-    // Filter out null results and sort by win rate, then by games won
-    const validStats = playerStats
-      .filter(
-        (stats): stats is PlayerStatsDto =>
-          stats !== null && stats.gamesPlayed > 0,
+    return players
+      .map((player) => this.buildPlayerStats(player, results))
+      .filter((stats) => stats.gamesPlayed > 0)
+      .sort((a, b) =>
+        b.winRate !== a.winRate
+          ? b.winRate - a.winRate
+          : b.gamesWon - a.gamesWon,
       )
-      .sort((a, b) => {
-        if (b.winRate !== a.winRate) {
-          return b.winRate - a.winRate;
-        }
-        return b.gamesWon - a.gamesWon;
-      });
-
-    return validStats.slice(0, limit);
+      .slice(0, limit);
   }
 
   /**
