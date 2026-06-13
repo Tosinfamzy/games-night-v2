@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   ManyToOne,
   CreateDateColumn,
   UpdateDateColumn,
@@ -28,10 +29,12 @@ export class Message {
   content: string;
 
   @ApiProperty({ type: () => Session })
+  @Index()
   @ManyToOne(() => Session, { eager: true })
   session: Session;
 
   @ApiProperty({ type: () => Player })
+  @Index()
   @ManyToOne(() => Player, { eager: true })
   player: Player;
 

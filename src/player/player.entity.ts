@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   ManyToOne,
   ManyToMany,
   OneToMany,
@@ -79,10 +80,12 @@ export class Player {
     description: 'Current WebSocket connection ID',
     required: false,
   })
+  @Index()
   @Column({ nullable: true })
   currentSocketId?: string;
 
   @ApiProperty({ type: () => Session })
+  @Index()
   @ManyToOne(() => Session, (session) => session.players, { eager: true })
   session: Session;
 

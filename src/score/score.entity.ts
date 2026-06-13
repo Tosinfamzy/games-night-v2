@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   ManyToOne,
   CreateDateColumn,
   UpdateDateColumn,
@@ -39,6 +40,7 @@ export class Score {
     description: 'Game associated with this score',
     type: () => Game,
   })
+  @Index()
   @ManyToOne(() => Game, (game) => game.scores, { eager: true })
   game: Game;
 
@@ -46,6 +48,7 @@ export class Score {
     description: 'Player who earned this score',
     type: () => Player,
   })
+  @Index()
   @ManyToOne(() => Player, (player) => player.scores, {
     nullable: true,
     eager: true,
@@ -53,6 +56,7 @@ export class Score {
   player?: Player;
 
   @ApiProperty({ description: 'Team who earned this score', type: () => Team })
+  @Index()
   @ManyToOne(() => Team, (team) => team.scores, { nullable: true, eager: true })
   team?: Team;
 

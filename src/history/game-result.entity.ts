@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   ManyToOne,
   CreateDateColumn,
   UpdateDateColumn,
@@ -28,6 +29,7 @@ export class GameResult {
     description: 'Game this result belongs to',
     type: () => Game,
   })
+  @Index()
   @ManyToOne(() => Game, { eager: true })
   game: Game;
 
@@ -35,6 +37,7 @@ export class GameResult {
     description: 'Session this game was played in',
     type: () => Session,
   })
+  @Index()
   @ManyToOne(() => Session, { eager: true })
   session: Session;
 
@@ -50,6 +53,7 @@ export class GameResult {
     type: () => Team,
     required: false,
   })
+  @Index()
   @ManyToOne(() => Team, { eager: true, nullable: true })
   winningTeam?: Team;
 

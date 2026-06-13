@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   ManyToOne,
   OneToMany,
   CreateDateColumn,
@@ -120,6 +121,7 @@ export class Game {
     description: 'Session this game belongs to',
     type: () => Session,
   })
+  @Index()
   @ManyToOne(() => Session, (session) => session.games, { eager: true })
   session: Session;
 
@@ -127,6 +129,7 @@ export class Game {
     description: 'Game template from the library this game is based on',
     type: () => GameLibrary,
   })
+  @Index()
   @ManyToOne(() => GameLibrary, { eager: true })
   gameLibrary: GameLibrary;
 

@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   ManyToOne,
   ManyToMany,
   JoinTable,
@@ -48,6 +49,7 @@ export class Team {
   isActive: boolean;
 
   @ApiProperty({ type: () => Game, description: 'Game this team belongs to' })
+  @Index()
   @ManyToOne(() => Game, (game) => game.teams, { eager: true })
   game: Game;
 
@@ -55,6 +57,7 @@ export class Team {
     type: () => Session,
     description: 'Session this team belongs to',
   })
+  @Index()
   @ManyToOne(() => Session, (session) => session.teams, { eager: true })
   session: Session;
 
