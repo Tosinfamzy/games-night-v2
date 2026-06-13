@@ -24,6 +24,14 @@ updates:
           - "eslint*"
           - "prettier"
           - "typescript*"
+    ignore:
+      # Held deliberately — bump these majors manually, not via Dependabot:
+      - dependency-name: "@types/node" # keep aligned to the Node runtime major
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "better-sqlite3" # v12 needs a newer typeorm peer range
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "uuid" # v13 is ESM-only and breaks the Jest e2e suite
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(deps)"
 
@@ -32,6 +40,10 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+    ignore:
+      # Stay on an LTS major (currently 22); bump Node deliberately, not to non-LTS.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "chore(docker)"
 
