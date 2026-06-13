@@ -19,8 +19,12 @@ import { GameLibrary } from '../../game-library/game-library.entity';
 describe('GameStatsService', () => {
   let service: GameStatsService;
   let gameRepo: ReturnType<typeof createMockRepository>;
-  let teamService: jest.Mocked<Pick<TeamService, 'findByGame' | 'getTeamStats'>>;
-  let scoreService: jest.Mocked<Pick<ScoreService, 'getRankedGameScores' | 'determineWinner'>>;
+  let teamService: jest.Mocked<
+    Pick<TeamService, 'findByGame' | 'getTeamStats'>
+  >;
+  let scoreService: jest.Mocked<
+    Pick<ScoreService, 'getRankedGameScores' | 'determineWinner'>
+  >;
 
   beforeEach(async () => {
     gameRepo = createMockRepository<Game>();
@@ -33,7 +37,9 @@ describe('GameStatsService', () => {
     scoreService = {
       getRankedGameScores: jest.fn(),
       determineWinner: jest.fn(),
-    } as jest.Mocked<Pick<ScoreService, 'getRankedGameScores' | 'determineWinner'>>;
+    } as jest.Mocked<
+      Pick<ScoreService, 'getRankedGameScores' | 'determineWinner'>
+    >;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -64,7 +70,10 @@ describe('GameStatsService', () => {
   describe('getGameStats', () => {
     it('should return comprehensive game statistics', async () => {
       const session = createMockSession({ id: 'session-1' });
-      const gameLibrary = createMockGameLibrary({ id: 'lib-1', name: 'Test Game' });
+      const gameLibrary = createMockGameLibrary({
+        id: 'lib-1',
+        name: 'Test Game',
+      });
       const game = createMockGame({
         id: 'game-1',
         name: 'Test Game',
@@ -157,8 +166,24 @@ describe('GameStatsService', () => {
       });
 
       const standings = [
-        { teamId: 'team-1', teamName: 'Team Alpha', score: 100, rank: 1, totalPoints: 100, bonusPointsCount: 0, roundPoints: [] },
-        { teamId: 'team-2', teamName: 'Team Beta', score: 80, rank: 2, totalPoints: 80, bonusPointsCount: 0, roundPoints: [] },
+        {
+          teamId: 'team-1',
+          teamName: 'Team Alpha',
+          score: 100,
+          rank: 1,
+          totalPoints: 100,
+          bonusPointsCount: 0,
+          roundPoints: [],
+        },
+        {
+          teamId: 'team-2',
+          teamName: 'Team Beta',
+          score: 80,
+          rank: 2,
+          totalPoints: 80,
+          bonusPointsCount: 0,
+          roundPoints: [],
+        },
       ];
 
       const winner = {
@@ -193,8 +218,24 @@ describe('GameStatsService', () => {
       });
 
       const standings = [
-        { teamId: 'team-1', teamName: 'Team Alpha', score: 100, rank: 1, totalPoints: 100, bonusPointsCount: 0, roundPoints: [] },
-        { teamId: 'team-2', teamName: 'Team Beta', score: 100, rank: 1, totalPoints: 100, bonusPointsCount: 0, roundPoints: [] },
+        {
+          teamId: 'team-1',
+          teamName: 'Team Alpha',
+          score: 100,
+          rank: 1,
+          totalPoints: 100,
+          bonusPointsCount: 0,
+          roundPoints: [],
+        },
+        {
+          teamId: 'team-2',
+          teamName: 'Team Beta',
+          score: 100,
+          rank: 1,
+          totalPoints: 100,
+          bonusPointsCount: 0,
+          roundPoints: [],
+        },
       ];
 
       gameRepo.findOne.mockResolvedValue(game);

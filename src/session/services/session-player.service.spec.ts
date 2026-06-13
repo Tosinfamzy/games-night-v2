@@ -379,7 +379,11 @@ describe('SessionPlayerService', () => {
         },
       });
 
-      const result = await service.setPlayerReady('session-1', 'player-1', true);
+      const result = await service.setPlayerReady(
+        'session-1',
+        'player-1',
+        true,
+      );
 
       expect(result.status).toBe(PlayerStatus.READY);
       expect(sessionGateway.broadcastPlayerReadiness).toHaveBeenCalledWith(
@@ -641,9 +645,9 @@ describe('SessionPlayerService', () => {
 
       sessionRepo.findOne.mockResolvedValue(session);
 
-      await expect(
-        service.kickPlayer('session-1', 'player-1'),
-      ).rejects.toThrow('Cannot kick players from completed session');
+      await expect(service.kickPlayer('session-1', 'player-1')).rejects.toThrow(
+        'Cannot kick players from completed session',
+      );
     });
 
     it('should throw NotFoundException if player not found', async () => {
@@ -656,9 +660,9 @@ describe('SessionPlayerService', () => {
       sessionRepo.findOne.mockResolvedValue(session);
       playerRepo.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.kickPlayer('session-1', 'player-1'),
-      ).rejects.toThrow('Player with ID player-1 not found');
+      await expect(service.kickPlayer('session-1', 'player-1')).rejects.toThrow(
+        'Player with ID player-1 not found',
+      );
     });
 
     it('should throw BadRequestException if player not in session', async () => {
@@ -672,9 +676,9 @@ describe('SessionPlayerService', () => {
       sessionRepo.findOne.mockResolvedValue(session);
       playerRepo.findOne.mockResolvedValue(player);
 
-      await expect(
-        service.kickPlayer('session-1', 'player-1'),
-      ).rejects.toThrow('Player is not in this session');
+      await expect(service.kickPlayer('session-1', 'player-1')).rejects.toThrow(
+        'Player is not in this session',
+      );
     });
   });
 });

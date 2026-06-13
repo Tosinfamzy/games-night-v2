@@ -152,10 +152,7 @@ export class SessionService {
     return session;
   }
 
-  async joinSession(
-    dto: JoinSessionDto,
-    userId?: string,
-  ) {
+  async joinSession(dto: JoinSessionDto, userId?: string) {
     return this.playerService.joinSession(dto, userId);
   }
 

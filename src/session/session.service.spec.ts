@@ -371,7 +371,11 @@ describe('SessionService', () => {
 
         sessionPlayerService.setPlayerReady.mockResolvedValue(mockPlayer);
 
-        const result = await service.setPlayerReady('session-1', 'player-1', true);
+        const result = await service.setPlayerReady(
+          'session-1',
+          'player-1',
+          true,
+        );
 
         expect(sessionPlayerService.setPlayerReady).toHaveBeenCalledWith(
           'session-1',
@@ -436,19 +440,22 @@ describe('SessionService', () => {
 
     describe('removePlayerFromSession', () => {
       it('should delegate to sessionPlayerService.removePlayerFromSession', async () => {
-        sessionPlayerService.removePlayerFromSession.mockResolvedValue(undefined);
+        sessionPlayerService.removePlayerFromSession.mockResolvedValue(
+          undefined,
+        );
 
         await service.removePlayerFromSession('session-1', 'player-1');
 
-        expect(sessionPlayerService.removePlayerFromSession).toHaveBeenCalledWith(
-          'session-1',
-          'player-1',
-        );
+        expect(
+          sessionPlayerService.removePlayerFromSession,
+        ).toHaveBeenCalledWith('session-1', 'player-1');
       });
 
       it('should propagate errors from sessionPlayerService', async () => {
         sessionPlayerService.removePlayerFromSession.mockRejectedValue(
-          new BadRequestException('Cannot remove players from a session in progress'),
+          new BadRequestException(
+            'Cannot remove players from a session in progress',
+          ),
         );
 
         await expect(
