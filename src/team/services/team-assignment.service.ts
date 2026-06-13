@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { findOneOrThrow } from '../../common/utils/find-or-throw.util';
 import { Team } from '../team.entity';
 import { Game } from '../../game/game.entity';
 import { Player } from '../../player/player.entity';
@@ -342,15 +343,11 @@ export class TeamAssignmentService {
    * Helper: Find a team by ID
    */
   private async findOne(id: string, relations: string[] = []): Promise<Team> {
-    const team = await this.repo.findOne({
-      where: { id },
+    return findOneOrThrow(
+      this.repo,
+      { id },
+      `Team with ID ${id} not found`,
       relations,
-    });
-
-    if (!team) {
-      throw new NotFoundException(`Team with ID ${id} not found`);
-    }
-
-    return team;
+    );
   }
 }

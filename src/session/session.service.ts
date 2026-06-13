@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { findOneOrThrow } from '../common/utils/find-or-throw.util';
 import { Session } from './session.entity';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { CreateSessionResponseDto } from './dto/create-session-response.dto';
@@ -160,16 +161,12 @@ export class SessionService {
   }
 
   async findOne(id: string, relations: string[] = []): Promise<Session> {
-    const session = await this.repo.findOne({
-      where: { id },
+    return findOneOrThrow(
+      this.repo,
+      { id },
+      `Session with ID ${id} not found`,
       relations,
-    });
-
-    if (!session) {
-      throw new NotFoundException(`Session with ID ${id} not found`);
-    }
-
-    return session;
+    );
   }
 
   async startSession(sessionId: string): Promise<Session> {

@@ -1,12 +1,12 @@
 import {
   Injectable,
   BadRequestException,
-  NotFoundException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { findOneOrThrow } from '../../common/utils/find-or-throw.util';
 import { Session } from '../session.entity';
 import { Game } from '../../game/game.entity';
 import { Player, PlayerStatus } from '../../player/player.entity';
@@ -163,15 +163,11 @@ export class SessionLifecycleService {
     id: string,
     relations: string[] = [],
   ): Promise<Session> {
-    const session = await this.sessionRepo.findOne({
-      where: { id },
+    return findOneOrThrow(
+      this.sessionRepo,
+      { id },
+      `Session with ID ${id} not found`,
       relations,
-    });
-
-    if (!session) {
-      throw new NotFoundException(`Session with ID ${id} not found`);
-    }
-
-    return session;
+    );
   }
 }

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { findOneOrThrow } from '../common/utils/find-or-throw.util';
 import { Player, PlayerStatus } from './player.entity';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
@@ -177,16 +178,12 @@ export class PlayerService {
   }
 
   async findOne(id: string, relations: string[] = []): Promise<Player> {
-    const player = await this.repo.findOne({
-      where: { id },
+    return findOneOrThrow(
+      this.repo,
+      { id },
+      `Player with ID ${id} not found`,
       relations,
-    });
-
-    if (!player) {
-      throw new NotFoundException(`Player with ID ${id} not found`);
-    }
-
-    return player;
+    );
   }
 
   async update(id: string, dto: UpdatePlayerDto): Promise<Player> {

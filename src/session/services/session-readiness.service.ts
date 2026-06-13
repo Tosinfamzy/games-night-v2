@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { findOneOrThrow } from '../../common/utils/find-or-throw.util';
 import { Session } from '../session.entity';
 import { PlayerStatus } from '../../player/player.entity';
 import { isActivePlayer } from '../../common/utils/player-status.util';
@@ -75,16 +76,12 @@ export class SessionReadinessService {
    * Fetch session with required relations for readiness checks
    */
   private async getSessionWithRelations(sessionId: string): Promise<Session> {
-    const session = await this.sessionRepo.findOne({
-      where: { id: sessionId },
-      relations: ['games', 'games.gameLibrary', 'players'],
-    });
-
-    if (!session) {
-      throw new NotFoundException(`Session with ID ${sessionId} not found`);
-    }
-
-    return session;
+    return findOneOrThrow(
+      this.sessionRepo,
+      { id: sessionId },
+      `Session with ID ${sessionId} not found`,
+      ['games', 'games.gameLibrary', 'players'],
+    );
   }
 
   /**

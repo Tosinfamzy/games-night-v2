@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { findOneOrThrow } from '../common/utils/find-or-throw.util';
 import { Score } from './score.entity';
 import { CreateScoreDto } from './dto/create-score.dto';
 import { UpdateScoreDto } from './dto/update-score.dto';
@@ -167,16 +168,11 @@ export class ScoreService {
   }
 
   async findOne(id: string): Promise<Score> {
-    const score = await this.repo.findOne({
-      where: { id },
-      relations: ['game', 'team', 'player'],
-    });
-
-    if (!score) {
-      throw new NotFoundException(`Score with ID ${id} not found`);
-    }
-
-    return score;
+    return findOneOrThrow(this.repo, { id }, `Score with ID ${id} not found`, [
+      'game',
+      'team',
+      'player',
+    ]);
   }
 
   async findAll(): Promise<Score[]> {

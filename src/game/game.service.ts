@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { findOneOrThrow } from '../common/utils/find-or-throw.util';
 import { Game } from './game.entity';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
@@ -77,15 +78,12 @@ export class GameService {
   }
 
   async findOne(id: string): Promise<Game> {
-    const game = await this.repo.findOne({
-      where: { id },
-      relations: ['session', 'teams', 'scores', 'gameLibrary'],
-    });
-
-    if (!game) {
-      throw new NotFoundException(`Game with ID ${id} not found`);
-    }
-    return game;
+    return findOneOrThrow(this.repo, { id }, `Game with ID ${id} not found`, [
+      'session',
+      'teams',
+      'scores',
+      'gameLibrary',
+    ]);
   }
 
   async startGame(id: string, dto: StartGameDto): Promise<Game> {

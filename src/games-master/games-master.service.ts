@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { findOneOrThrow } from '../common/utils/find-or-throw.util';
 import { GamesMaster } from './games-master.entity';
 import { LIMITS } from '../common/constants';
 import { generateUniqueCode } from '../common/utils/unique-code.util';
@@ -72,16 +73,12 @@ export class GamesMasterService {
   }
 
   async findOne(id: string, relations: string[] = []): Promise<GamesMaster> {
-    const gm = await this.repo.findOne({
-      where: { id },
+    return findOneOrThrow(
+      this.repo,
+      { id },
+      `GamesMaster with ID ${id} not found`,
       relations,
-    });
-
-    if (!gm) {
-      throw new NotFoundException(`GamesMaster with ID ${id} not found`);
-    }
-
-    return gm;
+    );
   }
 
   async findByName(name: string): Promise<GamesMaster[]> {
