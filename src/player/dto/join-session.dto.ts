@@ -1,6 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiSchema } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, Length, Matches } from 'class-validator';
 
+@ApiSchema({ name: 'PlayerJoinSessionDto' })
 export class JoinSessionDto {
   @ApiProperty({
     example: 'Alice',

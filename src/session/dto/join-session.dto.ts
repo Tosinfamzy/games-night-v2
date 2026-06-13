@@ -1,6 +1,7 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiSchema } from '@nestjs/swagger';
 import { IsString, IsNotEmpty, Length } from 'class-validator';
 
+@ApiSchema({ name: 'SessionJoinByCodeDto' })
 export class JoinSessionDto {
   @ApiProperty({
     description: '6-digit session join code',
