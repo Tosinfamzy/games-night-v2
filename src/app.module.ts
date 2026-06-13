@@ -34,6 +34,7 @@ import * as Joi from 'joi';
         DB_USER: Joi.string().default('postgres'),
         DB_PASSWORD: Joi.string().required(),
         DB_NAME: Joi.string().default('games_night'),
+        DB_SYNCHRONIZE: Joi.string().valid('true', 'false').optional(),
         REDIS_HOST: Joi.string().default('localhost'),
         REDIS_PORT: Joi.number().default(6379),
         REDIS_PASSWORD: Joi.string().optional(),
@@ -44,18 +45,25 @@ import * as Joi from 'joi';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST'),
-        port: configService.get<number>('DB_PORT'),
-        username: configService.get<string>('DB_USER'),
-        password: configService.get<string>('DB_PASSWORD'),
-        database: configService.get<string>('DB_NAME'),
-        entities: [__dirname + '/**/*.entity.{ts,js}'],
-        synchronize:
-          configService.get('DB_SYNCHRONIZE') === 'true' ||
-          configService.get('NODE_ENV') !== 'production',
-      }),
+      useFactory: (configService: ConfigService) => {
+        const isProduction = configService.get('NODE_ENV') === 'production';
+        return {
+          type: 'postgres',
+          host: configService.get<string>('DB_HOST'),
+          port: configService.get<number>('DB_PORT'),
+          username: configService.get<string>('DB_USER'),
+          password: configService.get<string>('DB_PASSWORD'),
+          database: configService.get<string>('DB_NAME'),
+          entities: [__dirname + '/**/*.entity.{ts,js}'],
+          migrations: [__dirname + '/migrations/*.{ts,js}'],
+          migrationsTableName: 'migrations',
+          // Production: never auto-sync the schema; apply migrations on boot.
+          // Dev/test: synchronize for fast iteration (opt out with DB_SYNCHRONIZE=false).
+          synchronize:
+            !isProduction && configService.get('DB_SYNCHRONIZE') !== 'false',
+          migrationsRun: isProduction,
+        };
+      },
       inject: [ConfigService],
     }),
     CacheModule.registerAsync({
