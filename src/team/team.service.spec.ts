@@ -96,8 +96,16 @@ describe('TeamService - Team Management', () => {
   describe('swapPlayerToTeam', () => {
     it('should delegate to teamAssignmentService.swapPlayerToTeam', async () => {
       const mockResult = {
-        fromTeam: { id: 'team-1', name: 'Team A', players: [] } as unknown as Team,
-        toTeam: { id: 'team-2', name: 'Team B', players: [] } as unknown as Team,
+        fromTeam: {
+          id: 'team-1',
+          name: 'Team A',
+          players: [],
+        } as unknown as Team,
+        toTeam: {
+          id: 'team-2',
+          name: 'Team B',
+          players: [],
+        } as unknown as Team,
       };
       mockTeamAssignmentService.swapPlayerToTeam.mockResolvedValue(mockResult);
 
@@ -127,7 +135,9 @@ describe('TeamService - Team Management', () => {
 
     it('should propagate BadRequestException from assignmentService', async () => {
       mockTeamAssignmentService.swapPlayerToTeam.mockRejectedValue(
-        new BadRequestException('Cannot swap players between teams from different games'),
+        new BadRequestException(
+          'Cannot swap players between teams from different games',
+        ),
       );
 
       await expect(

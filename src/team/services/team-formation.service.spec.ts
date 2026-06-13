@@ -70,7 +70,10 @@ describe('TeamFormationService', () => {
         id: 'session-1',
         players: players as Player[],
       });
-      const gameLibrary = createMockGameLibrary({ minPlayers: 2, maxPlayers: 8 });
+      const gameLibrary = createMockGameLibrary({
+        minPlayers: 2,
+        maxPlayers: 8,
+      });
       const game = createMockGame({
         id: 'game-1',
         session: session as Session,
@@ -79,11 +82,20 @@ describe('TeamFormationService', () => {
 
       gameRepo.findOne.mockResolvedValue(game);
       teamRepo.find.mockResolvedValueOnce([]); // clearTeamsForGame - no existing teams
-      teamRepo.create.mockImplementation((data) => ({ ...data, id: `team-${Date.now()}` }));
+      teamRepo.create.mockImplementation((data) => ({
+        ...data,
+        id: `team-${Date.now()}`,
+      }));
       teamRepo.save.mockImplementation((team) => Promise.resolve(team));
       teamRepo.find.mockResolvedValue([
-        createMockTeam({ id: 'team-1', players: [players[0] as Player, players[2] as Player] }),
-        createMockTeam({ id: 'team-2', players: [players[1] as Player, players[3] as Player] }),
+        createMockTeam({
+          id: 'team-1',
+          players: [players[0] as Player, players[2] as Player],
+        }),
+        createMockTeam({
+          id: 'team-2',
+          players: [players[1] as Player, players[3] as Player],
+        }),
       ]);
 
       const result = await service.createTeamsForGame('game-1', {
@@ -140,7 +152,10 @@ describe('TeamFormationService', () => {
         id: 'session-1',
         players: players as Player[],
       });
-      const gameLibrary = createMockGameLibrary({ minPlayers: 2, maxPlayers: 8 });
+      const gameLibrary = createMockGameLibrary({
+        minPlayers: 2,
+        maxPlayers: 8,
+      });
       const game = createMockGame({
         id: 'game-1',
         session: session as Session,
@@ -168,7 +183,10 @@ describe('TeamFormationService', () => {
         id: 'session-1',
         players: players as Player[],
       });
-      const gameLibrary = createMockGameLibrary({ minPlayers: 2, maxPlayers: 8 });
+      const gameLibrary = createMockGameLibrary({
+        minPlayers: 2,
+        maxPlayers: 8,
+      });
       const game = createMockGame({
         id: 'game-1',
         session: session as Session,
@@ -177,7 +195,10 @@ describe('TeamFormationService', () => {
 
       gameRepo.findOne.mockResolvedValue(game);
       teamRepo.find.mockResolvedValueOnce([]); // clearTeamsForGame
-      teamRepo.create.mockImplementation((data) => ({ ...data, id: `team-${Date.now()}` }));
+      teamRepo.create.mockImplementation((data) => ({
+        ...data,
+        id: `team-${Date.now()}`,
+      }));
       teamRepo.save.mockImplementation((team) => Promise.resolve(team));
       teamRepo.find.mockResolvedValue([]);
 
@@ -236,7 +257,10 @@ describe('TeamFormationService', () => {
         id: 'session-1',
         players: players as Player[],
       });
-      const gameLibrary = createMockGameLibrary({ minPlayers: 2, maxPlayers: 8 });
+      const gameLibrary = createMockGameLibrary({
+        minPlayers: 2,
+        maxPlayers: 8,
+      });
       const game = createMockGame({
         id: 'game-1',
         session: session as Session,
@@ -264,7 +288,10 @@ describe('TeamFormationService', () => {
 
   describe('validateTeamFormation', () => {
     it('should return valid for proper team formation', () => {
-      const result = service.validateTeamFormation(4, 2, { minPlayers: 2, maxPlayers: 8 });
+      const result = service.validateTeamFormation(4, 2, {
+        minPlayers: 2,
+        maxPlayers: 8,
+      });
 
       expect(result.isValid).toBe(true);
       expect(result.errors).toHaveLength(0);
@@ -292,7 +319,10 @@ describe('TeamFormationService', () => {
     });
 
     it('should validate against game requirements', () => {
-      const result = service.validateTeamFormation(2, 2, { minPlayers: 4, maxPlayers: 8 });
+      const result = service.validateTeamFormation(2, 2, {
+        minPlayers: 4,
+        maxPlayers: 8,
+      });
 
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain(
@@ -316,7 +346,11 @@ describe('TeamFormationService', () => {
 
       teamRepo.save.mockImplementation((team) => Promise.resolve(team));
 
-      await service.assignPlayersByStrategy(teams, players, TeamFormationStrategy.RANDOM);
+      await service.assignPlayersByStrategy(
+        teams,
+        players,
+        TeamFormationStrategy.RANDOM,
+      );
 
       expect(teamRepo.save).toHaveBeenCalledTimes(2);
       const totalAssigned = teams[0].players.length + teams[1].players.length;
@@ -325,10 +359,22 @@ describe('TeamFormationService', () => {
 
     it('should assign players using BALANCED strategy', async () => {
       const players = [
-        createMockPlayer({ id: 'p1', createdAt: new Date('2024-01-01') }) as Player,
-        createMockPlayer({ id: 'p2', createdAt: new Date('2024-01-02') }) as Player,
-        createMockPlayer({ id: 'p3', createdAt: new Date('2024-01-03') }) as Player,
-        createMockPlayer({ id: 'p4', createdAt: new Date('2024-01-04') }) as Player,
+        createMockPlayer({
+          id: 'p1',
+          createdAt: new Date('2024-01-01'),
+        }) as Player,
+        createMockPlayer({
+          id: 'p2',
+          createdAt: new Date('2024-01-02'),
+        }) as Player,
+        createMockPlayer({
+          id: 'p3',
+          createdAt: new Date('2024-01-03'),
+        }) as Player,
+        createMockPlayer({
+          id: 'p4',
+          createdAt: new Date('2024-01-04'),
+        }) as Player,
       ];
       const teams = [
         { ...createMockTeam({ id: 'team-1' }), players: [] } as Team,
@@ -337,7 +383,11 @@ describe('TeamFormationService', () => {
 
       teamRepo.save.mockImplementation((team) => Promise.resolve(team));
 
-      await service.assignPlayersByStrategy(teams, players, TeamFormationStrategy.BALANCED);
+      await service.assignPlayersByStrategy(
+        teams,
+        players,
+        TeamFormationStrategy.BALANCED,
+      );
 
       expect(teamRepo.save).toHaveBeenCalledTimes(2);
       // Each team should have 2 players

@@ -154,7 +154,9 @@ describe('TeamAssignmentService', () => {
 
       await expect(
         service.swapPlayerToTeam('player-1', 'team-1', 'team-2'),
-      ).rejects.toThrow('Cannot swap players between teams from different games');
+      ).rejects.toThrow(
+        'Cannot swap players between teams from different games',
+      );
     });
 
     it('should throw NotFoundException if player does not exist', async () => {
@@ -258,7 +260,9 @@ describe('TeamAssignmentService', () => {
       await service.dissolveTeam('team-1');
 
       // Should emit for each player (via server.to().emit())
-      expect(sessionGateway.server.to).toHaveBeenCalledWith('session:session-1');
+      expect(sessionGateway.server.to).toHaveBeenCalledWith(
+        'session:session-1',
+      );
       // The mock returns { emit: jest.fn() } from .to(), so we check that to() was called for each player
       expect(sessionGateway.server.to).toHaveBeenCalledTimes(2);
     });
@@ -435,7 +439,10 @@ describe('TeamAssignmentService', () => {
         createMockPlayer({ id: 'p3', status: PlayerStatus.PLAYING }),
         createMockPlayer({ id: 'p4', status: PlayerStatus.PLAYING }),
       ];
-      const gameLibrary = createMockGameLibrary({ minPlayers: 2, maxPlayers: 8 });
+      const gameLibrary = createMockGameLibrary({
+        minPlayers: 2,
+        maxPlayers: 8,
+      });
       const game = createMockGame({
         id: 'game-1',
         session: { ...session, players: players as Player[] } as Session,
@@ -496,7 +503,10 @@ describe('TeamAssignmentService', () => {
         createMockPlayer({ id: 'p3', status: PlayerStatus.PLAYING }),
         createMockPlayer({ id: 'p4', status: PlayerStatus.PLAYING }),
       ];
-      const gameLibrary = createMockGameLibrary({ minPlayers: 2, maxPlayers: 8 });
+      const gameLibrary = createMockGameLibrary({
+        minPlayers: 2,
+        maxPlayers: 8,
+      });
       const game = createMockGame({
         id: 'game-1',
         session: { ...session, players: players as Player[] } as Session,

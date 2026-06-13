@@ -158,7 +158,11 @@ export class TeamService {
     players: Player[],
     strategy: TeamFormationStrategy,
   ): Promise<void> {
-    return this.formationService.assignPlayersByStrategy(teams, players, strategy);
+    return this.formationService.assignPlayersByStrategy(
+      teams,
+      players,
+      strategy,
+    );
   }
 
   private randomAssignment(teamCount: number, players: Player[]): Player[][] {
@@ -228,7 +232,11 @@ export class TeamService {
     teamCount: number,
     gameLibrary: { minPlayers?: number; maxPlayers?: number } | null,
   ): { isValid: boolean; errors: string[]; warnings: string[] } {
-    return this.formationService.validateTeamFormation(playerCount, teamCount, gameLibrary);
+    return this.formationService.validateTeamFormation(
+      playerCount,
+      teamCount,
+      gameLibrary,
+    );
   }
 
   // Team assignment methods (delegated to TeamAssignmentService)
@@ -302,7 +310,11 @@ export class TeamService {
     fromTeamId: string,
     toTeamId: string,
   ): Promise<{ fromTeam: Team; toTeam: Team }> {
-    return this.assignmentService.swapPlayerToTeam(playerId, fromTeamId, toTeamId);
+    return this.assignmentService.swapPlayerToTeam(
+      playerId,
+      fromTeamId,
+      toTeamId,
+    );
   }
 
   /**
