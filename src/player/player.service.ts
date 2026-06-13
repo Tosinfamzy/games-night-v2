@@ -246,28 +246,6 @@ export class PlayerService {
     };
   }
 
-  async areAllPlayersReady(sessionId: string): Promise<boolean> {
-    const players = await this.findBySession(sessionId);
-    const activePlayers = players.filter(
-      (p) => p.status !== PlayerStatus.DISCONNECTED,
-    );
-
-    return (
-      activePlayers.length > 0 &&
-      activePlayers.every((p) => p.status === PlayerStatus.READY)
-    );
-  }
-
-  async setAllPlayersToPlaying(sessionId: string): Promise<void> {
-    const players = await this.findBySession(sessionId);
-    const readyPlayers = players.filter((p) => p.status === PlayerStatus.READY);
-
-    for (const player of readyPlayers) {
-      player.status = PlayerStatus.PLAYING;
-      await this.repo.save(player);
-    }
-  }
-
   /**
    * Find player by userId (for authenticated players)
    */
