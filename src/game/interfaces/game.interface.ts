@@ -1,14 +1,5 @@
-import { DeepPartial } from 'typeorm';
-import { Game } from '../game.entity';
 import { GameStatus } from '../enums/game-status.enum';
 import { GameLibrary } from '../../game-library/game-library.entity';
-
-export type CreateGameRelations = DeepPartial<Pick<Game, 'session'>>;
-
-export interface CreateGameInput {
-  name: string;
-  session: CreateGameRelations['session'];
-}
 
 /**
  * Player info within team stats

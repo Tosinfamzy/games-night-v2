@@ -6,12 +6,6 @@ export const TIME = {
   /** Player token expiry in seconds (24 hours) */
   PLAYER_TOKEN_EXPIRY_SECONDS: 86400,
 
-  /** Games Master token expiry in seconds (7 days) */
-  GM_TOKEN_EXPIRY_SECONDS: 604800,
-
-  /** Refresh token expiry in seconds (30 days) */
-  REFRESH_TOKEN_EXPIRY_SECONDS: 2592000,
-
   /** Timer warning thresholds in seconds */
   TIMER_WARNING_THRESHOLDS: [30, 10, 5] as const,
 

@@ -11,8 +11,6 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { BaseGateway } from '../common/gateways/base.gateway';
 import { Game } from './game.entity';
 import { Score } from '../score/score.entity';
-import { TeamStandingDto } from '../common/dto/team-standing.dto';
-import { GameStatus } from './enums/game-status.enum';
 import { WsPlayerAuthGuard } from '../auth/guards/ws-player-auth.guard';
 
 /**
@@ -163,45 +161,6 @@ export class GameGateway extends BaseGateway {
     this.emitToRoom(room, 'game:round-ended', {
       gameId,
       roundNumber,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  /**
-   * Broadcast game state changed
-   */
-  broadcastGameStateChanged(gameId: string, state: GameStatus): void {
-    const room = `game:${gameId}`;
-    this.emitToRoom(room, 'game:state-changed', {
-      gameId,
-      state,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  /**
-   * Broadcast leaderboard update
-   */
-  broadcastLeaderboardUpdate(
-    gameId: string,
-    leaderboard: TeamStandingDto[],
-  ): void {
-    const room = `game:${gameId}`;
-    this.emitToRoom(room, 'game:leaderboard-updated', {
-      gameId,
-      leaderboard,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  /**
-   * Broadcast score updated
-   */
-  broadcastScoreUpdated(gameId: string, score: Score): void {
-    const room = `game:${gameId}`;
-    this.emitToRoom(room, 'game:score-updated', {
-      gameId,
-      score,
       timestamp: new Date().toISOString(),
     });
   }

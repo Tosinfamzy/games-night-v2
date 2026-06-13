@@ -65,13 +65,6 @@ export abstract class BaseGateway
   }
 
   /**
-   * Helper method to emit to all clients
-   */
-  protected emitToAll<T = unknown>(event: string, data: T): void {
-    this.server.emit(event, data);
-  }
-
-  /**
    * Helper method to make client join a room
    */
   protected joinRoom(client: Socket, room: string): void {
