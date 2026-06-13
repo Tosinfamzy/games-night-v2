@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { SessionLifecycleService } from './session-lifecycle.service';
 import { SessionReadinessService } from './session-readiness.service';
 import { Session } from '../session.entity';
@@ -176,7 +176,7 @@ describe('SessionLifecycleService', () => {
       );
     });
 
-    it('should throw BadRequestException if session not found', async () => {
+    it('should throw NotFoundException if session not found', async () => {
       readinessService.canStartSession.mockResolvedValue({
         canStart: true,
         reasons: [],
@@ -191,7 +191,7 @@ describe('SessionLifecycleService', () => {
       sessionRepo.findOne.mockResolvedValue(null);
 
       await expect(service.startSession('non-existent')).rejects.toThrow(
-        BadRequestException,
+        NotFoundException,
       );
     });
   });
@@ -362,11 +362,11 @@ describe('SessionLifecycleService', () => {
       );
     });
 
-    it('should throw BadRequestException if session not found', async () => {
+    it('should throw NotFoundException if session not found', async () => {
       sessionRepo.findOne.mockResolvedValue(null);
 
       await expect(service.cancelSession('non-existent')).rejects.toThrow(
-        BadRequestException,
+        NotFoundException,
       );
     });
   });

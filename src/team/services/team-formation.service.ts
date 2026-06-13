@@ -9,7 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Team } from '../team.entity';
 import { Game } from '../../game/game.entity';
-import { Player, PlayerStatus } from '../../player/player.entity';
+import { Player } from '../../player/player.entity';
+import { isPlayingPlayer } from '../../common/utils/player-status.util';
 import { SessionGateway } from '../../session/session.gateway';
 import {
   CreateTeamsDto,
@@ -49,9 +50,7 @@ export class TeamFormationService {
     }
 
     // Get active players in the session
-    const activePlayers = game.session.players.filter(
-      (player) => player.status === PlayerStatus.PLAYING,
-    );
+    const activePlayers = game.session.players.filter(isPlayingPlayer);
 
     if (activePlayers.length === 0) {
       throw new BadRequestException(
@@ -154,9 +153,7 @@ export class TeamFormationService {
       throw new NotFoundException(`Game with ID ${gameId} not found`);
     }
 
-    const activePlayers = game.session.players.filter(
-      (player) => player.status === PlayerStatus.PLAYING,
-    );
+    const activePlayers = game.session.players.filter(isPlayingPlayer);
 
     const playerCount = activePlayers.length;
     const suggestions: Array<{

@@ -1,4 +1,9 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  forwardRef,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Game } from '../game.entity';
@@ -157,7 +162,7 @@ export class GameStatsService {
     });
 
     if (!game) {
-      throw new Error(`Game with ID ${id} not found`);
+      throw new NotFoundException(`Game with ID ${id} not found`);
     }
 
     return game;

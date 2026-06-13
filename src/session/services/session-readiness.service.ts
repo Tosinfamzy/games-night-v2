@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Session } from '../session.entity';
 import { PlayerStatus } from '../../player/player.entity';
+import { isActivePlayer } from '../../common/utils/player-status.util';
 import { SessionStatus } from '../enums/session-status.enum';
 
 export interface PlayerCountValidation {
@@ -80,7 +81,7 @@ export class SessionReadinessService {
     });
 
     if (!session) {
-      throw new Error(`Session with ID ${sessionId} not found`);
+      throw new NotFoundException(`Session with ID ${sessionId} not found`);
     }
 
     return session;
@@ -94,9 +95,7 @@ export class SessionReadinessService {
   ): Promise<PlayerCountValidation> {
     const session = await this.getSessionWithRelations(sessionId);
 
-    const activePlayerCount = session.players.filter(
-      (player) => player.status !== PlayerStatus.DISCONNECTED,
-    ).length;
+    const activePlayerCount = session.players.filter(isActivePlayer).length;
 
     const errors: string[] = [];
     const gameRequirements: PlayerCountValidation['gameRequirements'] = [];
@@ -156,9 +155,7 @@ export class SessionReadinessService {
     }
 
     // Check if all players are ready
-    const activePlayers = session.players.filter(
-      (player) => player.status !== PlayerStatus.DISCONNECTED,
-    );
+    const activePlayers = session.players.filter(isActivePlayer);
     checks.playersReady =
       activePlayers.length > 0 &&
       activePlayers.every((player) => player.status === PlayerStatus.READY);
@@ -202,9 +199,7 @@ export class SessionReadinessService {
   ): Promise<SessionReadinessStatus> {
     const session = await this.getSessionWithRelations(sessionId);
 
-    const activePlayers = session.players.filter(
-      (player) => player.status !== PlayerStatus.DISCONNECTED,
-    );
+    const activePlayers = session.players.filter(isActivePlayer);
 
     const playerStats = {
       total: session.players.length,

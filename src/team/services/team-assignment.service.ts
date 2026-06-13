@@ -9,7 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Team } from '../team.entity';
 import { Game } from '../../game/game.entity';
-import { Player, PlayerStatus } from '../../player/player.entity';
+import { Player } from '../../player/player.entity';
+import { isActivePlayer } from '../../common/utils/player-status.util';
 import { SessionGateway } from '../../session/session.gateway';
 import {
   AssignPlayersDto,
@@ -95,11 +96,7 @@ export class TeamAssignmentService {
       throw new NotFoundException(`Game with ID ${gameId} not found`);
     }
 
-    const activePlayers = game.session.players.filter((player) =>
-      [PlayerStatus.PLAYING, PlayerStatus.JOINED, PlayerStatus.READY].includes(
-        player.status,
-      ),
-    );
+    const activePlayers = game.session.players.filter(isActivePlayer);
 
     // Clear current player assignments but keep teams
     for (const team of existingTeams) {
@@ -136,11 +133,7 @@ export class TeamAssignmentService {
       throw new NotFoundException(`Game with ID ${gameId} not found`);
     }
 
-    const activePlayers = game.session.players.filter((player) =>
-      [PlayerStatus.PLAYING, PlayerStatus.JOINED, PlayerStatus.READY].includes(
-        player.status,
-      ),
-    );
+    const activePlayers = game.session.players.filter(isActivePlayer);
 
     // Shuffle the players array
     const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);

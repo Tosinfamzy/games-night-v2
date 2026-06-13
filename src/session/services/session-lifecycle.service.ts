@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  NotFoundException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { Repository } from 'typeorm';
 import { Session } from '../session.entity';
 import { Game } from '../../game/game.entity';
 import { Player, PlayerStatus } from '../../player/player.entity';
+import { isActivePlayer } from '../../common/utils/player-status.util';
 import { SessionStatus } from '../enums/session-status.enum';
 import { GameStatus } from '../../game/enums/game-status.enum';
 import { SessionGateway } from '../session.gateway';
@@ -46,9 +48,7 @@ export class SessionLifecycleService {
     session.status = SessionStatus.IN_PROGRESS;
 
     // Set all ready players to playing status
-    const activePlayers = session.players.filter(
-      (player) => player.status !== PlayerStatus.DISCONNECTED,
-    );
+    const activePlayers = session.players.filter(isActivePlayer);
 
     for (const player of activePlayers) {
       if (player.status === PlayerStatus.READY) {
@@ -169,7 +169,7 @@ export class SessionLifecycleService {
     });
 
     if (!session) {
-      throw new BadRequestException(`Session with ID ${id} not found`);
+      throw new NotFoundException(`Session with ID ${id} not found`);
     }
 
     return session;
