@@ -10,6 +10,21 @@ architecture). Work top to bottom; each step has a check you can verify before m
 > Target runtime is **Node 22** (both repos). Ignore any "Node 20" mention in the older
 > DEPLOYMENT.md — it's stale.
 
+> **Already live (verified 2026-07-25).** This is now a *reference / rebuild* guide, not a
+> from-scratch deploy. Current state:
+> - Backend: Railway project `games-night-api` → service `games-night-v2`, **Online**,
+>   `https://games-night-v2-production.up.railway.app` (health at `/v1/health`).
+> - Frontend: Vercel project `games-nightv2-ui`, **`https://games-nightv2-ui.vercel.app`**,
+>   auto-deploys from GitHub `main`.
+>
+> ⚠️ **`VITE_API_URL` gotcha (bit us once):** it must be a **single clean line** with no
+> trailing whitespace/newline. A corrupted value (`…railway.app` + a stray newline) parses
+> to the dead host `…railway.app`​`n` and silently breaks every API/WebSocket call — the
+> build still goes green. Set it via
+> `echo 'https://…up.railway.app' | vercel env add VITE_API_URL production` (Vercel trims the
+> trailing newline). It is stored **Sensitive**, so `vercel env pull` shows it blank — verify
+> by grepping the built JS bundle, not by pulling.
+
 ---
 
 ## 0. Pre-flight (local — already verified)
