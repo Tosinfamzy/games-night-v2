@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { findOneOrThrow } from '../common/utils/find-or-throw.util';
+import { DomainError } from '../common/errors/domain-errors';
 import { Game } from './game.entity';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
@@ -90,7 +91,7 @@ export class GameService {
     const game = await this.findOne(id);
 
     if (game.status !== GameStatus.PENDING) {
-      throw new BadRequestException(`Game is already ${game.status}`);
+      throw DomainError.gameInvalidState(`Game is already ${game.status}`);
     }
 
     // Validate and fetch teams
@@ -157,7 +158,7 @@ export class GameService {
     }
 
     if (game.currentRound >= game.maxRounds) {
-      throw new BadRequestException('Maximum number of rounds reached');
+      throw DomainError.gameInvalidState('Maximum number of rounds reached');
     }
 
     game.currentRound += 1;
@@ -178,7 +179,7 @@ export class GameService {
     const game = await this.findOne(id);
 
     if (game.status !== GameStatus.ROUND_IN_PROGRESS) {
-      throw new BadRequestException('No round is currently in progress');
+      throw DomainError.gameInvalidState('No round is currently in progress');
     }
 
     game.status = GameStatus.ROUND_ENDED;
@@ -252,7 +253,7 @@ export class GameService {
     const game = await this.findOne(id);
 
     if (game.status !== GameStatus.PENDING) {
-      throw new BadRequestException(`Game is already ${game.status}`);
+      throw DomainError.gameInvalidState(`Game is already ${game.status}`);
     }
 
     // Create teams using the team service
@@ -337,7 +338,9 @@ export class GameService {
       game.status !== GameStatus.IN_PROGRESS &&
       game.status !== GameStatus.ROUND_IN_PROGRESS
     ) {
-      throw new BadRequestException('Game must be in progress to change turns');
+      throw DomainError.gameInvalidState(
+        'Game must be in progress to change turns',
+      );
     }
 
     const teams = await this.teamService.findByGame(id);
@@ -442,7 +445,7 @@ export class GameService {
     const game = await this.findOne(id);
 
     if (game.status !== GameStatus.PAUSED) {
-      throw new BadRequestException('Game is not paused');
+      throw DomainError.gameInvalidState('Game is not paused');
     }
 
     game.status =
@@ -472,7 +475,7 @@ export class GameService {
     const game = await this.findOne(id);
 
     if (game.status !== GameStatus.PENDING) {
-      throw new BadRequestException(`Game is already ${game.status}`);
+      throw DomainError.gameInvalidState(`Game is already ${game.status}`);
     }
 
     game.status = GameStatus.IN_PROGRESS;
@@ -487,11 +490,11 @@ export class GameService {
     const game = await this.findOne(id);
 
     if (game.status === GameStatus.COMPLETED) {
-      throw new BadRequestException('Game is already completed');
+      throw DomainError.gameInvalidState('Game is already completed');
     }
 
     if (game.status === GameStatus.CANCELLED) {
-      throw new BadRequestException('Cannot complete a cancelled game');
+      throw DomainError.gameInvalidState('Cannot complete a cancelled game');
     }
 
     // Calculate final standings and determine winner
@@ -547,14 +550,18 @@ export class GameService {
       game.status === GameStatus.COMPLETED &&
       status !== GameStatus.COMPLETED
     ) {
-      throw new BadRequestException('Cannot change status of a completed game');
+      throw DomainError.gameInvalidState(
+        'Cannot change status of a completed game',
+      );
     }
 
     if (
       game.status === GameStatus.CANCELLED &&
       status !== GameStatus.CANCELLED
     ) {
-      throw new BadRequestException('Cannot change status of a cancelled game');
+      throw DomainError.gameInvalidState(
+        'Cannot change status of a cancelled game',
+      );
     }
 
     game.status = status;
@@ -574,7 +581,7 @@ export class GameService {
     const game = await this.findOne(id);
 
     if (game.status === GameStatus.COMPLETED) {
-      throw new BadRequestException('Cannot reset a completed game');
+      throw DomainError.gameInvalidState('Cannot reset a completed game');
     }
 
     // Reset game state

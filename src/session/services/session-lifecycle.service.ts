@@ -12,6 +12,7 @@ import { Game } from '../../game/game.entity';
 import { Player, PlayerStatus } from '../../player/player.entity';
 import { isActivePlayer } from '../../common/utils/player-status.util';
 import { SessionStatus } from '../enums/session-status.enum';
+import { DomainError } from '../../common/errors/domain-errors';
 import { GameStatus } from '../../game/enums/game-status.enum';
 import { SessionGateway } from '../session.gateway';
 import { SessionReadinessService } from './session-readiness.service';
@@ -37,7 +38,7 @@ export class SessionLifecycleService {
     const startCheck = await this.readinessService.canStartSession(sessionId);
 
     if (!startCheck.canStart) {
-      throw new BadRequestException(
+      throw DomainError.sessionInvalidState(
         `Cannot start session: ${startCheck.reasons.join(', ')}`,
       );
     }
@@ -81,7 +82,7 @@ export class SessionLifecycleService {
     const session = await this.findOne(id, ['games']);
 
     if (session.status !== SessionStatus.IN_PROGRESS) {
-      throw new BadRequestException(
+      throw DomainError.sessionInvalidState(
         `Session cannot be completed. Current status: ${session.status}`,
       );
     }
@@ -122,7 +123,7 @@ export class SessionLifecycleService {
         session.status,
       )
     ) {
-      throw new BadRequestException(
+      throw DomainError.sessionInvalidState(
         `Session cannot be cancelled. Current status: ${session.status}`,
       );
     }

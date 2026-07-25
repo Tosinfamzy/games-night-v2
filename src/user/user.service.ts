@@ -2,6 +2,7 @@ import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './user.entity';
+import { DomainError } from '../common/errors/domain-errors';
 
 @Injectable()
 export class UserService {
@@ -31,7 +32,7 @@ export class UserService {
 
     const existingUser = await this.findByEmail(userData.email);
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw DomainError.emailTaken();
     }
 
     const user = this.userRepository.create(userData);
