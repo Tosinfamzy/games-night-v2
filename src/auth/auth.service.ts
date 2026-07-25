@@ -1,7 +1,6 @@
 import {
   Injectable,
   UnauthorizedException,
-  ConflictException,
   BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -13,6 +12,7 @@ import { LoginDto } from './dto/login.dto';
 import { User, UserRole } from '../user/user.entity';
 import { GamesMasterService } from '../games-master/games-master.service';
 import { TIME, TIME_MULTIPLIERS } from '../common/constants';
+import { DomainError } from '../common/errors/domain-errors';
 
 @Injectable()
 export class AuthService {
@@ -26,7 +26,7 @@ export class AuthService {
   async signup(signupDto: SignupDto) {
     const existingUser = await this.userService.findByEmail(signupDto.email);
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw DomainError.emailTaken();
     }
 
     // Hash password

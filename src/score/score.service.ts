@@ -1,11 +1,8 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { findOneOrThrow } from '../common/utils/find-or-throw.util';
+import { DomainError } from '../common/errors/domain-errors';
 import { Score } from './score.entity';
 import { CreateScoreDto } from './dto/create-score.dto';
 import { UpdateScoreDto } from './dto/update-score.dto';
@@ -52,7 +49,7 @@ export class ScoreService {
     }
 
     if (game.status !== GameStatus.ROUND_IN_PROGRESS) {
-      throw new BadRequestException(
+      throw DomainError.roundNotActive(
         'Scores can only be submitted during an active round',
       );
     }
@@ -97,7 +94,7 @@ export class ScoreService {
     }
 
     if (game.status !== GameStatus.ROUND_IN_PROGRESS) {
-      throw new BadRequestException(
+      throw DomainError.roundNotActive(
         'Scores can only be submitted during an active round',
       );
     }

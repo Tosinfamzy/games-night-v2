@@ -13,6 +13,7 @@ import { Team } from '../../team/team.entity';
 import { SessionStatus } from '../enums/session-status.enum';
 import { SessionGateway } from '../session.gateway';
 import { AuthService } from '../../auth/auth.service';
+import { DomainError } from '../../common/errors/domain-errors';
 import { SessionReadinessService } from './session-readiness.service';
 import { JoinSessionDto } from '../dto/join-session.dto';
 
@@ -112,7 +113,7 @@ export class SessionPlayerService {
     const tokenData = this.authService.validatePlayerToken(playerToken);
 
     if (!tokenData) {
-      throw new BadRequestException('Invalid or expired player token');
+      throw DomainError.invalidToken('Invalid or expired player token');
     }
 
     const player = await this.playerRepo.findOne({
@@ -125,7 +126,7 @@ export class SessionPlayerService {
     }
 
     if (player.session.id !== tokenData.sessionId) {
-      throw new BadRequestException('Token session mismatch');
+      throw DomainError.invalidToken('Token session mismatch');
     }
 
     player.lastConnectedAt = new Date();

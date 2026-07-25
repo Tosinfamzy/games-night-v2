@@ -18,6 +18,13 @@ export enum ErrorCode {
   RATE_LIMITED = 'RATE_LIMITED',
   INTERNAL_ERROR = 'INTERNAL_ERROR',
   HTTP_ERROR = 'HTTP_ERROR',
+
+  // Domain-specific codes for the games-night flows the UI reacts to.
+  EMAIL_TAKEN = 'EMAIL_TAKEN',
+  TOKEN_INVALID = 'TOKEN_INVALID',
+  SESSION_INVALID_STATE = 'SESSION_INVALID_STATE',
+  GAME_INVALID_STATE = 'GAME_INVALID_STATE',
+  ROUND_NOT_ACTIVE = 'ROUND_NOT_ACTIVE',
 }
 
 const STATUS_TO_CODE: Readonly<Record<number, ErrorCode>> = {
