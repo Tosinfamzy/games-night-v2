@@ -8,6 +8,7 @@ import { WsException } from '@nestjs/websockets';
 import { AuthService } from '../auth.service';
 import { AppSocket } from '../../common/types/socket.types';
 import { getErrorMessage } from '../../common/utils/error.util';
+import { extractPlayerToken } from '../../common/utils/ws-token.util';
 
 /**
  * WebSocket guard for player authentication
@@ -23,8 +24,8 @@ export class WsPlayerAuthGuard implements CanActivate {
     const client = context.switchToWs().getClient<AppSocket>();
 
     try {
-      // Extract token from handshake auth
-      const token = this.extractToken(client);
+      // Extract token from handshake auth (shared with AuthenticatedIoAdapter)
+      const token = extractPlayerToken(client.handshake);
 
       if (!token) {
         this.logger.warn(
@@ -59,30 +60,5 @@ export class WsPlayerAuthGuard implements CanActivate {
       );
       throw new WsException('Unauthorized: Invalid player token');
     }
-  }
-
-  private extractToken(client: AppSocket): string | null {
-    const auth = client.handshake.auth as {
-      playerToken?: string;
-      token?: string;
-    };
-
-    // Try to get token from socket.handshake.auth.playerToken (preferred)
-    if (auth?.playerToken) {
-      return auth.playerToken;
-    }
-
-    // Fall back to auth.token for backwards compatibility
-    if (auth?.token) {
-      return auth.token;
-    }
-
-    // Fall back to query parameter
-    const queryToken = client.handshake.query?.playerToken;
-    if (typeof queryToken === 'string') {
-      return queryToken;
-    }
-
-    return null;
   }
 }

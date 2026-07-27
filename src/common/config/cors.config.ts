@@ -1,15 +1,46 @@
 /**
- * Shared CORS config for the WebSocket gateways. Kept in one place so an allowed
- * origin only needs to change once instead of in every gateway.
+ * Single source of truth for allowed browser origins, shared by the HTTP CORS
+ * policy (main.ts `enableCors`) and the WebSocket gateways (`WS_CORS_CONFIG`).
  *
- * Note: the HTTP CORS policy in main.ts is intentionally separate (it allows a
- * broader set of origins, e.g. *.vercel.app and FRONTEND_URL).
+ * Previously the WS list was a separate, narrower array that omitted the prod
+ * `*.vercel.app` origin — so authenticated WS handshakes would still fail CORS
+ * in production. Both layers now use `isAllowedOrigin`.
+ */
+
+const ALLOWED_ORIGIN_PATTERNS: RegExp[] = [
+  /^http:\/\/localhost(:\d+)?$/,
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+  /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
+  /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
+  /^https:\/\/.*\.vercel\.app$/,
+];
+
+/**
+ * Whether a request/handshake `Origin` is allowed. A missing Origin (server-to-
+ * server calls, health checks, native socket clients) is allowed. `FRONTEND_URL`
+ * is read at call time so env changes are honored without a rebuild.
+ */
+export function isAllowedOrigin(origin?: string): boolean {
+  if (!origin) {
+    return true;
+  }
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (frontendUrl && origin === frontendUrl) {
+    return true;
+  }
+  return ALLOWED_ORIGIN_PATTERNS.some((pattern) => pattern.test(origin));
+}
+
+/**
+ * CORS config applied to every WebSocket gateway. Uses the shared allowlist so
+ * the prod origin is honored for socket.io handshakes.
  */
 export const WS_CORS_CONFIG = {
-  origin: [
-    'http://localhost:5173',
-    /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
-    /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
-  ],
+  origin: (
+    origin: string | undefined,
+    callback: (err: Error | null, allow?: boolean) => void,
+  ): void => {
+    callback(null, isAllowedOrigin(origin));
+  },
   credentials: true,
 };

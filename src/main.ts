@@ -8,13 +8,15 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { IoAdapter } from '@nestjs/platform-socket.io';
+import { AuthenticatedIoAdapter } from './common/adapters/authenticated-io.adapter';
+import { isAllowedOrigin } from './common/config/cors.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable WebSocket adapter for Socket.IO
-  app.useWebSocketAdapter(new IoAdapter(app));
+  // Authenticate the Socket.IO handshake so socket.data.player is populated at
+  // connect time (NestJS @UseGuards only runs on @SubscribeMessage handlers).
+  app.useWebSocketAdapter(new AuthenticatedIoAdapter(app));
 
   // Enable validation pipe globally
   app.useGlobalPipes(
@@ -34,32 +36,13 @@ async function bootstrap() {
     defaultVersion: '1',
   });
 
-  // Enable CORS
-  const frontendUrl = process.env.FRONTEND_URL;
-  const allowedPatterns = [
-    /^http:\/\/localhost(:\d+)?$/,
-    /^http:\/\/127\.0\.0\.1(:\d+)?$/,
-    /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
-    /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
-    /^https:\/\/.*\.vercel\.app$/,
-  ];
-
+  // Enable CORS — same allowlist as the WebSocket layer (cors.config.ts).
   app.enableCors({
     origin: (
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void,
     ) => {
-      // Allow requests with no origin (like mobile apps, Postman, or healthchecks)
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-
-      // Check if origin matches FRONTEND_URL or any allowed pattern
-      const isAllowed =
-        (frontendUrl && origin === frontendUrl) ||
-        allowedPatterns.some((pattern) => pattern.test(origin));
-      callback(null, isAllowed);
+      callback(null, isAllowedOrigin(origin));
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization'],
