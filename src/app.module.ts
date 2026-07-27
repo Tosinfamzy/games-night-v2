@@ -21,6 +21,7 @@ import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { HistoryModule } from './history/history.module';
 import { HealthModule } from './health/health.module';
+import { InviteModule } from './invite/invite.module';
 import * as Joi from 'joi';
 
 @Module({
@@ -105,6 +106,7 @@ import * as Joi from 'joi';
     ChatModule,
     HistoryModule,
     HealthModule,
+    InviteModule,
   ],
   controllers: [AppController],
   providers: [
