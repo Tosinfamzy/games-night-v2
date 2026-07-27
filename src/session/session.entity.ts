@@ -12,6 +12,7 @@ import { GamesMaster } from '../games-master/games-master.entity';
 import { Game } from '../game/game.entity';
 import { Player } from '../player/player.entity';
 import { Team } from '../team/team.entity';
+import { Invite } from '../invite/invite.entity';
 import { SessionStatus } from './enums/session-status.enum';
 
 @Entity()
@@ -96,6 +97,13 @@ export class Session {
   })
   @OneToMany(() => Player, (player) => player.session)
   players: Player[];
+
+  @ApiProperty({
+    type: () => [Invite],
+    description: 'Invited guests / RSVPs for this session',
+  })
+  @OneToMany(() => Invite, (invite) => invite.session)
+  invites: Invite[];
 
   @CreateDateColumn()
   createdAt: Date;
