@@ -6,6 +6,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Repository } from 'typeorm';
 import { Session } from '../session.entity';
 import { Player, PlayerStatus } from '../../player/player.entity';
@@ -16,6 +17,10 @@ import { AuthService } from '../../auth/auth.service';
 import { DomainError } from '../../common/errors/domain-errors';
 import { SessionReadinessService } from './session-readiness.service';
 import { JoinSessionDto } from '../dto/join-session.dto';
+import {
+  PLAYER_JOINED_EVENT,
+  PlayerJoinedEvent,
+} from '../../common/events/player-joined.event';
 
 export interface JoinSessionResult {
   session: Session;
@@ -37,6 +42,7 @@ export class SessionPlayerService {
     private readonly sessionGateway: SessionGateway,
     private readonly authService: AuthService,
     private readonly readinessService: SessionReadinessService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   /**
@@ -90,6 +96,13 @@ export class SessionPlayerService {
 
     // Broadcast player joined event via WebSocket
     this.sessionGateway.broadcastPlayerJoined(session.id, savedPlayer);
+
+    // Let the invite module link a matching guest-list RSVP to this player.
+    this.eventEmitter.emit(PLAYER_JOINED_EVENT, {
+      sessionId: session.id,
+      playerId: savedPlayer.id,
+      playerName: savedPlayer.name,
+    } satisfies PlayerJoinedEvent);
 
     // Reload session with updated players
     const updatedSession = await this.findByJoinCode(dto.joinCode);

@@ -12,6 +12,7 @@ type MockRepo = {
   find: jest.Mock;
   findOne: jest.Mock;
   remove: jest.Mock;
+  createQueryBuilder: jest.Mock;
 };
 
 const mockRepo = (): MockRepo => ({
@@ -20,7 +21,19 @@ const mockRepo = (): MockRepo => ({
   find: jest.fn(),
   findOne: jest.fn(),
   remove: jest.fn(),
+  createQueryBuilder: jest.fn(),
 });
+
+/** A chainable query-builder mock whose getOne() resolves to `result`. */
+function mockQb(result: unknown) {
+  const qb = {
+    where: jest.fn(() => qb),
+    andWhere: jest.fn(() => qb),
+    orderBy: jest.fn(() => qb),
+    getOne: jest.fn(() => Promise.resolve(result)),
+  };
+  return qb;
+}
 
 function invite(status: RsvpStatus, plusOnes = 0): Invite {
   return { rsvpStatus: status, plusOnes } as Invite;
@@ -118,6 +131,163 @@ describe('InviteService', () => {
         'invite.updated',
         expect.objectContaining({ sessionId: 'session-1' }),
       );
+    });
+  });
+
+  describe('getPublicRsvpView', () => {
+    it('returns a public projection with going headcount and no host email', async () => {
+      sessionRepo.findOne.mockResolvedValue({
+        id: 'session-1',
+        name: 'Games Night',
+        date: new Date('2026-09-01T19:00:00Z'),
+        location: 'HQ',
+        description: null,
+        host: { name: 'Ada', email: 'secret@host.com' },
+      });
+      inviteRepo.find.mockResolvedValue([invite(RsvpStatus.GOING, 2)]);
+
+      const view = await service.getPublicRsvpView('rsvp-token');
+
+      expect(view).toEqual({
+        sessionId: 'session-1',
+        sessionName: 'Games Night',
+        date: new Date('2026-09-01T19:00:00Z'),
+        location: 'HQ',
+        description: null,
+        hostName: 'Ada',
+        goingHeadcount: 3, // 1 + 2 plus-ones
+      });
+      expect(JSON.stringify(view)).not.toContain('secret@host.com');
+    });
+  });
+
+  describe('selfRsvp', () => {
+    it('creates a new invite when none matches, and emits', async () => {
+      sessionRepo.findOne.mockResolvedValue({ id: 'session-1' });
+      inviteRepo.createQueryBuilder.mockReturnValue(mockQb(null));
+      inviteRepo.create.mockImplementation((data: Partial<Invite>) => data);
+      inviteRepo.save.mockImplementation((data: Invite) =>
+        Promise.resolve({ ...data, id: 'invite-9' }),
+      );
+
+      const result = await service.selfRsvp('rsvp-token', {
+        name: 'Grace',
+        status: RsvpStatus.GOING,
+        plusOnes: 1,
+      });
+
+      expect(result.name).toBe('Grace');
+      expect(result.rsvpStatus).toBe(RsvpStatus.GOING);
+      expect(result.plusOnes).toBe(1);
+      expect(result.inviteToken).toEqual(expect.any(String));
+      expect(events.emit).toHaveBeenCalledWith(
+        'invite.updated',
+        expect.objectContaining({ sessionId: 'session-1' }),
+      );
+    });
+
+    it('updates the existing invite instead of duplicating (dedupe)', async () => {
+      const existing = {
+        id: 'invite-1',
+        inviteToken: 'existing-token',
+        name: 'Grace',
+        rsvpStatus: RsvpStatus.PENDING,
+        plusOnes: 0,
+      } as Invite;
+      sessionRepo.findOne.mockResolvedValue({ id: 'session-1' });
+      inviteRepo.createQueryBuilder.mockReturnValue(mockQb(existing));
+      inviteRepo.save.mockImplementation((data: Invite) =>
+        Promise.resolve(data),
+      );
+
+      const result = await service.selfRsvp('rsvp-token', {
+        name: 'Grace',
+        status: RsvpStatus.MAYBE,
+      });
+
+      expect(inviteRepo.create).not.toHaveBeenCalled();
+      expect(result.id).toBe('invite-1');
+      expect(result.inviteToken).toBe('existing-token');
+      expect(result.rsvpStatus).toBe(RsvpStatus.MAYBE);
+    });
+
+    it('zeroes plus-ones when status is not GOING', async () => {
+      sessionRepo.findOne.mockResolvedValue({ id: 'session-1' });
+      inviteRepo.createQueryBuilder.mockReturnValue(mockQb(null));
+      inviteRepo.create.mockImplementation((data: Partial<Invite>) => data);
+      inviteRepo.save.mockImplementation((data: Invite) =>
+        Promise.resolve(data),
+      );
+
+      const result = await service.selfRsvp('rsvp-token', {
+        name: 'Grace',
+        status: RsvpStatus.MAYBE,
+        plusOnes: 5,
+      });
+
+      expect(result.plusOnes).toBe(0);
+    });
+  });
+
+  describe('linkPlayerToInvite', () => {
+    it('links a matching invite and upgrades PENDING to GOING', async () => {
+      const match = {
+        id: 'invite-1',
+        rsvpStatus: RsvpStatus.PENDING,
+        plusOnes: 0,
+      } as Invite;
+      inviteRepo.createQueryBuilder.mockReturnValue(mockQb(match));
+      inviteRepo.save.mockImplementation((data: Invite) =>
+        Promise.resolve(data),
+      );
+
+      await service.linkPlayerToInvite({
+        sessionId: 'session-1',
+        playerId: 'player-1',
+        playerName: 'Grace',
+      });
+
+      expect(match.playerId).toBe('player-1');
+      expect(match.rsvpStatus).toBe(RsvpStatus.GOING);
+      expect(events.emit).toHaveBeenCalledWith(
+        'invite.updated',
+        expect.objectContaining({ sessionId: 'session-1' }),
+      );
+    });
+
+    it('does nothing when no invite matches (walk-in)', async () => {
+      inviteRepo.createQueryBuilder.mockReturnValue(mockQb(null));
+
+      await service.linkPlayerToInvite({
+        sessionId: 'session-1',
+        playerId: 'player-1',
+        playerName: 'Nobody',
+      });
+
+      expect(inviteRepo.save).not.toHaveBeenCalled();
+      expect(events.emit).not.toHaveBeenCalled();
+    });
+
+    it('preserves an existing NOT_GOING/GOING status when linking', async () => {
+      const match = {
+        id: 'invite-1',
+        rsvpStatus: RsvpStatus.NOT_GOING,
+        plusOnes: 0,
+      } as Invite;
+      inviteRepo.createQueryBuilder.mockReturnValue(mockQb(match));
+      inviteRepo.save.mockImplementation((data: Invite) =>
+        Promise.resolve(data),
+      );
+
+      await service.linkPlayerToInvite({
+        sessionId: 'session-1',
+        playerId: 'player-1',
+        playerName: 'Grace',
+      });
+
+      // They said no but showed up: link them, but don't rewrite their answer.
+      expect(match.playerId).toBe('player-1');
+      expect(match.rsvpStatus).toBe(RsvpStatus.NOT_GOING);
     });
   });
 });

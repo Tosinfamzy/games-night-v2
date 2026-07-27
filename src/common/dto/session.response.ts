@@ -39,6 +39,12 @@ export class SessionResponseDto extends SessionSummaryDto {
   @ApiProperty({ type: () => GamesMasterSummaryDto, nullable: true })
   host: GamesMasterSummaryDto | null;
 
+  @ApiProperty({
+    description: 'Token for the single shareable RSVP link (host-facing)',
+    example: 'uuid',
+  })
+  publicRsvpToken: string;
+
   @ApiProperty({ example: 3 })
   gamesCount: number;
 
@@ -72,6 +78,7 @@ export class SessionResponseDto extends SessionSummaryDto {
     dto.description = entity.description ?? null;
     dto.location = entity.location ?? null;
     dto.host = GamesMasterSummaryDto.fromEntity(entity.host);
+    dto.publicRsvpToken = entity.publicRsvpToken;
     dto.gamesCount = entity.games?.length ?? 0;
     dto.teamsCount = entity.teams?.length ?? 0;
     dto.playersCount = entity.players?.length ?? 0;
