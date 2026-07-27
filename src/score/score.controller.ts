@@ -43,7 +43,7 @@ export class ScoreController {
     status: HttpStatus.BAD_REQUEST,
     description: 'Invalid input.',
   })
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
+  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 requests per minute
   async create(@Body() dto: CreateScoreDto): Promise<ScoreResponseDto> {
     return this.service
       .create(dto)
@@ -67,7 +67,9 @@ export class ScoreController {
     status: HttpStatus.NOT_FOUND,
     description: 'Game not found.',
   })
-  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 requests per minute
+  // Live host scoring is bursty (several teams x rounds); keep a high ceiling
+  // to guard against runaway loops without blocking real play.
+  @Throttle({ default: { limit: 120, ttl: 60000 } }) // 120 requests per minute
   @HttpCode(HttpStatus.CREATED)
   async submitGameScore(
     @Param('gameId', ParseUUIDPipe) gameId: string,
@@ -149,7 +151,7 @@ export class ScoreController {
     status: HttpStatus.NOT_FOUND,
     description: 'Score not found.',
   })
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute
+  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 requests per minute
   async update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateScoreDto,
@@ -169,7 +171,7 @@ export class ScoreController {
     status: HttpStatus.NOT_FOUND,
     description: 'Score not found.',
   })
-  @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 requests per minute
+  @Throttle({ default: { limit: 60, ttl: 60000 } }) // 60 requests per minute
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     await this.service.delete(id);
