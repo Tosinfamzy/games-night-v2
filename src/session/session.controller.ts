@@ -197,6 +197,28 @@ export class SessionController {
       .then((session) => SessionResponseDto.fromEntity(session));
   }
 
+  @Post(':id/regenerate-rsvp-token')
+  @ApiOperation({
+    summary: 'Regenerate the shareable RSVP link token (invalidates old link)',
+  })
+  @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'RSVP token regenerated successfully.',
+    type: SessionResponseDto,
+  })
+  @HttpCode(HttpStatus.OK)
+  async regeneratePublicRsvpToken(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<SessionResponseDto> {
+    return this.service
+      .regeneratePublicRsvpToken(id)
+      .then((session) =>
+        this.service.findOne(session.id, ['host', 'games', 'teams', 'players']),
+      )
+      .then((session) => SessionResponseDto.fromEntity(session));
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })

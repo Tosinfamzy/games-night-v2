@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { randomUUID } from 'crypto';
 import { findOneOrThrow } from '../common/utils/find-or-throw.util';
 import { Session } from './session.entity';
 import { CreateSessionDto } from './dto/create-session.dto';
@@ -96,6 +97,8 @@ export class SessionService {
       host,
       status: SessionStatus.SCHEDULED,
       joinCode,
+      // Single shareable RSVP link token. A UUID needs no collision retry.
+      publicRsvpToken: randomUUID(),
     });
     const savedSession = await this.repo.save(session);
 
@@ -253,6 +256,16 @@ export class SessionService {
       });
 
     return updatedSession;
+  }
+
+  /**
+   * Regenerate the public RSVP token, invalidating the old shareable RSVP link.
+   * Useful if the link leaked beyond the intended guest list.
+   */
+  async regeneratePublicRsvpToken(id: string): Promise<Session> {
+    const session = await this.findOne(id, ['host']);
+    session.publicRsvpToken = randomUUID();
+    return this.repo.save(session);
   }
 
   async remove(id: string): Promise<void> {

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { NotFoundException } from '@nestjs/common';
 import { SessionPlayerService } from './session-player.service';
 import { SessionReadinessService } from './session-readiness.service';
@@ -33,6 +34,7 @@ describe('SessionPlayerService', () => {
   let sessionGateway: MockSessionGateway;
   let authService: MockAuthService;
   let readinessService: MockSessionReadinessService;
+  let eventEmitter: { emit: jest.Mock };
 
   beforeEach(async () => {
     sessionRepo = createMockRepository();
@@ -41,6 +43,7 @@ describe('SessionPlayerService', () => {
     sessionGateway = createMockSessionGateway();
     authService = createMockAuthService();
     readinessService = createMockSessionReadinessService();
+    eventEmitter = { emit: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -68,6 +71,10 @@ describe('SessionPlayerService', () => {
         {
           provide: SessionReadinessService,
           useValue: readinessService,
+        },
+        {
+          provide: EventEmitter2,
+          useValue: eventEmitter,
         },
       ],
     }).compile();

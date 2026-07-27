@@ -71,6 +71,14 @@ export class Session {
   joinCode: string;
 
   @ApiProperty({
+    description:
+      'Public token powering the single shareable RSVP link (anyone can self-RSVP). Separate from joinCode so it can be revoked/regenerated independently.',
+    example: 'uuid',
+  })
+  @Column({ type: 'uuid', unique: true })
+  publicRsvpToken: string;
+
+  @ApiProperty({
     description: 'Games master hosting this session',
     type: () => GamesMaster,
   })
