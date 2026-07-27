@@ -6,7 +6,6 @@ import {
   Param,
   Put,
   Delete,
-  UseInterceptors,
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
@@ -18,7 +17,6 @@ import {
   ApiParam,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { Throttle } from '@nestjs/throttler';
 import { ScoreService } from './score.service';
 import { CreateScoreDto } from './dto/create-score.dto';
@@ -31,7 +29,6 @@ import { ScoreResponseDto } from '../common/dto/score.response';
 @ApiTags('scores')
 @ApiBearerAuth()
 @Controller('scores')
-@UseInterceptors(CacheInterceptor)
 export class ScoreController {
   constructor(private readonly service: ScoreService) {}
 
@@ -89,7 +86,6 @@ export class ScoreController {
     description: 'List of all scores.',
     type: [ScoreResponseDto],
   })
-  @CacheTTL(30000) // Cache for 30 seconds
   async findAll(): Promise<ScoreResponseDto[]> {
     return this.service
       .findAll()
@@ -111,7 +107,6 @@ export class ScoreController {
     status: HttpStatus.NOT_FOUND,
     description: 'Game not found.',
   })
-  @CacheTTL(30000) // Cache for 30 seconds
   async getGameScores(
     @Param('gameId', ParseUUIDPipe) gameId: string,
   ): Promise<TeamScore[]> {
@@ -130,7 +125,6 @@ export class ScoreController {
     status: HttpStatus.NOT_FOUND,
     description: 'Score not found.',
   })
-  @CacheTTL(60000) // Cache for 1 minute
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<ScoreResponseDto> {

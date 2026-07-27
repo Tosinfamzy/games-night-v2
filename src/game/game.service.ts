@@ -81,6 +81,10 @@ export class GameService {
   async findOne(id: string): Promise<Game> {
     return findOneOrThrow(this.repo, { id }, `Game with ID ${id} not found`, [
       'session',
+      // Teams are session-scoped (a game scores the session's teams per round),
+      // so load them via the session for the response's `teams` field.
+      'session.teams',
+      'session.teams.players',
       'teams',
       'scores',
       'gameLibrary',
