@@ -7,6 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { BaseGateway } from '../common/gateways/base.gateway';
 import { WS_CORS_CONFIG } from '../common/config/cors.config';
 import { Player } from '../player/player.entity';
@@ -178,6 +179,20 @@ export class SessionGateway extends BaseGateway {
       status: 'left',
       sessionId,
     };
+  }
+
+  /**
+   * Bridge InviteService's `invite.updated` events to the session room so the
+   * host's guest list updates live. The invite module stays decoupled — it just
+   * emits the event; this gateway owns the WebSocket broadcast.
+   */
+  @OnEvent('invite.updated')
+  handleInviteUpdated(payload: { sessionId: string }): void {
+    const room = `session:${payload.sessionId}`;
+    this.emitToRoom(room, 'session:invites-updated', {
+      sessionId: payload.sessionId,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   /**
