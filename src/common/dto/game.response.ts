@@ -50,6 +50,12 @@ export class GameResponseDto {
   @ApiProperty({ example: ['team-uuid-1'] })
   teamIds: string[];
 
+  @ApiProperty({
+    description: 'Teams playing this game, with their players',
+    example: [{ id: 'team-uuid-1', name: 'Team Red', playerIds: ['p1'] }],
+  })
+  teams: { id: string; name: string; playerIds: string[] }[];
+
   @ApiProperty({ example: ['score-uuid-1'] })
   scoreIds: string[];
 
@@ -74,7 +80,17 @@ export class GameResponseDto {
     dto.minPlayers = entity.gameLibrary?.minPlayers ?? 0;
     dto.maxPlayers = entity.gameLibrary?.maxPlayers ?? 0;
     dto.description = entity.gameLibrary?.description ?? null;
-    dto.teamIds = entity.teams?.map((team) => team.id) ?? [];
+    // Teams are session-scoped; a game scores the session's teams. Prefer the
+    // session's teams, falling back to any game-linked teams.
+    const sessionTeams = entity.session?.teams ?? [];
+    const teamEntities =
+      sessionTeams.length > 0 ? sessionTeams : (entity.teams ?? []);
+    dto.teamIds = teamEntities.map((team) => team.id);
+    dto.teams = teamEntities.map((team) => ({
+      id: team.id,
+      name: team.name,
+      playerIds: team.players?.map((player) => player.id) ?? [],
+    }));
     dto.scoreIds = entity.scores?.map((score) => score.id) ?? [];
     dto.createdAt = entity.createdAt;
     dto.updatedAt = entity.updatedAt;
