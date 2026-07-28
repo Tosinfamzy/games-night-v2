@@ -45,15 +45,35 @@ export class TeamAssignmentService {
     const teams = await this.findByGame(gameId);
     const sessionId = teams[0]?.session?.id;
 
+    // A player may not be assigned to more than one team in a single payload.
+    const allAssignedIds = Object.values(dto.teamAssignments).flat();
+    const duplicated = allAssignedIds.filter(
+      (id, i) => allAssignedIds.indexOf(id) !== i,
+    );
+    if (duplicated.length > 0) {
+      throw new BadRequestException(
+        'A player cannot be assigned to more than one team',
+      );
+    }
+
     for (const [teamId, playerIds] of Object.entries(dto.teamAssignments)) {
       const team = teams.find((t) => t.id === teamId);
       if (!team) {
         throw new NotFoundException(`Team with ID ${teamId} not found`);
       }
 
+      // Only accept players that exist and belong to this session.
       const players = await this.playerRepo.find({
-        where: { id: In(playerIds) },
+        where: {
+          id: In(playerIds),
+          ...(sessionId ? { session: { id: sessionId } } : {}),
+        },
       });
+      if (players.length !== playerIds.length) {
+        throw new BadRequestException(
+          'One or more players are not in this session',
+        );
+      }
       team.players = players;
       const savedTeam = await this.repo.save(team);
 
@@ -224,8 +244,10 @@ export class TeamAssignmentService {
     // Remove player from source team
     fromTeam.players = fromTeam.players.filter((p) => p.id !== playerId);
 
-    // Add player to destination team
-    toTeam.players.push(player);
+    // Add player to destination team (guard against a duplicate membership row)
+    if (!toTeam.players.some((p) => p.id === playerId)) {
+      toTeam.players.push(player);
+    }
 
     // Save both teams
     const savedFromTeam = await this.repo.save(fromTeam);
@@ -351,7 +373,7 @@ export class TeamAssignmentService {
   private async findByGame(gameId: string): Promise<Team[]> {
     return this.repo.find({
       where: { game: { id: gameId } },
-      order: { name: 'ASC' },
+      order: { position: 'ASC' },
       relations: ['game', 'players', 'session', 'scores'],
     });
   }

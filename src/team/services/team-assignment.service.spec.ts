@@ -401,7 +401,11 @@ describe('TeamAssignmentService', () => {
       ];
 
       teamRepo.find.mockResolvedValue(teams);
-      playerRepo.find.mockResolvedValue(players);
+      // manualAssignPlayers now fetches each team's players separately and
+      // validates the returned count, so mock per-call (team-1 then team-2).
+      playerRepo.find
+        .mockResolvedValueOnce([players[0]])
+        .mockResolvedValueOnce([players[1]]);
       teamRepo.save.mockImplementation((team) => Promise.resolve(team));
 
       const result = await service.manualAssignPlayers('game-1', {

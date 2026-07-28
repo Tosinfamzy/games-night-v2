@@ -54,6 +54,9 @@ export class TeamService {
     const team = this.repo.create({
       name: dto.name,
       game,
+      // Teams are session-scoped; keep both FKs populated so the team shows up
+      // in session-scoped reads/leaderboards (was game-only before).
+      session: game.session,
     });
     const savedTeam = await this.repo.save(team);
 
@@ -101,6 +104,9 @@ export class TeamService {
 
     Object.assign(team, {
       name: dto.name ?? team.name,
+      color: dto.color ?? team.color,
+      position: dto.position ?? team.position,
+      isActive: dto.isActive ?? team.isActive,
     });
 
     const savedTeam = await this.repo.save(team);
@@ -129,7 +135,9 @@ export class TeamService {
   async findByGame(gameId: string): Promise<Team[]> {
     return this.repo.find({
       where: { game: { id: gameId } },
-      order: { name: 'ASC' },
+      // Order by position (the creation order) so turn rotation and display
+      // are stable and consistent (was 'name', which diverged from creation).
+      order: { position: 'ASC' },
       relations: ['game', 'players', 'session', 'scores'],
     });
   }
