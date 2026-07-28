@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { MessageResponseDto } from '../common/dto/message.response';
+import { HostGuard } from '../auth/guards/host.guard';
 
 describe('ChatController', () => {
   let controller: ChatController;
@@ -20,7 +21,11 @@ describe('ChatController', () => {
           useValue: mockChatService,
         },
       ],
-    }).compile();
+    })
+      // HostGuard is exercised in e2e; unit tests call methods directly.
+      .overrideGuard(HostGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<ChatController>(ChatController);
     service = module.get<ChatService>(ChatService);
