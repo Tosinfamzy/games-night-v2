@@ -11,8 +11,12 @@ import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ClerkAuthGuard } from './guards/clerk-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { CurrentGm } from './decorators/current-gm.decorator';
 import { User } from '../user/user.entity';
+import { GamesMaster } from '../games-master/games-master.entity';
+import { GamesMasterResponseDto } from '../common/dto/games-master.response';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -60,6 +64,22 @@ export class AuthController {
       gamesMasterId: user.gamesMasterProfile?.id,
       playerId: user.playerProfile?.id,
     };
+  }
+
+  @Get('games-master')
+  @UseGuards(ClerkAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Get the games master linked to the authenticated Clerk user',
+  })
+  @ApiResponse({ status: 200, description: 'Current games master' })
+  @ApiResponse({
+    status: 400,
+    description: 'Not authenticated as a games master',
+  })
+  getCurrentGamesMaster(@CurrentGm() gm: GamesMaster): GamesMasterResponseDto {
+    // ClerkAuthGuard guarantees gm is set (lazily created on first sign-in).
+    return GamesMasterResponseDto.fromEntity(gm);
   }
 
   @Patch('change-password')
