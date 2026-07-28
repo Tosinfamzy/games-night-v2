@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -17,7 +18,10 @@ import {
   ApiParam,
   ApiNotFoundResponse,
   ApiBadRequestResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
+import { HostGuard } from '../auth/guards/host.guard';
+import { HostOf } from '../auth/decorators/host-of.decorator';
 import { TeamService } from './team.service';
 import { CreateTeamDto } from './dto/create-team.dto';
 import { UpdateTeamDto } from './dto/update-team.dto';
@@ -30,11 +34,14 @@ import { SwapPlayerDto, ReassignPlayerDto } from './dto/team-management.dto';
 import { TeamResponseDto } from '../common/dto/team.response';
 
 @ApiTags('teams')
+@ApiBearerAuth()
+@UseGuards(HostGuard)
 @Controller('teams')
 export class TeamController {
   constructor(private readonly service: TeamService) {}
 
   @Post()
+  @HostOf('game', 'gameId')
   @ApiOperation({ summary: 'Create a team' })
   @ApiResponse({
     status: 201,
@@ -86,6 +93,7 @@ export class TeamController {
   }
 
   @Put(':id')
+  @HostOf('team', 'id')
   @ApiOperation({ summary: 'Update a team' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -107,6 +115,7 @@ export class TeamController {
   }
 
   @Delete(':id/dissolve')
+  @HostOf('team', 'id')
   @ApiOperation({
     summary: 'Dissolve a team and return its players to the unassigned pool',
   })
@@ -125,6 +134,7 @@ export class TeamController {
   }
 
   @Delete(':id')
+  @HostOf('team', 'id')
   @ApiOperation({ summary: 'Delete a team' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({ status: 200, description: 'Team deleted successfully' })
@@ -151,6 +161,7 @@ export class TeamController {
   }
 
   @Post('game/:gameId/create-teams')
+  @HostOf('game', 'gameId')
   @ApiOperation({ summary: 'Create teams for a game with automatic formation' })
   @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -169,6 +180,7 @@ export class TeamController {
   }
 
   @Put('game/:gameId/assign-players')
+  @HostOf('game', 'gameId')
   @ApiOperation({ summary: 'Manually assign players to teams' })
   @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -198,6 +210,7 @@ export class TeamController {
   }
 
   @Delete('game/:gameId/clear')
+  @HostOf('game', 'gameId')
   @ApiOperation({ summary: 'Clear all teams for a game' })
   @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -225,6 +238,7 @@ export class TeamController {
   }
 
   @Put('game/:gameId/rebalance')
+  @HostOf('game', 'gameId')
   @ApiOperation({
     summary: 'Rebalance existing teams using a different strategy',
   })
@@ -250,6 +264,7 @@ export class TeamController {
   }
 
   @Put('game/:gameId/shuffle')
+  @HostOf('game', 'gameId')
   @ApiOperation({
     summary: 'Shuffle players randomly across existing teams',
   })
@@ -269,6 +284,7 @@ export class TeamController {
   }
 
   @Post('swap-player')
+  @HostOf('team', 'fromTeamId')
   @ApiOperation({ summary: 'Swap a player from one team to another' })
   @ApiResponse({
     status: 200,
@@ -295,6 +311,7 @@ export class TeamController {
   }
 
   @Post('reassign-player')
+  @HostOf('team', 'newTeamId')
   @ApiOperation({
     summary:
       'Reassign a player to a different team (removes from current team if any)',

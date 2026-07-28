@@ -20,6 +20,7 @@ import { Session } from '../session/session.entity';
 import { Game } from '../game/game.entity';
 import { Score } from '../score/score.entity';
 import { Player } from '../player/player.entity';
+import { Team } from '../team/team.entity';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { Player } from '../player/player.entity';
     UserModule,
     GamesMasterModule,
     // Repos the HostGuard needs to resolve a route's session + host player.
-    TypeOrmModule.forFeature([Session, Game, Score, Player]),
+    TypeOrmModule.forFeature([Session, Game, Score, Player, Team]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

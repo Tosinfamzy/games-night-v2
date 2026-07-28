@@ -89,4 +89,30 @@ describe('Host authorization (e2e)', () => {
     await request(server).get(`/sessions/${seed.sessionId}`).expect(200);
     await request(server).get(`/sessions/join/${seed.joinCode}`).expect(200);
   });
+
+  // The /teams/* controller is a parallel mutation surface — it must be
+  // host-gated too, or the session/game guards are trivially bypassed.
+  it('rejects an anonymous team mutation (no token)', async () => {
+    const res = await request(server)
+      .put(`/teams/${seed.teamIds[0]}`)
+      .send({ name: 'Hacked' });
+    expect(res.status).toBe(400);
+    expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+  });
+
+  it('rejects a non-host player mutating a team (403)', async () => {
+    await request(server)
+      .put(`/teams/${seed.teamIds[0]}`)
+      .set('Authorization', bearer(nonHostToken))
+      .send({ name: 'Hacked' })
+      .expect(403);
+  });
+
+  it('allows the host to mutate a team with their token (200)', async () => {
+    await request(server)
+      .put(`/teams/${seed.teamIds[0]}`)
+      .set('Authorization', bearer(seed.hostToken))
+      .send({ name: 'Renamed By Host' })
+      .expect(200);
+  });
 });
