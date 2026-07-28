@@ -15,10 +15,10 @@ import { isAllowedOrigin } from './common/config/cors.config';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // Behind Railway's edge proxy, req.ip is the proxy unless we trust one hop.
-  // Trusting the first hop makes req.ip the real client (the entry Railway adds
-  // to X-Forwarded-For), so the rate limiter keys per client instead of globally.
-  app.set('trust proxy', 1);
+  // Behind Railway's edge, the socket peer is a rotating internal proxy IP, so
+  // without this the rate limiter can't key per client. Trust the forwarding
+  // chain so req.ip resolves to the original client from X-Forwarded-For.
+  app.set('trust proxy', true);
 
   // Authenticate the Socket.IO handshake so socket.data.player is populated at
   // connect time (NestJS @UseGuards only runs on @SubscribeMessage handlers).
