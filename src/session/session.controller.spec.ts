@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SessionController } from './session.controller';
 import { SessionService } from './session.service';
 import { HostGuard } from '../auth/guards/host.guard';
-import { OptionalClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
+import {
+  ClerkAuthGuard,
+  OptionalClerkAuthGuard,
+} from '../auth/guards/clerk-auth.guard';
 
 describe('SessionController', () => {
   let controller: SessionController;
@@ -26,6 +29,8 @@ describe('SessionController', () => {
       .overrideGuard(HostGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(OptionalClerkAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(ClerkAuthGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

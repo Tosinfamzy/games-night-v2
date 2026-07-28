@@ -48,7 +48,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/user.entity';
 import { HostGuard } from '../auth/guards/host.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
-import { OptionalClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
+import {
+  ClerkAuthGuard,
+  OptionalClerkAuthGuard,
+} from '../auth/guards/clerk-auth.guard';
 import { CurrentGm } from '../auth/decorators/current-gm.decorator';
 import { GamesMaster } from '../games-master/games-master.entity';
 
@@ -86,7 +89,12 @@ export class SessionController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all sessions' })
+  // Require a signed-in host: this returns join codes + host codes + RSVP
+  // tokens and was fully anonymous (mass-enumeration leak). Hosts should use
+  // GET /auth/games-master/sessions for their own scoped list.
+  @UseGuards(ClerkAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all sessions (host only)' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'List of all sessions.',
