@@ -9,11 +9,13 @@ import { Game } from '../game/game.entity';
 import { Session } from '../session/session.entity';
 import { Player } from '../player/player.entity';
 import { SessionModule } from '../session/session.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Team, Game, Session, Player]),
     forwardRef(() => SessionModule),
+    AuthModule,
   ],
   providers: [TeamService, TeamFormationService, TeamAssignmentService],
   controllers: [TeamController],

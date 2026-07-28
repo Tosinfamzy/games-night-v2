@@ -9,6 +9,7 @@ import { Session } from '../session/session.entity';
 import { Game } from '../game/game.entity';
 import { Score } from '../score/score.entity';
 import { Player } from '../player/player.entity';
+import { Team } from '../team/team.entity';
 import { DomainError } from '../common/errors/domain-errors';
 import { extractBearerToken } from '../common/utils/bearer.util';
 import { HostOfMeta } from './decorators/host-of.decorator';
@@ -43,6 +44,8 @@ export class HostAuthzService {
     private readonly scoreRepo: Repository<Score>,
     @InjectRepository(Player)
     private readonly playerRepo: Repository<Player>,
+    @InjectRepository(Team)
+    private readonly teamRepo: Repository<Team>,
   ) {}
 
   /** Throws if the request isn't from the target session's host; else true. */
@@ -167,6 +170,11 @@ export class HostAuthzService {
           // Score.game and Game.session are eager.
           const score = await this.scoreRepo.findOne({ where: { id } });
           return score?.game?.session?.id ?? null;
+        }
+        case 'team': {
+          // Team.session and Team.game are eager (game.session eager).
+          const team = await this.teamRepo.findOne({ where: { id } });
+          return team?.session?.id ?? team?.game?.session?.id ?? null;
         }
         default:
           return null;

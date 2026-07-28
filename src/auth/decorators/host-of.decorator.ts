@@ -5,8 +5,9 @@ import { SetMetadata } from '@nestjs/common';
  * - 'session': the route param IS the session id
  * - 'game':    the route param is a game id -> resolve its session
  * - 'score':   the route param is a score id -> resolve its game's session
+ * - 'team':    the route param/body field is a team id -> resolve its session
  */
-export type HostResource = 'session' | 'game' | 'score';
+export type HostResource = 'session' | 'game' | 'score' | 'team';
 
 export interface HostOfMeta {
   from: HostResource;

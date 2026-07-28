@@ -103,7 +103,8 @@ export async function seedActiveGame(
   //    formation needs players in PLAYING status, which no endpoint sets.
   const teamIds: string[] = [];
   for (const name of ['E2E Red', 'E2E Blue']) {
-    const team = await post(server, '/teams', { name, gameId });
+    // POST /teams is host-gated (resolves the game's session host).
+    const team = await post(server, '/teams', { name, gameId }, 201, hostToken);
     teamIds.push(team.id as string);
   }
 
