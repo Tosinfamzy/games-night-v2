@@ -113,7 +113,9 @@ export class TeamAssignmentService {
       strategy,
     );
 
-    return this.findByGame(gameId);
+    const rebalanced = await this.findByGame(gameId);
+    this.broadcastTeamSet(rebalanced);
+    return rebalanced;
   }
 
   /**
@@ -161,7 +163,22 @@ export class TeamAssignmentService {
       await this.repo.save(team);
     }
 
-    return this.findByGame(gameId);
+    const shuffledTeams = await this.findByGame(gameId);
+    this.broadcastTeamSet(shuffledTeams);
+    return shuffledTeams;
+  }
+
+  /**
+   * Broadcast a team-updated event for every team in the set so other clients
+   * refresh after a bulk reshuffle/rebalance (which otherwise emit nothing).
+   */
+  private broadcastTeamSet(teams: Team[]): void {
+    for (const team of teams) {
+      const sessionId = team.session?.id ?? team.game?.session?.id;
+      if (sessionId) {
+        this.sessionGateway.broadcastTeamUpdated(sessionId, team);
+      }
+    }
   }
 
   /**

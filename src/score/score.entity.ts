@@ -57,7 +57,13 @@ export class Score {
 
   @ApiProperty({ description: 'Team who earned this score', type: () => Team })
   @Index()
-  @ManyToOne(() => Team, (team) => team.scores, { nullable: true, eager: true })
+  // CASCADE: removing a team (dissolve/clear/re-form) drops its scores instead
+  // of failing on the FK. Kept in sync with the migration for prod.
+  @ManyToOne(() => Team, (team) => team.scores, {
+    nullable: true,
+    eager: true,
+    onDelete: 'CASCADE',
+  })
   team?: Team;
 
   @CreateDateColumn()
