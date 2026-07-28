@@ -65,6 +65,36 @@ export class GamesMasterService {
     return await this.repo.save(gm);
   }
 
+  async findByClerkUserId(clerkUserId: string): Promise<GamesMaster | null> {
+    return this.repo.findOne({ where: { clerkUserId } });
+  }
+
+  /**
+   * Resolve the GamesMaster linked to a Clerk user, creating it on first
+   * sign-in. `clerkUserId` is UNIQUE, so a concurrent create loses the insert
+   * race — we catch it and re-read the winner rather than surfacing a 500.
+   */
+  async findOrCreateByClerkUserId(
+    clerkUserId: string,
+    name: string,
+  ): Promise<GamesMaster> {
+    const existing = await this.findByClerkUserId(clerkUserId);
+    if (existing) {
+      return existing;
+    }
+    const hostCode = await this.generateUniqueHostCode();
+    const gm = this.repo.create({ name, clerkUserId, hostCode });
+    try {
+      return await this.repo.save(gm);
+    } catch (error) {
+      const raced = await this.findByClerkUserId(clerkUserId);
+      if (raced) {
+        return raced;
+      }
+      throw error;
+    }
+  }
+
   async findAll(relations: string[] = []): Promise<GamesMaster[]> {
     return this.repo.find({
       relations,

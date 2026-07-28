@@ -8,7 +8,12 @@ import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { WsPlayerAuthGuard } from './guards/ws-player-auth.guard';
 import { HostGuard } from './guards/host.guard';
+import {
+  ClerkAuthGuard,
+  OptionalClerkAuthGuard,
+} from './guards/clerk-auth.guard';
 import { HostAuthzService } from './host-authz.service';
+import { ClerkService } from './clerk.service';
 import { UserModule } from '../user/user.module';
 import { GamesMasterModule } from '../games-master/games-master.module';
 import { Session } from '../session/session.entity';
@@ -44,6 +49,9 @@ import { Player } from '../player/player.entity';
     WsPlayerAuthGuard,
     HostAuthzService,
     HostGuard,
+    ClerkService,
+    ClerkAuthGuard,
+    OptionalClerkAuthGuard,
   ],
   exports: [
     AuthService,
@@ -52,6 +60,13 @@ import { Player } from '../player/player.entity';
     WsPlayerAuthGuard,
     HostAuthzService,
     HostGuard,
+    ClerkService,
+    ClerkAuthGuard,
+    OptionalClerkAuthGuard,
+    // Re-exported so the Clerk guards' GamesMasterService dependency resolves
+    // in any module that applies them via @UseGuards (guards are instantiated
+    // in the consuming module's injector, e.g. SessionModule).
+    GamesMasterModule,
   ],
 })
 export class AuthModule {}

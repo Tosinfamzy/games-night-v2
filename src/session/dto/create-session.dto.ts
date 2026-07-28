@@ -45,10 +45,14 @@ export class CreateSessionDto {
   location?: string;
 
   @ApiProperty({
-    description: 'ID of the hosting games master',
+    description:
+      'ID of the hosting games master. Optional when authenticated as a ' +
+      'games master via Clerk (the host is then derived from the token); ' +
+      'legacy clients still pass it explicitly.',
     example: '123e4567-e89b-12d3-a456-426614174000',
+    required: false,
   })
   @IsUUID()
-  @IsNotEmpty()
-  gamesMasterId: string;
+  @IsOptional()
+  gamesMasterId?: string;
 }

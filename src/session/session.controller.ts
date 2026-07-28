@@ -10,6 +10,7 @@ import {
   HttpStatus,
   HttpCode,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -46,6 +47,9 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/user.entity';
 import { HostGuard } from '../auth/guards/host.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
+import { OptionalClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
+import { CurrentGm } from '../auth/decorators/current-gm.decorator';
+import { GamesMaster } from '../games-master/games-master.entity';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
@@ -55,6 +59,7 @@ export class SessionController {
   constructor(private readonly service: SessionService) {}
 
   @Post()
+  @UseGuards(OptionalClerkAuthGuard)
   @ApiOperation({ summary: 'Create a new session' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -62,9 +67,21 @@ export class SessionController {
       'Session has been successfully created. GM is automatically added as a player.',
     type: CreateSessionResponseDto,
   })
-  create(@Body() dto: CreateSessionDto): Promise<CreateSessionResponseDto> {
-    // Service will validate that gamesMasterId exists and auto-create player
-    return this.service.create(dto);
+  create(
+    @Body() dto: CreateSessionDto,
+    @CurrentGm() gm?: GamesMaster,
+  ): Promise<CreateSessionResponseDto> {
+    // Prefer the Clerk-authenticated games master: this closes the IDOR where
+    // any caller could host as an arbitrary gamesMasterId. Fall back to the
+    // legacy body param for clients not yet on Clerk auth (removed post-cutover).
+    const gamesMasterId = gm?.id ?? dto.gamesMasterId;
+    if (!gamesMasterId) {
+      throw new BadRequestException(
+        'Sign in as a games master (or provide gamesMasterId) to create a session',
+      );
+    }
+    // Service validates the GM exists and auto-creates the host player.
+    return this.service.create({ ...dto, gamesMasterId });
   }
 
   @Get()
