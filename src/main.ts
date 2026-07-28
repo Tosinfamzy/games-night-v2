@@ -5,6 +5,7 @@ if (!globalThis.crypto) {
 }
 
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -12,7 +13,12 @@ import { AuthenticatedIoAdapter } from './common/adapters/authenticated-io.adapt
 import { isAllowedOrigin } from './common/config/cors.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Behind Railway's edge proxy, req.ip is the proxy unless we trust one hop.
+  // Trusting the first hop makes req.ip the real client (the entry Railway adds
+  // to X-Forwarded-For), so the rate limiter keys per client instead of globally.
+  app.set('trust proxy', 1);
 
   // Authenticate the Socket.IO handshake so socket.data.player is populated at
   // connect time (NestJS @UseGuards only runs on @SubscribeMessage handlers).
