@@ -17,11 +17,16 @@ import { CurrentGm } from './decorators/current-gm.decorator';
 import { User } from '../user/user.entity';
 import { GamesMaster } from '../games-master/games-master.entity';
 import { GamesMasterResponseDto } from '../common/dto/games-master.response';
+import { GamesMasterService } from '../games-master/games-master.service';
+import { SessionResponseDto } from '../common/dto/session.response';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly gamesMasterService: GamesMasterService,
+  ) {}
 
   @Post('signup')
   @ApiOperation({ summary: 'Register a new user' })
@@ -80,6 +85,20 @@ export class AuthController {
   getCurrentGamesMaster(@CurrentGm() gm: GamesMaster): GamesMasterResponseDto {
     // ClerkAuthGuard guarantees gm is set (lazily created on first sign-in).
     return GamesMasterResponseDto.fromEntity(gm);
+  }
+
+  @Get('games-master/sessions')
+  @UseGuards(ClerkAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'List the sessions hosted by the authenticated games master',
+  })
+  @ApiResponse({ status: 200, description: "The games master's own sessions" })
+  async getCurrentGamesMasterSessions(
+    @CurrentGm() gm: GamesMaster,
+  ): Promise<SessionResponseDto[]> {
+    const sessions = await this.gamesMasterService.findSessions(gm.id);
+    return sessions.map((session) => SessionResponseDto.fromEntity(session));
   }
 
   @Patch('change-password')
