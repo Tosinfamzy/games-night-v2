@@ -13,6 +13,8 @@ export interface SeededActiveGame {
   gameId: string;
   teamIds: string[];
   playerIds: string[];
+  /** The host's session-scoped player token — authorizes host-only endpoints. */
+  hostToken: string;
 }
 
 interface JsonRecord {
@@ -21,15 +23,21 @@ interface JsonRecord {
 
 /**
  * POST helper that fails loudly (status + body) so a broken step in the chain
- * is obvious instead of surfacing as a confusing downstream error.
+ * is obvious instead of surfacing as a confusing downstream error. Pass a token
+ * to authorize host-only endpoints (HostGuard).
  */
 async function post(
   server: Server,
   path: string,
   body: object,
   expected = 201,
+  token?: string,
 ): Promise<JsonRecord> {
-  const res = await request(server).post(path).send(body);
+  const req = request(server).post(path);
+  if (token) {
+    req.set('Authorization', `Bearer ${token}`);
+  }
+  const res = await req.send(body);
   if (res.status !== expected) {
     throw new Error(
       `POST ${path} expected ${expected} but got ${res.status}: ${JSON.stringify(res.body)}`,
@@ -65,6 +73,7 @@ export async function seedActiveGame(
   const joinCode = session.joinCode as string;
   const gmPlayer = sessionRes.gmPlayer as JsonRecord;
   const playerIds: string[] = [gmPlayer.id as string];
+  const hostToken = sessionRes.playerToken as string;
 
   // 3. Game library entry (low player bounds to avoid count constraints)
   const lib = await post(server, '/game-library', {
@@ -78,10 +87,14 @@ export async function seedActiveGame(
   });
   const gameLibraryId = lib.id as string;
 
-  // 5. Add the game to the session (response exposes gameIds)
-  const sessionWithGame = await post(server, `/sessions/${sessionId}/games`, {
-    gameLibraryIds: [gameLibraryId],
-  });
+  // 5. Add the game to the session (host-only; response exposes gameIds)
+  const sessionWithGame = await post(
+    server,
+    `/sessions/${sessionId}/games`,
+    { gameLibraryIds: [gameLibraryId] },
+    201,
+    hostToken,
+  );
   const gameIds = sessionWithGame.gameIds as string[];
   const gameId = gameIds[0];
 
@@ -94,11 +107,11 @@ export async function seedActiveGame(
     teamIds.push(team.id as string);
   }
 
-  // 7. Start the game: PENDING -> IN_PROGRESS
-  await post(server, `/games/${gameId}/start`, { teamIds }, 201);
+  // 7. Start the game: PENDING -> IN_PROGRESS (host-only)
+  await post(server, `/games/${gameId}/start`, { teamIds }, 201, hostToken);
 
-  // 8. Start the first round: IN_PROGRESS -> ROUND_IN_PROGRESS
-  await post(server, `/games/${gameId}/start-first-round`, {}, 201);
+  // 8. Start the first round: IN_PROGRESS -> ROUND_IN_PROGRESS (host-only)
+  await post(server, `/games/${gameId}/start-first-round`, {}, 201, hostToken);
 
   return {
     gamesMasterId,
@@ -108,5 +121,6 @@ export async function seedActiveGame(
     gameId,
     teamIds,
     playerIds,
+    hostToken,
   };
 }

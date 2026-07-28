@@ -129,6 +129,12 @@ describe('Games Night happy path (e2e)', () => {
     expect(sessionId).toEqual(expect.any(String));
     expect(joinCode).toMatch(/^\d{6}$/);
     expect(gmPlayerId).toEqual(expect.any(String));
+
+    // Host-only control endpoints are authorized by the HostGuard via the
+    // session-scoped player token (there is no games-master login). Switch the
+    // helper's bearer to the host's player token for the rest of the flow.
+    expect(body.playerToken).toEqual(expect.any(String));
+    accessToken = body.playerToken as string;
   });
 
   it('4. adds a game from the library to the session', async () => {

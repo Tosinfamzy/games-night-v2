@@ -44,9 +44,12 @@ import { SessionLeaderboardDto } from '../common/dto/session-leaderboard.dto';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/user.entity';
+import { HostGuard } from '../auth/guards/host.guard';
+import { HostOf } from '../auth/decorators/host-of.decorator';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
+@UseGuards(HostGuard)
 @Controller('sessions')
 export class SessionController {
   constructor(private readonly service: SessionService) {}
@@ -94,6 +97,7 @@ export class SessionController {
   }
 
   @Post(':id/start')
+  @HostOf('session')
   @ApiOperation({ summary: 'Start a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -114,6 +118,7 @@ export class SessionController {
   }
 
   @Post(':id/complete')
+  @HostOf('session')
   @ApiOperation({ summary: 'Complete a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -134,6 +139,7 @@ export class SessionController {
   }
 
   @Post(':id/cancel')
+  @HostOf('session')
   @ApiOperation({ summary: 'Cancel a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -154,6 +160,7 @@ export class SessionController {
   }
 
   @Put(':id')
+  @HostOf('session')
   @ApiOperation({ summary: 'Update a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -174,6 +181,7 @@ export class SessionController {
   }
 
   @Post(':id/regenerate-code')
+  @HostOf('session')
   @ApiOperation({ summary: 'Regenerate join code for a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -198,6 +206,7 @@ export class SessionController {
   }
 
   @Post(':id/regenerate-rsvp-token')
+  @HostOf('session')
   @ApiOperation({
     summary: 'Regenerate the shareable RSVP link token (invalidates old link)',
   })
@@ -220,6 +229,7 @@ export class SessionController {
   }
 
   @Delete(':id')
+  @HostOf('session')
   @ApiOperation({ summary: 'Delete a session' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -308,6 +318,7 @@ export class SessionController {
 
   // Game management endpoints
   @Post(':id/games')
+  @HostOf('session')
   @ApiOperation({ summary: 'Add games to a session' })
   @ApiParam({
     name: 'id',
@@ -332,6 +343,7 @@ export class SessionController {
   }
 
   @Delete(':id/games')
+  @HostOf('session')
   @ApiOperation({ summary: 'Remove a game from a session' })
   @ApiParam({
     name: 'id',
@@ -444,6 +456,7 @@ export class SessionController {
   }
 
   @Post(':id/teams')
+  @HostOf('session')
   @ApiOperation({ summary: 'Create teams for a session' })
   @ApiParam({
     name: 'id',
@@ -465,6 +478,7 @@ export class SessionController {
   }
 
   @Put(':id/teams/:teamId/players')
+  @HostOf('session')
   @ApiOperation({ summary: 'Assign players to a team' })
   @ApiParam({
     name: 'id',
@@ -543,6 +557,7 @@ export class SessionController {
   }
 
   @Delete(':id/players/:playerId')
+  @HostOf('session')
   @ApiOperation({ summary: 'Remove player from session' })
   @ApiParam({ name: 'id', description: 'Session ID' })
   @ApiParam({ name: 'playerId', description: 'Player ID' })
@@ -584,6 +599,7 @@ export class SessionController {
   }
 
   @Delete(':id/players/:playerId')
+  @HostOf('session')
   @ApiOperation({
     summary: 'Kick a player from the session (GM control action)',
   })
