@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { findOneOrThrow } from '../common/utils/find-or-throw.util';
 import { GamesMaster } from './games-master.entity';
+import { Session } from '../session/session.entity';
 import { LIMITS } from '../common/constants';
 import { generateUniqueCode } from '../common/utils/unique-code.util';
 import { CreateGamesMasterDto } from './dto/create-games-master.dto';
@@ -145,6 +146,28 @@ export class GamesMasterService {
   async delete(id: string): Promise<void> {
     const gm = await this.findOne(id);
     await this.repo.remove(gm);
+  }
+
+  /**
+   * All sessions hosted by a games master, newest first, with the relations the
+   * session-list/response DTO needs. Used to scope the "my sessions" view so a
+   * host only ever sees their own sessions.
+   */
+  async findSessions(id: string): Promise<Session[]> {
+    const gm = await this.repo.findOne({
+      where: { id },
+      relations: [
+        'sessions',
+        'sessions.host',
+        'sessions.games',
+        'sessions.teams',
+        'sessions.players',
+      ],
+      order: {
+        sessions: { date: 'DESC' },
+      },
+    });
+    return gm?.sessions ?? [];
   }
 
   async findWithActiveSessions(id: string): Promise<GamesMaster> {
