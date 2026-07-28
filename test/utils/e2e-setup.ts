@@ -1,5 +1,6 @@
 import * as request from 'supertest';
 import { Server } from 'http';
+import { randomUUID } from 'crypto';
 
 /**
  * Result of seeding a full domain graph with a game in ROUND_IN_PROGRESS.
@@ -57,9 +58,15 @@ async function post(
 export async function seedActiveGame(
   server: Server,
 ): Promise<SeededActiveGame> {
-  // 1. Games master (host)
-  const gm = await post(server, '/games-master', { name: 'E2E Host' });
-  const gamesMasterId = gm.id as string;
+  // 1. Games master (host) via signup — the /games-master admin controller was
+  //    removed (dead + unauthenticated); signup creates a linked GamesMaster.
+  const signup = await post(server, '/auth/signup', {
+    email: `e2e-${randomUUID()}@example.com`,
+    password: 'Password123!',
+    name: 'E2E Host',
+    role: 'games_master',
+  });
+  const gamesMasterId = (signup.user as JsonRecord).gamesMasterId as string;
 
   // 2. Session — the GM is auto-added as a player
   const sessionRes = await post(server, '/sessions', {
