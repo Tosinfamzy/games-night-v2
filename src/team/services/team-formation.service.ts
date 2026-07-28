@@ -248,6 +248,11 @@ export class TeamFormationService {
       case TeamFormationStrategy.BALANCED:
         assignments = this.balancedAssignment(teams.length, players);
         break;
+      case TeamFormationStrategy.MANUAL:
+        // Create the teams but leave them empty for the host to fill in
+        // manually (previously fell through to a surprise random assignment).
+        assignments = teams.map(() => []);
+        break;
       case TeamFormationStrategy.AUTOMATIC:
       default:
         assignments = this.automaticAssignment(teams.length, players);

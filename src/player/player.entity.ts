@@ -6,7 +6,6 @@ import {
   ManyToOne,
   ManyToMany,
   OneToMany,
-  JoinTable,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -90,8 +89,10 @@ export class Player {
   session: Session;
 
   @ApiProperty({ type: () => [Team] })
+  // Inverse side of Team.players (the owning @JoinTable is on Team). Previously
+  // this also had @JoinTable, creating a second, always-empty join table
+  // (player_teams_team) and leaving player.teams unreadable.
   @ManyToMany(() => Team, (team) => team.players)
-  @JoinTable()
   teams: Team[];
 
   @ApiProperty({ type: () => [Score] })
