@@ -7,6 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { OnEvent } from '@nestjs/event-emitter';
 import { BaseGateway } from '../common/gateways/base.gateway';
 import { WS_CORS_CONFIG } from '../common/config/cors.config';
@@ -33,6 +34,7 @@ interface SessionReadiness {
   cors: WS_CORS_CONFIG,
 })
 @UseGuards(WsPlayerAuthGuard)
+@SkipThrottle() // HTTP ThrottlerGuard can't read a WS context; skip it here
 export class SessionGateway extends BaseGateway {
   @WebSocketServer()
   declare server: Server;

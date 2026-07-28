@@ -42,6 +42,7 @@ import { PlayerResponseDto } from '../common/dto/player.response';
 import { TeamResponseDto } from '../common/dto/team.response';
 import { GameResponseDto } from '../common/dto/game.response';
 import { SessionLeaderboardDto } from '../common/dto/session-leaderboard.dto';
+import { Throttle } from '@nestjs/throttler';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/user.entity';
@@ -279,6 +280,9 @@ export class SessionController {
   }
 
   @Post('join')
+  // Tight limit: stops mass join-code brute-forcing (legit players join once or
+  // twice). Per-IP, so allow headroom for a few players on one household network.
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: 'Join a session using join code' })
   @ApiResponse({
@@ -303,6 +307,8 @@ export class SessionController {
   }
 
   @Post('rejoin')
+  // Stops player-token guessing; a bit higher than join to tolerate reconnects.
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @ApiOperation({ summary: 'Rejoin a session using player token' })
   @ApiResponse({
     status: HttpStatus.OK,

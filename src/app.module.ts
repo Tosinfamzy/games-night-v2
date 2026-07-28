@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { createKeyv } from '@keyv/redis';
 import { GamesMasterModule } from './games-master/games-master.module';
@@ -87,12 +87,19 @@ import * as Joi from 'joi';
       inject: [ConfigService],
       isGlobal: true,
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60, // 1 minute
-        limit: 10, // 10 requests per minute
-      },
-    ]),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          // ttl is milliseconds in throttler v5 (the old `60` meant 60ms).
+          // Generous global backstop: multiple players often share one household
+          // IP, so this only stops floods — sensitive routes set tighter limits.
+          ttl: 60000, // 1 minute
+          limit: 300,
+        },
+      ],
+      // e2e tests hammer the API from one IP; don't rate-limit them.
+      skipIf: () => process.env.NODE_ENV === 'test',
+    }),
     EventEmitterModule.forRoot(),
     GamesMasterModule,
     SessionModule,
@@ -115,6 +122,12 @@ import * as Joi from 'joi';
     {
       provide: APP_FILTER,
       useClass: AllExceptionsFilter,
+    },
+    // Global rate limiting. Was configured but never bound, so every @Throttle
+    // was dead and join/rejoin/login were brute-forceable at unlimited rate.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })
