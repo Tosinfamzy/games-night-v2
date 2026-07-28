@@ -1,24 +1,38 @@
-import { Controller, Get, Query, Param, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Query,
+  Param,
+  ParseUUIDPipe,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiParam,
   ApiQuery,
   ApiResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
+import { HostGuard } from '../auth/guards/host.guard';
+import { HostOf } from '../auth/decorators/host-of.decorator';
 import { ChatService } from './chat.service';
 import { MessageHistoryQueryDto } from './dto/message-history-query.dto';
 import { MessageResponseDto } from '../common/dto/message.response';
 
 @ApiTags('chat')
+@UseGuards(HostGuard)
 @Controller('chat')
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
   /**
-   * Get message history for a session
+   * Get message history for a session (host-scoped; players read live via the
+   * WS gateway). Was fully unauthenticated — anyone could read any session's chat.
    */
   @Get('sessions/:sessionId/messages')
+  @HostOf('session', 'sessionId')
+  @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get message history for a session',
     description:

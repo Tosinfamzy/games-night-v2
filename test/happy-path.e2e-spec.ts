@@ -138,16 +138,12 @@ describe('Games Night happy path (e2e)', () => {
   });
 
   it('4. adds a game from the library to the session', async () => {
-    const lib = await post('/game-library', {
-      name: `E2E Game ${unique}`,
-      description: 'A seeded game-library entry for the happy-path e2e.',
-      minPlayers: 1,
-      maxPlayers: 20,
-      estimatedDuration: 30,
-      difficulty: 'Easy',
-      categories: ['Test'],
-    });
-    gameLibraryId = lib.id as string;
+    // Use a game-library entry seeded on boot (creating one now requires a
+    // Clerk host token, which e2e can't mint). Pick the lowest min-player game
+    // so this 3-player session satisfies the start-session player-count check.
+    const libRes = await request(server).get('/game-library').expect(200);
+    const libs = libRes.body as Array<{ id: string; minPlayers: number }>;
+    gameLibraryId = [...libs].sort((a, b) => a.minPlayers - b.minPlayers)[0].id;
 
     const sessionWithGame = await post(`/sessions/${sessionId}/games`, {
       gameLibraryIds: [gameLibraryId],
@@ -302,6 +298,8 @@ describe('Games Night happy path (e2e)', () => {
     // sessionId must also be passed as a query param or the endpoint 400s.
     const res = await request(server)
       .get(`/chat/sessions/${sessionId}/messages`)
+      // Chat history is now host-gated; send the host token.
+      .set('Authorization', `Bearer ${accessToken ?? ''}`)
       .query({ sessionId })
       .expect(200);
     const body = res.body as { messages: unknown[]; hasMore: boolean };

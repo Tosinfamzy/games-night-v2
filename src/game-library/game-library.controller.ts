@@ -7,8 +7,17 @@ import {
   Param,
   Delete,
   Query,
+  UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
+import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { GameLibraryService } from './game-library.service';
 import { CreateGameLibraryDto } from './dto/create-game-library.dto';
 import { UpdateGameLibraryDto } from './dto/update-game-library.dto';
@@ -20,6 +29,8 @@ export class GameLibraryController {
   constructor(private readonly gameLibraryService: GameLibraryService) {}
 
   @Post()
+  @UseGuards(ClerkAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new game in the library' })
   @ApiResponse({
     status: 201,
@@ -104,13 +115,15 @@ export class GameLibraryController {
     status: 404,
     description: 'Game not found',
   })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.gameLibraryService
       .findOne(id)
       .then((game) => GameLibraryResponseDto.fromEntity(game));
   }
 
   @Patch(':id')
+  @UseGuards(ClerkAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a game' })
   @ApiResponse({
     status: 200,
@@ -122,7 +135,7 @@ export class GameLibraryController {
     description: 'Game not found',
   })
   update(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() updateGameLibraryDto: UpdateGameLibraryDto,
   ) {
     return this.gameLibraryService
@@ -131,32 +144,38 @@ export class GameLibraryController {
   }
 
   @Patch(':id/deactivate')
+  @UseGuards(ClerkAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Deactivate a game (soft delete)' })
   @ApiResponse({
     status: 200,
     description: 'Game successfully deactivated',
     type: GameLibraryResponseDto,
   })
-  deactivate(@Param('id') id: string) {
+  deactivate(@Param('id', ParseUUIDPipe) id: string) {
     return this.gameLibraryService
       .deactivate(id)
       .then((game) => GameLibraryResponseDto.fromEntity(game));
   }
 
   @Patch(':id/activate')
+  @UseGuards(ClerkAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Activate a game' })
   @ApiResponse({
     status: 200,
     description: 'Game successfully activated',
     type: GameLibraryResponseDto,
   })
-  activate(@Param('id') id: string) {
+  activate(@Param('id', ParseUUIDPipe) id: string) {
     return this.gameLibraryService
       .activate(id)
       .then((game) => GameLibraryResponseDto.fromEntity(game));
   }
 
   @Delete(':id')
+  @UseGuards(ClerkAuthGuard)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Permanently delete a game' })
   @ApiResponse({
     status: 200,
@@ -166,7 +185,7 @@ export class GameLibraryController {
     status: 404,
     description: 'Game not found',
   })
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.gameLibraryService.remove(id);
   }
 }

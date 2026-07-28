@@ -115,4 +115,44 @@ describe('Host authorization (e2e)', () => {
       .send({ name: 'Renamed By Host' })
       .expect(200);
   });
+
+  // Previously-open controllers that the audit flagged (§1).
+  it('rejects anonymous access to a session guest list (PII)', async () => {
+    const res = await request(server).get(
+      `/sessions/${seed.sessionId}/invites`,
+    );
+    expect(res.status).toBe(400);
+    expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+  });
+
+  it('rejects a non-host reading the guest list (403)', async () => {
+    await request(server)
+      .get(`/sessions/${seed.sessionId}/invites`)
+      .set('Authorization', bearer(nonHostToken))
+      .expect(403);
+  });
+
+  it('rejects anonymous chat-history reads', async () => {
+    const res = await request(server)
+      .get(`/chat/sessions/${seed.sessionId}/messages`)
+      .query({ sessionId: seed.sessionId });
+    expect(res.status).toBe(400);
+    expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+  });
+
+  it('rejects anonymous game-library mutation', async () => {
+    const res = await request(server)
+      .post('/game-library')
+      .send({
+        name: 'Anon Game',
+        description: 'x',
+        minPlayers: 2,
+        maxPlayers: 4,
+        estimatedDuration: 10,
+        difficulty: 'Easy',
+        categories: ['x'],
+      });
+    expect(res.status).toBe(400);
+    expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+  });
 });
