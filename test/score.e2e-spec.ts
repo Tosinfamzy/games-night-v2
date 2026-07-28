@@ -57,6 +57,7 @@ describe('ScoreController (e2e)', () => {
 
       const response = await request(httpServer)
         .post('/scores')
+        .set('Authorization', `Bearer ${seed.hostToken}`)
         .send(dto)
         .expect(201);
 
@@ -70,6 +71,7 @@ describe('ScoreController (e2e)', () => {
     it('should fail with invalid input', async () => {
       await request(httpServer)
         .post('/scores')
+        .set('Authorization', `Bearer ${seed.hostToken}`)
         .send({ points: -1, gameId: 'not-a-uuid', teamId: 'not-a-uuid' })
         .expect(400);
     });
@@ -77,6 +79,7 @@ describe('ScoreController (e2e)', () => {
     it('should return 404 when the game does not exist', async () => {
       await request(httpServer)
         .post('/scores')
+        .set('Authorization', `Bearer ${seed.hostToken}`)
         .send({ points: 10, gameId: uuidv4(), teamId: seed.teamIds[0] })
         .expect(404);
     });
@@ -88,6 +91,7 @@ describe('ScoreController (e2e)', () => {
 
       await request(httpServer)
         .post(`/scores/games/${seed.gameId}/submit`)
+        .set('Authorization', `Bearer ${seed.hostToken}`)
         .send(dto)
         .expect(201);
     });
@@ -97,6 +101,7 @@ describe('ScoreController (e2e)', () => {
 
       await request(httpServer)
         .post(`/scores/games/${uuidv4()}/submit`)
+        .set('Authorization', `Bearer ${seed.hostToken}`)
         .send(dto)
         .expect(404);
     });
@@ -104,6 +109,7 @@ describe('ScoreController (e2e)', () => {
     it('should return 400 for a malformed game ID', async () => {
       await request(httpServer)
         .post('/scores/games/not-a-uuid/submit')
+        .set('Authorization', `Bearer ${seed.hostToken}`)
         .send({ teamId: seed.teamIds[0], score: 5 })
         .expect(400);
     });

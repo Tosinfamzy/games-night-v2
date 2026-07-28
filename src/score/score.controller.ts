@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -25,14 +26,18 @@ import { SubmitGameScoreDto } from './dto/submit-game-score.dto';
 import { Score } from './score.entity';
 import { TeamScore } from './interfaces/team-score.interface';
 import { ScoreResponseDto } from '../common/dto/score.response';
+import { HostGuard } from '../auth/guards/host.guard';
+import { HostOf } from '../auth/decorators/host-of.decorator';
 
 @ApiTags('scores')
 @ApiBearerAuth()
+@UseGuards(HostGuard)
 @Controller('scores')
 export class ScoreController {
   constructor(private readonly service: ScoreService) {}
 
   @Post()
+  @HostOf('game', 'gameId')
   @ApiOperation({ summary: 'Create a score record' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -52,6 +57,7 @@ export class ScoreController {
   }
 
   @Post('games/:gameId/submit')
+  @HostOf('game', 'gameId')
   @ApiOperation({ summary: 'Submit scores for a game' })
   @ApiParam({ name: 'gameId', description: 'ID of the game' })
   @ApiResponse({
@@ -136,6 +142,7 @@ export class ScoreController {
   }
 
   @Put(':id')
+  @HostOf('score')
   @ApiOperation({ summary: 'Update a score record' })
   @ApiParam({ name: 'id', description: 'ID of the score record' })
   @ApiResponse({
@@ -161,6 +168,7 @@ export class ScoreController {
   }
 
   @Delete(':id')
+  @HostOf('score')
   @ApiOperation({ summary: 'Delete a score record' })
   @ApiParam({ name: 'id', description: 'ID of the score record' })
   @ApiResponse({

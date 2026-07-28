@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -26,9 +27,12 @@ import { NextTurnDto } from './dto/next-turn.dto';
 import { GameStatus } from './enums/game-status.enum';
 import { GameResponseDto } from '../common/dto/game.response';
 import { GameResultsDto } from '../common/dto/game-results.dto';
+import { HostGuard } from '../auth/guards/host.guard';
+import { HostOf } from '../auth/decorators/host-of.decorator';
 
 @ApiTags('games')
 @ApiBearerAuth()
+@UseGuards(HostGuard)
 @Controller('games')
 export class GameController {
   constructor(private readonly service: GameService) {}
@@ -39,6 +43,7 @@ export class GameController {
   }
 
   @Post()
+  @HostOf('session', 'sessionId')
   @ApiOperation({ summary: 'Create a game' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -83,6 +88,7 @@ export class GameController {
   }
 
   @Post(':id/start')
+  @HostOf('game')
   @ApiOperation({ summary: 'Start a game' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -108,6 +114,7 @@ export class GameController {
   }
 
   @Post(':id/start-first-round')
+  @HostOf('game')
   @ApiOperation({ summary: 'Start the first round of the game' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -128,6 +135,7 @@ export class GameController {
   }
 
   @Post(':id/next-round')
+  @HostOf('game')
   @ApiOperation({ summary: 'Start the next round' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -148,6 +156,7 @@ export class GameController {
   }
 
   @Post(':id/end-round')
+  @HostOf('game')
   @ApiOperation({ summary: 'End the current round' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -168,6 +177,7 @@ export class GameController {
   }
 
   @Post(':id/cancel')
+  @HostOf('game')
   @ApiOperation({ summary: 'Cancel a game' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -186,6 +196,7 @@ export class GameController {
   }
 
   @Put(':id')
+  @HostOf('game')
   @ApiOperation({ summary: 'Update a game' })
   @ApiParam({ name: 'id', description: 'ID of the game' })
   @ApiResponse({
@@ -211,6 +222,7 @@ export class GameController {
   }
 
   @Delete(':id')
+  @HostOf('game')
   @ApiOperation({ summary: 'Delete a game' })
   @ApiParam({ name: 'id', description: 'ID of the game' })
   @ApiResponse({
@@ -229,6 +241,7 @@ export class GameController {
   // ============ ENHANCED GAME FLOW ENDPOINTS ============
 
   @Post(':id/start-with-teams')
+  @HostOf('game')
   @ApiOperation({ summary: 'Start a game with automatic team formation' })
   @ApiParam({ name: 'id', description: 'ID of the game' })
   @ApiResponse({
@@ -269,6 +282,7 @@ export class GameController {
   }
 
   @Post(':id/next-turn')
+  @HostOf('game')
   @ApiOperation({ summary: "Move to the next team's turn" })
   @ApiParam({ name: 'id', description: 'ID of the game' })
   @ApiResponse({
@@ -294,6 +308,7 @@ export class GameController {
   }
 
   @Post(':id/pause')
+  @HostOf('game')
   @ApiOperation({ summary: 'Pause the game' })
   @ApiParam({ name: 'id', description: 'ID of the game' })
   @ApiResponse({
@@ -316,6 +331,7 @@ export class GameController {
   }
 
   @Post(':id/resume')
+  @HostOf('game')
   @ApiOperation({ summary: 'Resume a paused game' })
   @ApiParam({ name: 'id', description: 'ID of the game' })
   @ApiResponse({
@@ -353,6 +369,7 @@ export class GameController {
   }
 
   @Post(':id/force-start')
+  @HostOf('game')
   @ApiOperation({ summary: 'Force start a game (bypass team requirements)' })
   @ApiParam({ name: 'id', description: 'ID of the game' })
   @ApiResponse({
@@ -377,6 +394,7 @@ export class GameController {
   }
 
   @Post(':id/complete')
+  @HostOf('game')
   @ApiOperation({ summary: 'Complete a game' })
   @ApiParam({ name: 'id', description: 'Game ID' })
   @ApiResponse({
@@ -417,6 +435,7 @@ export class GameController {
   }
 
   @Put(':id/status')
+  @HostOf('game')
   @ApiOperation({ summary: 'Update game status' })
   @ApiParam({ name: 'id', description: 'Game ID' })
   @ApiResponse({
@@ -442,6 +461,7 @@ export class GameController {
   }
 
   @Post(':id/reset')
+  @HostOf('game')
   @ApiOperation({
     summary: 'Reset game to initial state (GM control action)',
   })

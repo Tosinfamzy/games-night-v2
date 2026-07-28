@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SessionController } from './session.controller';
 import { SessionService } from './session.service';
+import { HostGuard } from '../auth/guards/host.guard';
 
 describe('SessionController', () => {
   let controller: SessionController;
@@ -19,7 +20,11 @@ describe('SessionController', () => {
           useValue: mockSessionService,
         },
       ],
-    }).compile();
+    })
+      // HostGuard is exercised in e2e; unit tests call methods directly.
+      .overrideGuard(HostGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<SessionController>(SessionController);
     service = module.get<SessionService>(SessionService);
