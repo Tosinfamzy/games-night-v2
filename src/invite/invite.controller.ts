@@ -6,8 +6,11 @@ import {
   Body,
   Param,
   ParseUUIDPipe,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { HostGuard } from '../auth/guards/host.guard';
+import { HostOf } from '../auth/decorators/host-of.decorator';
 import { InviteService, InviteSummary } from './invite.service';
 import { Invite } from './invite.entity';
 import { CreateInviteDto } from './dto/create-invite.dto';
@@ -17,13 +20,17 @@ import { PublicRsvpViewDto } from './dto/public-rsvp-view.dto';
 import { PublicInviteDto } from './dto/public-invite.dto';
 
 @ApiTags('invite')
+// Host-guarded overall; the token-based public RSVP routes below opt out by
+// simply not declaring @HostOf (HostGuard passes routes without it).
+@UseGuards(HostGuard)
 @Controller()
 export class InviteController {
   constructor(private readonly inviteService: InviteService) {}
 
-  // ----- Games-master guest-list management (session-scoped) -----
+  // ----- Games-master guest-list management (session-scoped, host only) -----
 
   @ApiBearerAuth()
+  @HostOf('session', 'sessionId')
   @ApiOperation({ summary: 'Add a guest to a session guest list' })
   @Post('sessions/:sessionId/invites')
   create(
@@ -34,6 +41,7 @@ export class InviteController {
   }
 
   @ApiBearerAuth()
+  @HostOf('session', 'sessionId')
   @ApiOperation({ summary: 'List a session guest list' })
   @Get('sessions/:sessionId/invites')
   list(
@@ -43,6 +51,7 @@ export class InviteController {
   }
 
   @ApiBearerAuth()
+  @HostOf('session', 'sessionId')
   @ApiOperation({ summary: 'RSVP tallies for a session' })
   @Get('sessions/:sessionId/invites/summary')
   summary(
@@ -52,6 +61,7 @@ export class InviteController {
   }
 
   @ApiBearerAuth()
+  @HostOf('session', 'sessionId')
   @ApiOperation({ summary: 'Remove a guest from a session guest list' })
   @Delete('sessions/:sessionId/invites/:inviteId')
   remove(

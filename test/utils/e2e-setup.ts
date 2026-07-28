@@ -75,17 +75,15 @@ export async function seedActiveGame(
   const playerIds: string[] = [gmPlayer.id as string];
   const hostToken = sessionRes.playerToken as string;
 
-  // 3. Game library entry (low player bounds to avoid count constraints)
-  const lib = await post(server, '/game-library', {
-    name: `E2E Game ${joinCode}`,
-    description: 'A seeded game-library entry for e2e tests.',
-    minPlayers: 1,
-    maxPlayers: 20,
-    estimatedDuration: 30,
-    difficulty: 'Easy',
-    categories: ['Test'],
-  });
-  const gameLibraryId = lib.id as string;
+  // 3. Use a game-library entry seeded on boot. Creating one now requires a
+  //    Clerk (host) token, which e2e tests can't mint; the seeded catalogue is
+  //    available via the open GET.
+  const libRes = await request(server).get('/game-library').expect(200);
+  const libs = libRes.body as JsonRecord[];
+  if (!libs.length) {
+    throw new Error('No seeded game-library entries available for e2e setup');
+  }
+  const gameLibraryId = libs[0].id as string;
 
   // 5. Add the game to the session (host-only; response exposes gameIds)
   const sessionWithGame = await post(
