@@ -7,6 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Server } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { BaseGateway } from '../common/gateways/base.gateway';
 import { WS_CORS_CONFIG } from '../common/config/cors.config';
 import { ChatService } from './chat.service';
@@ -26,6 +27,7 @@ import { getErrorMessage, getErrorName } from '../common/utils/error.util';
   cors: WS_CORS_CONFIG,
 })
 @UseGuards(WsPlayerAuthGuard)
+@SkipThrottle() // HTTP ThrottlerGuard can't read a WS context; skip it here
 export class ChatGateway extends BaseGateway {
   @WebSocketServer()
   declare server: Server;

@@ -1,7 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('Health')
+@SkipThrottle() // platform health/readiness probes must never be rate-limited
 @Controller('health')
 export class HealthController {
   @Get()
