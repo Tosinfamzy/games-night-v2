@@ -68,6 +68,9 @@ export class SessionService {
   ) {}
 
   async create(dto: CreateSessionDto): Promise<CreateSessionResponseDto> {
+    if (!dto.gamesMasterId) {
+      throw new BadRequestException('A hosting games master is required');
+    }
     const host = await this.gamesMasterRepo.findOneBy({
       id: dto.gamesMasterId,
     });

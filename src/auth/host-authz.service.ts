@@ -3,12 +3,21 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Request } from 'express';
 import { AuthService } from './auth.service';
+import { ClerkService } from './clerk.service';
+import { GamesMasterService } from '../games-master/games-master.service';
 import { Session } from '../session/session.entity';
 import { Game } from '../game/game.entity';
 import { Score } from '../score/score.entity';
 import { Player } from '../player/player.entity';
 import { DomainError } from '../common/errors/domain-errors';
+import { extractBearerToken } from '../common/utils/bearer.util';
 import { HostOfMeta } from './decorators/host-of.decorator';
+
+interface PlayerTokenPayload {
+  playerId: string;
+  sessionId: string;
+  playerName: string;
+}
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,6 +33,8 @@ const UUID_RE =
 export class HostAuthzService {
   constructor(
     private readonly authService: AuthService,
+    private readonly clerk: ClerkService,
+    private readonly gamesMasterService: GamesMasterService,
     @InjectRepository(Session)
     private readonly sessionRepo: Repository<Session>,
     @InjectRepository(Game)
@@ -36,14 +47,37 @@ export class HostAuthzService {
 
   /** Throws if the request isn't from the target session's host; else true. */
   async authorize(request: Request, meta: HostOfMeta): Promise<boolean> {
-    const token = this.extractToken(request);
-    const player = token ? this.authService.validatePlayerToken(token) : null;
-    if (!player) {
+    const token = extractBearerToken(request);
+    if (!token) {
       throw DomainError.invalidToken(
-        'A valid player token is required for this action',
+        'A valid player or games-master token is required for this action',
       );
     }
 
+    // Fast path: session-scoped player token (local HS256 verify, no network).
+    // This is the common in-session case, so it's tried first.
+    const player = this.authService.validatePlayerToken(token);
+    if (player) {
+      return this.authorizeByPlayer(player, meta, request);
+    }
+
+    // Cross-device host: a Clerk games-master JWT (RS256, verified via Clerk).
+    const clerkUserId = await this.clerk.verify(token);
+    if (clerkUserId) {
+      return this.authorizeByClerkGm(clerkUserId, meta, request);
+    }
+
+    throw DomainError.invalidToken(
+      'A valid player or games-master token is required for this action',
+    );
+  }
+
+  /** Authorize via the caller's session-scoped player token. */
+  private async authorizeByPlayer(
+    player: PlayerTokenPayload,
+    meta: HostOfMeta,
+    request: Request,
+  ): Promise<boolean> {
     const sessionId = await this.resolveSessionId(meta, request);
     // Unresolvable target (missing / malformed / non-existent id): no real
     // resource to protect, so defer to the handler, which will 400/404 it.
@@ -78,12 +112,30 @@ export class HostAuthzService {
     return true;
   }
 
-  private extractToken(request: Request): string | null {
-    const header = request.headers.authorization;
-    if (typeof header === 'string' && header.startsWith('Bearer ')) {
-      return header.slice('Bearer '.length).trim() || null;
+  /** Authorize via a Clerk-authenticated games master (cross-device control). */
+  private async authorizeByClerkGm(
+    clerkUserId: string,
+    meta: HostOfMeta,
+    request: Request,
+  ): Promise<boolean> {
+    const sessionId = await this.resolveSessionId(meta, request);
+    if (!sessionId) {
+      return true;
     }
-    return null;
+
+    const gm = await this.gamesMasterService.findByClerkUserId(clerkUserId);
+    const session = await this.sessionRepo.findOne({
+      where: { id: sessionId },
+      relations: ['host'],
+    });
+    const isHost = Boolean(
+      gm?.id && session?.host?.id && gm.id === session.host.id,
+    );
+    if (!isHost) {
+      throw new ForbiddenException('Only the session host can do this');
+    }
+
+    return true;
   }
 
   private async resolveSessionId(

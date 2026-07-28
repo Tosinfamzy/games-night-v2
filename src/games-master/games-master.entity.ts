@@ -37,6 +37,14 @@ export class GamesMaster {
   @Column({ nullable: true })
   userId?: string;
 
+  @ApiProperty({
+    example: 'user_3H7vwkT4gqljJmveZ8BWu15qEbP',
+    description: 'Clerk user id, set when this GM signs in via Clerk',
+    required: false,
+  })
+  @Column({ unique: true, nullable: true })
+  clerkUserId?: string;
+
   @ApiProperty({ description: 'Creation timestamp' })
   @CreateDateColumn()
   createdAt: Date;
