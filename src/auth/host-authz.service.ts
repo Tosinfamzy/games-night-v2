@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Request } from 'express';
@@ -81,12 +85,16 @@ export class HostAuthzService {
     meta: HostOfMeta,
     request: Request,
   ): Promise<boolean> {
-    const sessionId = await this.resolveSessionId(meta, request);
-    // Unresolvable target (missing / malformed / non-existent id): no real
-    // resource to protect, so defer to the handler, which will 400/404 it.
-    // Guards run before validation pipes, so this keeps those responses intact.
-    if (!sessionId) {
+    // Fail closed: a malformed/missing id is deferred to the pipe/handler (so a
+    // bad request still 400s), but a well-formed id that resolves to nothing is
+    // rejected here (404) rather than let through.
+    const rawId = this.extractRawId(meta, request);
+    if (!rawId || !UUID_RE.test(rawId)) {
       return true;
+    }
+    const sessionId = await this.resolveSessionId(meta, request);
+    if (!sessionId) {
+      throw new NotFoundException('Target resource not found');
     }
 
     // The token is session-scoped: it must match the session being acted on.
@@ -121,9 +129,13 @@ export class HostAuthzService {
     meta: HostOfMeta,
     request: Request,
   ): Promise<boolean> {
+    const rawId = this.extractRawId(meta, request);
+    if (!rawId || !UUID_RE.test(rawId)) {
+      return true;
+    }
     const sessionId = await this.resolveSessionId(meta, request);
     if (!sessionId) {
-      return true;
+      throw new NotFoundException('Target resource not found');
     }
 
     const gm = await this.gamesMasterService.findByClerkUserId(clerkUserId);
@@ -227,17 +239,22 @@ export class HostAuthzService {
     return Boolean(gm?.id && session?.host?.id && gm.id === session.host.id);
   }
 
-  private async resolveSessionId(
-    meta: HostOfMeta,
-    request: Request,
-  ): Promise<string | null> {
+  /** The raw target id from the route param or request body (unvalidated). */
+  private extractRawId(meta: HostOfMeta, request: Request): string | undefined {
     const params = request.params as Record<string, string>;
     const body = (request.body ?? {}) as Record<string, unknown>;
     const fromBody =
       typeof body[meta.param] === 'string'
         ? (body[meta.param] as string)
         : undefined;
-    const id = params[meta.param] ?? fromBody;
+    return params[meta.param] ?? fromBody;
+  }
+
+  private async resolveSessionId(
+    meta: HostOfMeta,
+    request: Request,
+  ): Promise<string | null> {
+    const id = this.extractRawId(meta, request);
     // Bail on missing / malformed ids so a bad request never reaches the DB as
     // an invalid-uuid query (which would 500). The handler/pipe rejects it.
     if (!id || !UUID_RE.test(id)) {
