@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsUUID, Min, IsOptional } from 'class-validator';
+import { IsNumber, IsUUID, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class SubmitGameScoreDto {
@@ -7,9 +7,11 @@ export class SubmitGameScoreDto {
   @IsUUID()
   teamId: string;
 
-  @ApiProperty({ description: 'Score value', minimum: 0 })
+  @ApiProperty({
+    description:
+      'Score value. May be negative to subtract points (e.g. penalty rounds).',
+  })
   @IsNumber()
-  @Min(0)
   @Type(() => Number)
   score: number;
 
