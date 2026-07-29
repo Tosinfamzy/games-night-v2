@@ -47,6 +47,7 @@ describe('GameService', () => {
       | 'broadcastTurnAdvanced'
       | 'broadcastRoundStarted'
       | 'broadcastRoundEnded'
+      | 'broadcastGameCancelled'
     >
   >;
   let gameTimerService: jest.Mocked<{
@@ -84,6 +85,7 @@ describe('GameService', () => {
       broadcastTurnAdvanced: jest.fn(),
       broadcastRoundStarted: jest.fn(),
       broadcastRoundEnded: jest.fn(),
+      broadcastGameCancelled: jest.fn(),
     };
 
     gameTimerService = {
