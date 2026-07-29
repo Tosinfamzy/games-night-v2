@@ -141,10 +141,29 @@ export class PlayerService {
 
     const sessionId = player.session.id;
 
+    await this.detachFromTeams(id);
     await this.repo.remove(player);
 
     // Broadcast player left event
     this.sessionGateway.broadcastPlayerLeft(sessionId, id);
+  }
+
+  /**
+   * Remove a player's team memberships before deleting them. The
+   * team_players_player.playerId FK is NO ACTION (TypeORM synchronize creates
+   * it that way too), so deleting a player who is on a team would otherwise
+   * 500. Session-level deletes don't need this — cascading the teams removes
+   * the join rows via the teamId side.
+   */
+  private async detachFromTeams(playerId: string): Promise<void> {
+    const player = await this.findOne(playerId, ['teams']);
+    if (player.teams && player.teams.length > 0) {
+      await this.repo
+        .createQueryBuilder()
+        .relation(Player, 'teams')
+        .of(playerId)
+        .remove(player.teams);
+    }
   }
 
   private async validatePlayerNameInSession(
@@ -213,6 +232,7 @@ export class PlayerService {
 
   async delete(id: string): Promise<void> {
     const player = await this.findOne(id);
+    await this.detachFromTeams(id);
     await this.repo.remove(player);
   }
 

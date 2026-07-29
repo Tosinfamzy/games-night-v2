@@ -30,12 +30,15 @@ export class Message {
 
   @ApiProperty({ type: () => Session })
   @Index()
-  @ManyToOne(() => Session, { eager: true })
+  // CASCADE: deleting a session removes its chat.
+  @ManyToOne(() => Session, { eager: true, onDelete: 'CASCADE' })
   session: Session;
 
   @ApiProperty({ type: () => Player })
   @Index()
-  @ManyToOne(() => Player, { eager: true })
+  // CASCADE: a message can't render without its author (no denormalised name),
+  // so deleting a player removes their messages rather than orphaning them.
+  @ManyToOne(() => Player, { eager: true, onDelete: 'CASCADE' })
   player: Player;
 
   @ApiProperty({
