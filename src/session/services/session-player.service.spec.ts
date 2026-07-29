@@ -235,6 +235,44 @@ describe('SessionPlayerService', () => {
       expect(playerRepo.create).not.toHaveBeenCalled();
     });
 
+    it('handles a concurrent same-name join as a rejoin (unique-violation race)', async () => {
+      const session = createMockSession({
+        id: 'session-1',
+        joinCode: '123456',
+        status: SessionStatus.SCHEDULED,
+        host: createMockGamesMaster({ name: 'GM' }) as GamesMaster,
+      });
+      const winner = createMockPlayer({
+        id: 'winner-1',
+        name: 'Alice',
+        session: session as Session,
+      });
+
+      sessionRepo.findOne.mockResolvedValue(session);
+      // First lookup: no existing player (both racers passed the check).
+      // Second lookup (after the conflict): the row that won the insert race.
+      playerRepo.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(winner);
+      playerRepo.create.mockReturnValue(winner);
+      // The unique (sessionId, name) index rejects the losing insert...
+      const uniqueErr = Object.assign(new Error('duplicate key'), {
+        code: '23505',
+      });
+      playerRepo.save
+        .mockRejectedValueOnce(uniqueErr) // losing insert
+        .mockResolvedValueOnce({ ...winner, status: PlayerStatus.JOINED }); // markRejoined
+      authService.generatePlayerToken.mockReturnValue('mock-token');
+
+      const result = await service.joinSession({
+        joinCode: '123456',
+        playerName: 'Alice',
+      });
+
+      expect(result.player.id).toBe('winner-1');
+      expect(result.player.status).toBe(PlayerStatus.JOINED);
+    });
+
     it('should throw BadRequestException if session is completed', async () => {
       const session = createMockSession({
         joinCode: '123456',
