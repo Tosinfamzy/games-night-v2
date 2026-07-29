@@ -135,7 +135,12 @@ export class Game {
     type: () => Session,
   })
   @Index()
-  @ManyToOne(() => Session, (session) => session.games, { eager: true })
+  // CASCADE: deleting a session removes its games (which in turn cascade to
+  // scores/teams/results). Without this, deleting any non-empty session 500s.
+  @ManyToOne(() => Session, (session) => session.games, {
+    eager: true,
+    onDelete: 'CASCADE',
+  })
   session: Session;
 
   @ApiProperty({

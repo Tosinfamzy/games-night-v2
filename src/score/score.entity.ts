@@ -53,9 +53,11 @@ export class Score {
     type: () => Player,
   })
   @Index()
+  // SET NULL: removing a player keeps their team's score on the board.
   @ManyToOne(() => Player, (player) => player.scores, {
     nullable: true,
     eager: true,
+    onDelete: 'SET NULL',
   })
   player?: Player;
 

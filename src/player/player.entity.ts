@@ -85,7 +85,11 @@ export class Player {
 
   @ApiProperty({ type: () => Session })
   @Index()
-  @ManyToOne(() => Session, (session) => session.players, { eager: true })
+  // CASCADE: deleting a session removes its players.
+  @ManyToOne(() => Session, (session) => session.players, {
+    eager: true,
+    onDelete: 'CASCADE',
+  })
   session: Session;
 
   @ApiProperty({ type: () => [Team] })

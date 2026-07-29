@@ -40,7 +40,8 @@ export class GameResult {
     type: () => Session,
   })
   @Index()
-  @ManyToOne(() => Session, { eager: true })
+  // CASCADE: deleting a session removes its game-result history rows.
+  @ManyToOne(() => Session, { eager: true, onDelete: 'CASCADE' })
   session: Session;
 
   @ApiProperty({
@@ -56,7 +57,13 @@ export class GameResult {
     required: false,
   })
   @Index()
-  @ManyToOne(() => Team, { eager: true, nullable: true })
+  // SET NULL: dissolving/re-forming the winning team must not 500 or delete
+  // history — winningTeamName below preserves the record.
+  @ManyToOne(() => Team, {
+    eager: true,
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   winningTeam?: Team;
 
   @ApiProperty({
