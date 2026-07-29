@@ -100,6 +100,22 @@ describe('Host authorization (e2e)', () => {
     await request(server).get(`/sessions/join/${seed.joinCode}`).expect(200);
   });
 
+  it('does not leak the host RSVP token to anonymous session reads', async () => {
+    const byId = await request(server)
+      .get(`/sessions/${seed.sessionId}`)
+      .expect(200);
+    expect(
+      (byId.body as { publicRsvpToken?: string }).publicRsvpToken,
+    ).toBeUndefined();
+
+    const byCode = await request(server)
+      .get(`/sessions/join/${seed.joinCode}`)
+      .expect(200);
+    expect(
+      (byCode.body as { publicRsvpToken?: string }).publicRsvpToken,
+    ).toBeUndefined();
+  });
+
   // The /teams/* controller is a parallel mutation surface — it must be
   // host-gated too, or the session/game guards are trivially bypassed.
   it('rejects an anonymous team mutation (no token)', async () => {

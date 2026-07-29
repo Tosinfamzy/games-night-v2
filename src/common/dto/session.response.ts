@@ -72,13 +72,22 @@ export class SessionResponseDto extends SessionSummaryDto {
   })
   playerIds: string[];
 
-  static fromEntity(entity: Session): SessionResponseDto {
+  // `includeHostSecrets` gates the shareable RSVP token, which grants access to
+  // the private guest list / self-RSVP page. It defaults to true for the
+  // host-authenticated routes; the public reads (GET /:id for a non-host, join-
+  // code lookup) pass false so an anonymous caller can't harvest it.
+  static fromEntity(
+    entity: Session,
+    includeHostSecrets = true,
+  ): SessionResponseDto {
     const dto = new SessionResponseDto();
     Object.assign(dto, SessionSummaryDto.fromEntity(entity));
     dto.description = entity.description ?? null;
     dto.location = entity.location ?? null;
     dto.host = GamesMasterSummaryDto.fromEntity(entity.host);
-    dto.publicRsvpToken = entity.publicRsvpToken;
+    if (includeHostSecrets) {
+      dto.publicRsvpToken = entity.publicRsvpToken;
+    }
     dto.gamesCount = entity.games?.length ?? 0;
     dto.teamsCount = entity.teams?.length ?? 0;
     dto.playersCount = entity.players?.length ?? 0;
