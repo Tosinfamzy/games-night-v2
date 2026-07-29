@@ -34,6 +34,12 @@ export class ChatGateway extends BaseGateway {
 
   protected logger = new Logger(ChatGateway.name);
 
+  // Lightweight per-socket flood protection (the HTTP throttler can't see WS
+  // frames). Sliding window of recent send timestamps, keyed by socket id.
+  private static readonly RATE_MAX = 10;
+  private static readonly RATE_WINDOW_MS = 10_000;
+  private readonly recentSends = new Map<string, number[]>();
+
   constructor(
     private readonly chatService: ChatService,
     private readonly playerService: PlayerService,
@@ -77,6 +83,28 @@ export class ChatGateway extends BaseGateway {
     }
   }
 
+  /** Forget a socket's send history when it disconnects. */
+  handleDisconnect(client: AppSocket): void {
+    this.recentSends.delete(client.id);
+    void super.handleDisconnect(client);
+  }
+
+  /** Sliding-window flood check: true if this socket has sent too many recently. */
+  private isRateLimited(socketId: string): boolean {
+    const now = Date.now();
+    const windowStart = now - ChatGateway.RATE_WINDOW_MS;
+    const recent = (this.recentSends.get(socketId) ?? []).filter(
+      (t) => t > windowStart,
+    );
+    if (recent.length >= ChatGateway.RATE_MAX) {
+      this.recentSends.set(socketId, recent);
+      return true;
+    }
+    recent.push(now);
+    this.recentSends.set(socketId, recent);
+    return false;
+  }
+
   /**
    * Handle send-message event
    */
@@ -86,18 +114,42 @@ export class ChatGateway extends BaseGateway {
     @ConnectedSocket() client: AppSocket,
   ): Promise<void> {
     try {
+      // Identity comes from the authenticated socket, never the payload — a
+      // client could otherwise send as any player into any session. Only the
+      // message content is taken from the DTO.
+      const player = client.data.player;
+      if (!player) {
+        client.emit('chat:error', {
+          error: 'Not authenticated',
+          code: 'TOKEN_INVALID',
+        });
+        return;
+      }
+
+      if (this.isRateLimited(client.id)) {
+        client.emit('chat:error', {
+          error: 'You are sending messages too quickly. Slow down.',
+          code: 'RATE_LIMITED',
+        });
+        return;
+      }
+
       // Save message to database
-      const message = await this.chatService.saveMessage(dto);
+      const message = await this.chatService.saveMessage({
+        content: dto.content,
+        sessionId: player.sessionId,
+        playerId: player.playerId,
+      });
 
       // Broadcast message to all clients in the session room
-      const room = `chat:session:${dto.sessionId}`;
+      const room = `chat:session:${player.sessionId}`;
       this.emitToRoom(room, 'chat:message-sent', {
         message,
         timestamp: new Date().toISOString(),
       });
 
       this.logger.log(
-        `Message sent by ${message.playerName} in session ${dto.sessionId}`,
+        `Message sent by ${message.playerName} in session ${player.sessionId}`,
       );
     } catch (error) {
       this.logger.error(`Failed to send message: ${getErrorMessage(error)}`);
@@ -119,7 +171,21 @@ export class ChatGateway extends BaseGateway {
     @ConnectedSocket() client: AppSocket,
   ): Promise<void> {
     try {
-      const result = await this.chatService.getMessageHistory(query);
+      const player = client.data.player;
+      if (!player) {
+        client.emit('chat:error', {
+          error: 'Not authenticated',
+          code: 'TOKEN_INVALID',
+        });
+        return;
+      }
+
+      // Only ever load history for the caller's own session — ignore any
+      // sessionId in the payload so members can't read other sessions' chat.
+      const result = await this.chatService.getMessageHistory({
+        ...query,
+        sessionId: player.sessionId,
+      });
 
       // Send history to the requesting client only
       client.emit('chat:history-loaded', {
@@ -129,7 +195,7 @@ export class ChatGateway extends BaseGateway {
       });
 
       this.logger.log(
-        `Loaded ${result.messages.length} messages for session ${query.sessionId}`,
+        `Loaded ${result.messages.length} messages for session ${player.sessionId}`,
       );
     } catch (error) {
       this.logger.error(`Failed to load history: ${getErrorMessage(error)}`);
