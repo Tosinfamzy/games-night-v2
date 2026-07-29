@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { TeamFormationService } from './team-formation.service';
 import { Team } from '../team.entity';
 import { Game } from '../../game/game.entity';
@@ -45,6 +46,19 @@ describe('TeamFormationService', () => {
         {
           provide: SessionGateway,
           useValue: sessionGateway,
+        },
+        {
+          provide: DataSource,
+          useValue: {
+            // Run the callback with a manager that delegates to the team repo.
+            transaction: jest.fn((cb: (m: unknown) => unknown) =>
+              cb({
+                create: (_entity: unknown, data: unknown) =>
+                  teamRepo.create(data),
+                save: (entity: unknown) => teamRepo.save(entity),
+              }),
+            ),
+          },
         },
       ],
     }).compile();
