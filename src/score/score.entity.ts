@@ -41,7 +41,11 @@ export class Score {
     type: () => Game,
   })
   @Index()
-  @ManyToOne(() => Game, (game) => game.scores, { eager: true })
+  // CASCADE: removing a game drops its scores instead of failing on the FK.
+  @ManyToOne(() => Game, (game) => game.scores, {
+    eager: true,
+    onDelete: 'CASCADE',
+  })
   game: Game;
 
   @ApiProperty({

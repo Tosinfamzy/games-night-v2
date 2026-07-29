@@ -50,7 +50,11 @@ export class Team {
 
   @ApiProperty({ type: () => Game, description: 'Game this team belongs to' })
   @Index()
-  @ManyToOne(() => Game, (game) => game.teams, { eager: true })
+  // CASCADE: removing a game drops its teams instead of failing on the FK.
+  @ManyToOne(() => Game, (game) => game.teams, {
+    eager: true,
+    onDelete: 'CASCADE',
+  })
   game: Game;
 
   @ApiProperty({

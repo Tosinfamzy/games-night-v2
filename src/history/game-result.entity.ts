@@ -30,7 +30,9 @@ export class GameResult {
     type: () => Game,
   })
   @Index()
-  @ManyToOne(() => Game, { eager: true })
+  // CASCADE: removing a game drops its result record instead of failing on the
+  // FK. Session name/id + gameName are denormalised on this row for history.
+  @ManyToOne(() => Game, { eager: true, onDelete: 'CASCADE' })
   game: Game;
 
   @ApiProperty({
