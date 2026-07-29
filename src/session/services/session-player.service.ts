@@ -15,6 +15,7 @@ import { SessionStatus } from '../enums/session-status.enum';
 import { SessionGateway } from '../session.gateway';
 import { AuthService } from '../../auth/auth.service';
 import { DomainError } from '../../common/errors/domain-errors';
+import { isUniqueViolation } from '../../common/utils/error.util';
 import { SessionReadinessService } from './session-readiness.service';
 import { JoinSessionDto } from '../dto/join-session.dto';
 import {
@@ -78,21 +79,34 @@ export class SessionPlayerService {
 
     if (existingPlayer) {
       // Player is rejoining - update their lastConnectedAt and return existing player
-      existingPlayer.lastConnectedAt = new Date();
-      existingPlayer.status = PlayerStatus.JOINED;
-      savedPlayer = await this.playerRepo.save(existingPlayer);
+      savedPlayer = await this.markRejoined(existingPlayer);
     } else {
-      // Create new player
-      const player = this.playerRepo.create({
-        name: dto.playerName,
-        session,
-        status: PlayerStatus.JOINED,
-        lastConnectedAt: new Date(),
-        userId: userId,
-        isGuest: !userId,
-      });
+      // Create new player. Two concurrent joins with the same name both pass the
+      // check above, but the unique (sessionId, name) index lets only one insert
+      // win; the loser is handled as a rejoin of the winning row.
+      try {
+        const player = this.playerRepo.create({
+          name: dto.playerName,
+          session,
+          status: PlayerStatus.JOINED,
+          lastConnectedAt: new Date(),
+          userId: userId,
+          isGuest: !userId,
+        });
 
-      savedPlayer = await this.playerRepo.save(player);
+        savedPlayer = await this.playerRepo.save(player);
+      } catch (error) {
+        if (!isUniqueViolation(error)) {
+          throw error;
+        }
+        const winner = await this.playerRepo.findOne({
+          where: { name: dto.playerName, session: { id: session.id } },
+        });
+        if (!winner) {
+          throw error;
+        }
+        savedPlayer = await this.markRejoined(winner);
+      }
     }
 
     // Broadcast player joined event via WebSocket
@@ -118,6 +132,13 @@ export class SessionPlayerService {
         savedPlayer.name,
       ),
     };
+  }
+
+  /** Mark an existing player row as freshly (re)joined. */
+  private async markRejoined(player: Player): Promise<Player> {
+    player.lastConnectedAt = new Date();
+    player.status = PlayerStatus.JOINED;
+    return this.playerRepo.save(player);
   }
 
   /**

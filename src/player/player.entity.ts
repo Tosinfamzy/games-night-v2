@@ -22,6 +22,9 @@ export enum PlayerStatus {
 }
 
 @Entity()
+// At most one player per (session, name): closes the joinSession check-then-
+// create race at the DB level. See migration AddUniquePlayerNamePerSession.
+@Index('UQ_player_session_name', ['session', 'name'], { unique: true })
 export class Player {
   @ApiProperty({ example: 'uuid' })
   @PrimaryGeneratedColumn('uuid')
