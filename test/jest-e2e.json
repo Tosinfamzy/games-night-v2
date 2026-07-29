@@ -5,5 +5,7 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "//": "Serialize e2e suites: they share one test DB with TypeORM synchronize, and parallel workers race to CREATE the same enum TYPEs (duplicate_key on pg_type), which intermittently crashes app init and fails the whole run.",
+  "maxWorkers": 1
 }
