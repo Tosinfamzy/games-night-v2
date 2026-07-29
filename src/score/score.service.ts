@@ -40,7 +40,7 @@ export class ScoreService {
   async create(dto: CreateScoreDto): Promise<Score> {
     const game = await this.gameRepo.findOne({
       where: { id: dto.gameId },
-      relations: ['session'],
+      relations: ['session', 'teams'],
     });
 
     if (!game) {
@@ -73,6 +73,10 @@ export class ScoreService {
       if (!team) {
         throw new NotFoundException(`Team with ID ${dto.teamId} not found`);
       }
+      // The team must be one of this game's teams.
+      if (!(game.teams ?? []).some((t) => t.id === dto.teamId)) {
+        throw DomainError.gameInvalidState('Team is not part of this game');
+      }
       score.team = team;
     }
 
@@ -85,7 +89,7 @@ export class ScoreService {
   ): Promise<Score> {
     const game = await this.gameRepo.findOne({
       where: { id: gameId },
-      relations: ['session'],
+      relations: ['session', 'teams'],
     });
 
     if (!game) {
@@ -106,12 +110,10 @@ export class ScoreService {
       throw new NotFoundException(`Team with ID ${dto.teamId} not found`);
     }
 
-    // The team must belong to this game's session — otherwise a host could
-    // award points to a team playing in someone else's session entirely.
-    if (team.session?.id !== game.session?.id) {
-      throw DomainError.gameInvalidState(
-        'Team does not belong to this game’s session',
-      );
+    // The team must be one of THIS game's teams — not merely in the same
+    // session — otherwise a host could score a team playing a different game.
+    if (!(game.teams ?? []).some((t) => t.id === dto.teamId)) {
+      throw DomainError.gameInvalidState('Team is not part of this game');
     }
 
     const score = this.repo.create({

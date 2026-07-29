@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { UnauthorizedException } from '@nestjs/common';
 import { SessionController } from './session.controller';
 import { SessionService } from './session.service';
 import { HostGuard } from '../auth/guards/host.guard';
@@ -14,6 +15,7 @@ describe('SessionController', () => {
 
   const mockSessionService = {
     findOne: jest.fn(),
+    create: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -43,6 +45,40 @@ describe('SessionController', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('create — host identity', () => {
+    const OLD_ENV = process.env.NODE_ENV;
+    const dto = { name: 'Game Night', gamesMasterId: 'gm-from-body' } as never;
+    afterEach(() => {
+      process.env.NODE_ENV = OLD_ENV;
+    });
+
+    it('uses the Clerk games master when signed in', async () => {
+      mockSessionService.create.mockResolvedValue({});
+      await controller.create(dto, { id: 'gm-clerk' } as never);
+      expect(mockSessionService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ gamesMasterId: 'gm-clerk' }),
+      );
+    });
+
+    it('falls back to the body gamesMasterId outside production', async () => {
+      process.env.NODE_ENV = 'test';
+      mockSessionService.create.mockResolvedValue({});
+      await controller.create(dto, undefined);
+      expect(mockSessionService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ gamesMasterId: 'gm-from-body' }),
+      );
+    });
+
+    it('rejects an anonymous create in production (no host spoofing)', () => {
+      process.env.NODE_ENV = 'production';
+      // The host check runs synchronously before the async service call.
+      expect(() => controller.create(dto, undefined)).toThrow(
+        UnauthorizedException,
+      );
+      expect(mockSessionService.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('getSessionGames', () => {

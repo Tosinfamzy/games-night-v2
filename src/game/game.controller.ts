@@ -24,7 +24,6 @@ import { UpdateGameDto } from './dto/update-game.dto';
 import { StartGameDto } from './dto/start-game.dto';
 import { StartGameWithTeamsDto } from './dto/start-game-with-teams.dto';
 import { NextTurnDto } from './dto/next-turn.dto';
-import { GameStatus } from './enums/game-status.enum';
 import { GameResponseDto } from '../common/dto/game.response';
 import { GameResultsDto } from '../common/dto/game-results.dto';
 import { HostGuard } from '../auth/guards/host.guard';
@@ -436,32 +435,6 @@ export class GameController {
   })
   getResults(@Param('id', ParseUUIDPipe) id: string): Promise<GameResultsDto> {
     return this.service.getResults(id);
-  }
-
-  @Put(':id/status')
-  @HostOf('game')
-  @ApiOperation({ summary: 'Update game status' })
-  @ApiParam({ name: 'id', description: 'Game ID' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Game status updated successfully.',
-    type: GameResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Invalid status transition.',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Game not found.',
-  })
-  updateGameStatus(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { status: GameStatus },
-  ): Promise<GameResponseDto> {
-    return this.service
-      .updateGameStatus(id, dto.status)
-      .then(() => this.serializeGame(id));
   }
 
   @Post(':id/reset')

@@ -821,43 +821,6 @@ describe('GameService', () => {
     });
   });
 
-  describe('updateGameStatus', () => {
-    it('should update game status', async () => {
-      const game = createMockGame({ status: GameStatus.PENDING });
-
-      gameRepo.findOne.mockResolvedValue(game);
-      gameRepo.save.mockResolvedValue({
-        ...game,
-        status: GameStatus.IN_PROGRESS,
-      });
-
-      const result = await service.updateGameStatus(
-        'game-1',
-        GameStatus.IN_PROGRESS,
-      );
-
-      expect(result.status).toBe(GameStatus.IN_PROGRESS);
-    });
-
-    it('should throw BadRequestException if changing completed game status', async () => {
-      const game = createMockGame({ status: GameStatus.COMPLETED });
-      gameRepo.findOne.mockResolvedValue(game);
-
-      await expect(
-        service.updateGameStatus('game-1', GameStatus.IN_PROGRESS),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should throw BadRequestException if changing cancelled game status', async () => {
-      const game = createMockGame({ status: GameStatus.CANCELLED });
-      gameRepo.findOne.mockResolvedValue(game);
-
-      await expect(
-        service.updateGameStatus('game-1', GameStatus.IN_PROGRESS),
-      ).rejects.toThrow(BadRequestException);
-    });
-  });
-
   describe('delete', () => {
     it('should delete a game', async () => {
       const game = createMockGame({ id: 'game-1' });

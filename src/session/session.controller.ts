@@ -10,7 +10,7 @@ import {
   HttpStatus,
   HttpCode,
   UseGuards,
-  BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -77,13 +77,19 @@ export class SessionController {
     @Body() dto: CreateSessionDto,
     @CurrentGm() gm?: GamesMaster,
   ): Promise<CreateSessionResponseDto> {
-    // Prefer the Clerk-authenticated games master: this closes the IDOR where
-    // any caller could host as an arbitrary gamesMasterId. Fall back to the
-    // legacy body param for clients not yet on Clerk auth (removed post-cutover).
-    const gamesMasterId = gm?.id ?? dto.gamesMasterId;
+    // Host identity must come from the Clerk-authenticated games master. In
+    // production the body's gamesMasterId is never trusted — otherwise any
+    // anonymous caller could host sessions as an arbitrary games master (the
+    // host id is discoverable). The body fallback survives only outside prod
+    // as a test/dev affordance (e2e can't mint Clerk JWTs).
+    const isProduction = process.env.NODE_ENV === 'production';
+    let gamesMasterId = gm?.id;
+    if (!gamesMasterId && !isProduction) {
+      gamesMasterId = dto.gamesMasterId;
+    }
     if (!gamesMasterId) {
-      throw new BadRequestException(
-        'Sign in as a games master (or provide gamesMasterId) to create a session',
+      throw new UnauthorizedException(
+        'Sign in as a games master to create a session',
       );
     }
     // Service validates the GM exists and auto-creates the host player.
