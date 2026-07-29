@@ -1,4 +1,11 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+  OnApplicationBootstrap,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { GameService } from './game.service';
 import { GameGateway } from './game.gateway';
 import { TeamService } from '../team/team.service';
@@ -16,7 +23,9 @@ interface ActiveTimer {
 }
 
 @Injectable()
-export class GameTimerService {
+export class GameTimerService
+  implements OnApplicationBootstrap, OnModuleDestroy
+{
   private readonly logger = new Logger(GameTimerService.name);
   private activeTimers = new Map<string, ActiveTimer>();
 
@@ -26,6 +35,47 @@ export class GameTimerService {
     private readonly gameGateway: GameGateway,
     private readonly teamService: TeamService,
   ) {}
+
+  /**
+   * Timers live only in this process's memory, so a restart/redeploy loses them
+   * all — on single-replica hosting that means every in-flight turn timer dies
+   * silently. Rebuild them from persisted turnStartedAt on boot; checkTimer
+   * computes remaining time from that, so a countdown that already elapsed
+   * fires expiry on the first tick.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      const games = await this.gameService.getGamesNeedingTimer();
+      let restored = 0;
+      for (const game of games) {
+        const team = (game.teams ?? []).find(
+          (t) => t.id === game.currentTurnTeamId,
+        );
+        if (team && game.turnTimeLimit && game.turnStartedAt) {
+          this.startTimer(
+            game.id,
+            team.id,
+            team.name,
+            game.turnTimeLimit,
+            game.turnStartedAt,
+          );
+          restored++;
+        }
+      }
+      if (restored > 0) {
+        this.logger.log(`Rehydrated ${restored} turn timer(s) after boot`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to rehydrate timers on boot: ${getErrorMessage(error)}`,
+      );
+    }
+  }
+
+  /** Clear every interval on shutdown so nothing leaks or fires post-exit. */
+  onModuleDestroy(): void {
+    this.stopAllTimers();
+  }
 
   /**
    * Start a timer for a game turn
