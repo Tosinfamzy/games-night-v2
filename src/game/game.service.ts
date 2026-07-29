@@ -187,15 +187,20 @@ export class GameService {
     }
 
     game.status = GameStatus.ROUND_ENDED;
-
-    if (game.currentRound === game.maxRounds) {
-      game.status = GameStatus.COMPLETED;
-    }
-
     const savedGame = await this.repo.save(game);
+
+    // The round's turn timer is done regardless of what happens next.
+    this.gameTimerService.stopTimer(savedGame.id);
 
     // Broadcast round ended event
     this.gameGateway.broadcastRoundEnded(savedGame.id, savedGame.currentRound);
+
+    // Ending the last round completes the game — route through completeGame so
+    // standings, winner, results JSON and history are all computed (previously
+    // this just flipped the status to COMPLETED and skipped all of that).
+    if (savedGame.currentRound >= savedGame.maxRounds) {
+      return this.completeGame(savedGame.id);
+    }
 
     return savedGame;
   }
@@ -213,7 +218,13 @@ export class GameService {
     }
 
     game.status = GameStatus.CANCELLED;
-    return await this.repo.save(game);
+    const savedGame = await this.repo.save(game);
+
+    // No more turns will run — kill any live timer so it can't fire a callback
+    // against a cancelled game.
+    this.gameTimerService.stopTimer(savedGame.id);
+
+    return savedGame;
   }
 
   async update(id: string, dto: UpdateGameDto): Promise<Game> {
@@ -433,8 +444,14 @@ export class GameService {
       );
     }
 
+    // Remember where we were so resume can restore the exact state (mid-round
+    // vs between-rounds) instead of guessing.
+    game.statusBeforePause = game.status;
     game.status = GameStatus.PAUSED;
     const savedGame = await this.repo.save(game);
+
+    // Freeze the turn timer while paused; it restarts on resume.
+    this.gameTimerService.stopTimer(savedGame.id);
 
     // Broadcast game paused event
     this.gameGateway.broadcastGamePaused(savedGame.id);
@@ -452,10 +469,10 @@ export class GameService {
       throw DomainError.gameInvalidState('Game is not paused');
     }
 
-    game.status =
-      game.currentRound > 0
-        ? GameStatus.IN_PROGRESS
-        : GameStatus.ROUND_IN_PROGRESS;
+    // Restore the exact pre-pause state; fall back to IN_PROGRESS for games
+    // paused before this field existed.
+    game.status = game.statusBeforePause ?? GameStatus.IN_PROGRESS;
+    game.statusBeforePause = undefined;
     game.turnStartedAt = new Date(); // Reset turn timer
     const savedGame = await this.repo.save(game);
 
@@ -524,6 +541,9 @@ export class GameService {
     };
 
     const savedGame = await this.repo.save(game);
+
+    // The game is over — stop any turn timer so it can't fire post-completion.
+    this.gameTimerService.stopTimer(savedGame.id);
 
     // Broadcast game completion via WebSocket
     this.gameGateway.broadcastGameCompleted(id, savedGame);

@@ -201,7 +201,7 @@ describe('ScoreService', () => {
         currentRound: 3,
         session: session as any,
       });
-      const team = createMockTeam({ id: 'team-1' });
+      const team = createMockTeam({ id: 'team-1', session: session as any });
       const mockScore = createMockScore({
         points: 20,
         game: game as Game,
@@ -236,7 +236,7 @@ describe('ScoreService', () => {
         currentRound: 5,
         session: session as any,
       });
-      const team = createMockTeam({ id: 'team-1' });
+      const team = createMockTeam({ id: 'team-1', session: session as any });
       const mockScore = createMockScore({
         roundNumber: 5,
         game: game as Game,
@@ -254,6 +254,69 @@ describe('ScoreService', () => {
       });
 
       expect(mockScore.roundNumber).toBe(5);
+    });
+
+    it('rejects a team that belongs to a different session', async () => {
+      const game = createMockGame({
+        id: 'game-1',
+        status: GameStatus.ROUND_IN_PROGRESS,
+        currentRound: 1,
+        session: createMockSession({ id: 'session-A' }) as any,
+      });
+      const foreignTeam = createMockTeam({
+        id: 'team-x',
+        session: createMockSession({ id: 'session-B' }) as any,
+      });
+      gameRepo.findOne.mockResolvedValue(game);
+      teamRepo.findOne.mockResolvedValue(foreignTeam);
+
+      await expect(
+        service.submitGameScore('game-1', { teamId: 'team-x', score: 5 }),
+      ).rejects.toThrow('Team does not belong to this game’s session');
+      expect(scoreRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getGameScores multi-round totals', () => {
+    it('sums totalPoints across every round, not just one', async () => {
+      const mockQueryBuilder = {
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        // Team A played 3 rounds: 40 + 30 + 30 = 100.
+        getRawMany: jest.fn().mockResolvedValue([
+          {
+            teamId: 'team-1',
+            teamName: 'A',
+            bonusPointsCount: '1',
+            roundNumber: 1,
+            roundPoints: '40',
+          },
+          {
+            teamId: 'team-1',
+            teamName: 'A',
+            bonusPointsCount: '0',
+            roundNumber: 2,
+            roundPoints: '30',
+          },
+          {
+            teamId: 'team-1',
+            teamName: 'A',
+            bonusPointsCount: '1',
+            roundNumber: 3,
+            roundPoints: '30',
+          },
+        ]),
+      };
+      scoreRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder as any);
+
+      const result = await service.getGameScores('game-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].totalPoints).toBe(100);
+      expect(result[0].bonusPointsCount).toBe(2);
+      expect(result[0].roundPoints).toEqual({ 1: 40, 2: 30, 3: 30 });
     });
   });
 

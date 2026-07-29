@@ -14,7 +14,9 @@ export class SubmitGameScoreDto {
   score: number;
 
   @ApiProperty({
-    description: 'Round number',
+    description:
+      'Deprecated/ignored: the score is always recorded against the game’s ' +
+      'current server-side round. Accepted for backward compatibility only.',
     required: false,
     default: 1,
   })
