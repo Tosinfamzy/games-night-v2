@@ -117,6 +117,7 @@ export class SessionController {
   }
 
   @Get(':id')
+  @UseGuards(OptionalClerkAuthGuard)
   @ApiOperation({ summary: 'Get a session by ID' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -124,10 +125,17 @@ export class SessionController {
     description: 'Session found.',
     type: SessionResponseDto,
   })
-  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<SessionResponseDto> {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentGm() gm?: GamesMaster,
+  ): Promise<SessionResponseDto> {
     return this.service
       .findOne(id, ['host', 'games', 'teams', 'players'])
-      .then((session) => SessionResponseDto.fromEntity(session));
+      .then((session) => {
+        // Only the authenticated host gets the shareable RSVP token.
+        const isHost = Boolean(gm?.id && gm.id === session.host?.id);
+        return SessionResponseDto.fromEntity(session, isHost);
+      });
   }
 
   @Post(':id/start')
@@ -290,9 +298,12 @@ export class SessionController {
   findByJoinCode(
     @Param('joinCode') joinCode: string,
   ): Promise<SessionResponseDto> {
-    return this.service
-      .findByJoinCode(joinCode)
-      .then((session) => SessionResponseDto.fromEntity(session));
+    return (
+      this.service
+        .findByJoinCode(joinCode)
+        // Anonymous join-code lookup — never expose the host's RSVP token.
+        .then((session) => SessionResponseDto.fromEntity(session, false))
+    );
   }
 
   @Post('join')
