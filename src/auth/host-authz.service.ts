@@ -141,6 +141,92 @@ export class HostAuthzService {
     return true;
   }
 
+  /**
+   * Authorize a session player-status action: the caller must belong to the
+   * session and be either the target player themselves (self-service, e.g.
+   * marking your own ready) or the session host (setting anyone's status).
+   * Without this, any anonymous caller could re-status any player.
+   */
+  async authorizeSessionActor(
+    request: Request,
+    meta: { session: string; player: string },
+  ): Promise<boolean> {
+    const token = extractBearerToken(request);
+    if (!token) {
+      throw DomainError.invalidToken(
+        'A valid token is required for this action',
+      );
+    }
+
+    const params = request.params as Record<string, string>;
+    const sessionId = params[meta.session];
+    const targetPlayerId = params[meta.player];
+    // Malformed/missing id: defer to the handler (404/400) rather than 500.
+    if (!sessionId || !UUID_RE.test(sessionId)) {
+      return true;
+    }
+
+    // Player-token path: allow a player acting on themselves, or the host.
+    const player = this.authService.validatePlayerToken(token);
+    if (player) {
+      if (player.sessionId !== sessionId) {
+        throw new ForbiddenException(
+          'Your session token does not match this session',
+        );
+      }
+      if (player.playerId === targetPlayerId) {
+        return true; // self
+      }
+      if (await this.isSessionHostByPlayer(player.playerId, sessionId)) {
+        return true;
+      }
+      throw new ForbiddenException(
+        'Only the player themselves or the session host can change this',
+      );
+    }
+
+    // Clerk games-master path: the host acts on any player.
+    const clerkUserId = await this.clerk.verify(token);
+    if (clerkUserId) {
+      if (await this.isSessionHostByGm(clerkUserId, sessionId)) {
+        return true;
+      }
+      throw new ForbiddenException('Only the session host can do this');
+    }
+
+    throw DomainError.invalidToken('A valid token is required for this action');
+  }
+
+  private async isSessionHostByPlayer(
+    playerId: string,
+    sessionId: string,
+  ): Promise<boolean> {
+    const session = await this.sessionRepo.findOne({
+      where: { id: sessionId },
+      relations: ['host'],
+    });
+    const callerPlayer = await this.playerRepo.findOne({
+      where: { id: playerId },
+    });
+    return Boolean(
+      callerPlayer?.userId &&
+      session?.host?.id &&
+      callerPlayer.userId === session.host.id,
+    );
+  }
+
+  private async isSessionHostByGm(
+    clerkUserId: string,
+    sessionId: string,
+  ): Promise<boolean> {
+    const gm = await this.gamesMasterService.findByClerkUserId(clerkUserId);
+    const session = await this.sessionRepo.findOne({
+      where: { id: sessionId },
+      relations: ['host'],
+    });
+    return Boolean(gm?.id && session?.host?.id && gm.id === session.host.id);
+  }
+
   private async resolveSessionId(
     meta: HostOfMeta,
     request: Request,
@@ -175,6 +261,11 @@ export class HostAuthzService {
           // Team.session and Team.game are eager (game.session eager).
           const team = await this.teamRepo.findOne({ where: { id } });
           return team?.session?.id ?? team?.game?.session?.id ?? null;
+        }
+        case 'player': {
+          // Player.session is eager.
+          const player = await this.playerRepo.findOne({ where: { id } });
+          return player?.session?.id ?? null;
         }
         default:
           return null;

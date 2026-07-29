@@ -48,6 +48,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/user.entity';
 import { HostGuard } from '../auth/guards/host.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
+import { SessionActorGuard } from '../auth/guards/session-actor.guard';
+import { SessionActor } from '../auth/decorators/session-actor.decorator';
 import {
   ClerkAuthGuard,
   OptionalClerkAuthGuard,
@@ -538,6 +540,8 @@ export class SessionController {
 
   // Player status management endpoints
   @Post(':id/players/:playerId/ready')
+  @UseGuards(SessionActorGuard)
+  @SessionActor('id', 'playerId')
   @ApiOperation({ summary: 'Set player ready status in session' })
   @ApiParam({ name: 'id', description: 'Session ID' })
   @ApiParam({ name: 'playerId', description: 'Player ID' })
@@ -554,6 +558,8 @@ export class SessionController {
   }
 
   @Put(':id/players/:playerId/status')
+  @UseGuards(SessionActorGuard)
+  @SessionActor('id', 'playerId')
   @ApiOperation({ summary: 'Update player status in session' })
   @ApiParam({ name: 'id', description: 'Session ID' })
   @ApiParam({ name: 'playerId', description: 'Player ID' })

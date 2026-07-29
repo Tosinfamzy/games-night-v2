@@ -10,6 +10,7 @@ import {
   ParseUUIDPipe,
   HttpStatus,
   HttpCode,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -18,6 +19,10 @@ import {
   ApiParam,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { HostGuard } from '../auth/guards/host.guard';
+import { HostOf } from '../auth/decorators/host-of.decorator';
+import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { PlayerService } from './player.service';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
@@ -27,11 +32,16 @@ import { PlayerResponseDto } from '../common/dto/player.response';
 
 @ApiTags('players')
 @ApiBearerAuth()
+// Host-guarded: this controller could delete/rename/re-status any player by id
+// (IDOR). The public join route below opts out (no @HostOf). Self player-status
+// changes go through the session routes, not here.
+@UseGuards(HostGuard)
 @Controller('players')
 export class PlayerController {
   constructor(private readonly service: PlayerService) {}
 
   @Post()
+  @HostOf('session', 'sessionId')
   @ApiOperation({ summary: 'Create a player' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -52,7 +62,8 @@ export class PlayerController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all players' })
+  @UseGuards(ClerkAuthGuard)
+  @ApiOperation({ summary: 'Get all players (host only)' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'List of all players.',
@@ -107,6 +118,7 @@ export class PlayerController {
   }
 
   @Put(':id')
+  @HostOf('player', 'id')
   @ApiOperation({ summary: 'Update a player' })
   @ApiParam({ name: 'id', description: 'ID of the player' })
   @ApiResponse({
@@ -135,6 +147,7 @@ export class PlayerController {
   }
 
   @Delete(':id')
+  @HostOf('player', 'id')
   @ApiOperation({ summary: 'Delete a player' })
   @ApiParam({ name: 'id', description: 'ID of the player' })
   @ApiResponse({
@@ -151,6 +164,7 @@ export class PlayerController {
   }
 
   @Post('join')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: 'Join a session using join code' })
   @ApiResponse({
     status: HttpStatus.CREATED,
@@ -175,6 +189,7 @@ export class PlayerController {
   }
 
   @Patch(':id/status')
+  @HostOf('player', 'id')
   @ApiOperation({ summary: 'Update player status' })
   @ApiParam({ name: 'id', description: 'ID of the player' })
   @ApiResponse({
@@ -197,6 +212,7 @@ export class PlayerController {
   }
 
   @Patch(':id/ready')
+  @HostOf('player', 'id')
   @ApiOperation({ summary: 'Mark player as ready' })
   @ApiParam({ name: 'id', description: 'ID of the player' })
   @ApiResponse({
@@ -216,6 +232,7 @@ export class PlayerController {
   }
 
   @Patch(':id/not-ready')
+  @HostOf('player', 'id')
   @ApiOperation({ summary: 'Mark player as not ready' })
   @ApiParam({ name: 'id', description: 'ID of the player' })
   @ApiResponse({
@@ -248,6 +265,7 @@ export class PlayerController {
   }
 
   @Delete(':id/remove')
+  @HostOf('player', 'id')
   @ApiOperation({ summary: 'Remove player from session' })
   @ApiParam({ name: 'id', description: 'ID of the player' })
   @ApiResponse({

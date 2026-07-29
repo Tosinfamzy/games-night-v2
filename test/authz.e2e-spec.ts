@@ -16,6 +16,7 @@ describe('Host authorization (e2e)', () => {
   let server: Server;
   let seed: SeededActiveGame;
   let nonHostToken: string;
+  let nonHostPlayerId: string;
 
   const bearer = (t?: string) => (t ? `Bearer ${t}` : '');
 
@@ -36,6 +37,7 @@ describe('Host authorization (e2e)', () => {
       .send({ joinCode: seed.joinCode, playerName: 'Not The Host' })
       .expect(201);
     nonHostToken = (joinRes.body as { playerToken: string }).playerToken;
+    nonHostPlayerId = (joinRes.body as { playerId: string }).playerId;
   });
 
   afterAll(async () => {
@@ -138,6 +140,54 @@ describe('Host authorization (e2e)', () => {
       .query({ sessionId: seed.sessionId });
     expect(res.status).toBe(400);
     expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+  });
+
+  it('rejects anonymous player mutation (IDOR)', async () => {
+    const res = await request(server)
+      .put(`/players/${seed.playerIds[0]}`)
+      .send({ name: 'Hijacked' });
+    expect(res.status).toBe(400);
+    expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+  });
+
+  it('rejects a non-host mutating another player (403)', async () => {
+    await request(server)
+      .delete(`/players/${seed.playerIds[0]}`)
+      .set('Authorization', bearer(nonHostToken))
+      .expect(403);
+  });
+
+  // Session player-status routes are host-or-self, not open (SessionActorGuard).
+  it('rejects an anonymous player-ready change', async () => {
+    const res = await request(server)
+      .post(`/sessions/${seed.sessionId}/players/${seed.playerIds[0]}/ready`)
+      .send({ ready: true });
+    expect(res.status).toBe(400);
+    expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+  });
+
+  it('rejects a non-host changing another player’s ready (403)', async () => {
+    await request(server)
+      .post(`/sessions/${seed.sessionId}/players/${seed.playerIds[0]}/ready`)
+      .set('Authorization', bearer(nonHostToken))
+      .send({ ready: true })
+      .expect(403);
+  });
+
+  it('allows a player to change their own ready (self-service)', async () => {
+    await request(server)
+      .post(`/sessions/${seed.sessionId}/players/${nonHostPlayerId}/ready`)
+      .set('Authorization', bearer(nonHostToken))
+      .send({ ready: true })
+      .expect(201);
+  });
+
+  it('allows the host to change any player’s ready', async () => {
+    await request(server)
+      .post(`/sessions/${seed.sessionId}/players/${nonHostPlayerId}/ready`)
+      .set('Authorization', bearer(seed.hostToken))
+      .send({ ready: false })
+      .expect(201);
   });
 
   it('rejects anonymous game-library mutation', async () => {

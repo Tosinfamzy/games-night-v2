@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SessionController } from './session.controller';
 import { SessionService } from './session.service';
 import { HostGuard } from '../auth/guards/host.guard';
+import { SessionActorGuard } from '../auth/guards/session-actor.guard';
 import {
   ClerkAuthGuard,
   OptionalClerkAuthGuard,
@@ -27,6 +28,8 @@ describe('SessionController', () => {
     })
       // HostGuard is exercised in e2e; unit tests call methods directly.
       .overrideGuard(HostGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SessionActorGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(OptionalClerkAuthGuard)
       .useValue({ canActivate: () => true })
