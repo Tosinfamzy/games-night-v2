@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { SessionController } from './session.controller';
 import { SessionService } from './session.service';
+import { AuthService } from '../auth/auth.service';
 import { HostGuard } from '../auth/guards/host.guard';
 import { SessionActorGuard } from '../auth/guards/session-actor.guard';
 import {
@@ -18,6 +19,10 @@ describe('SessionController', () => {
     create: jest.fn(),
   };
 
+  const mockAuthService = {
+    generatePlayerToken: jest.fn().mockReturnValue('host-player-token'),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [SessionController],
@@ -25,6 +30,10 @@ describe('SessionController', () => {
         {
           provide: SessionService,
           useValue: mockSessionService,
+        },
+        {
+          provide: AuthService,
+          useValue: mockAuthService,
         },
       ],
     })
@@ -78,6 +87,41 @@ describe('SessionController', () => {
         UnauthorizedException,
       );
       expect(mockSessionService.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getHostConnection', () => {
+    const session = {
+      id: 's1',
+      host: { id: 'gm-1' },
+      players: [
+        { id: 'p-host', name: 'Host', userId: 'gm-1' },
+        { id: 'p-other', name: 'Other', userId: undefined },
+      ],
+    };
+
+    it('issues a player token for the session host', async () => {
+      mockSessionService.findOne.mockResolvedValue(session);
+
+      const res = await controller.getHostConnection('s1', {
+        id: 'gm-1',
+      } as never);
+
+      expect(res.playerToken).toBe('host-player-token');
+      expect(mockAuthService.generatePlayerToken).toHaveBeenCalledWith(
+        'p-host',
+        's1',
+        'Host',
+      );
+    });
+
+    it('rejects a games master who does not host the session', async () => {
+      mockSessionService.findOne.mockResolvedValue(session);
+
+      await expect(
+        controller.getHostConnection('s1', { id: 'gm-other' } as never),
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockAuthService.generatePlayerToken).not.toHaveBeenCalled();
     });
   });
 
