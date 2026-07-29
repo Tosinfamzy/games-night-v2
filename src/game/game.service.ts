@@ -224,6 +224,10 @@ export class GameService {
     // against a cancelled game.
     this.gameTimerService.stopTimer(savedGame.id);
 
+    // Tell connected clients so the live view/TV leaves the cancelled game
+    // instead of waiting for the next poll.
+    this.gameGateway.broadcastGameCancelled(savedGame.id);
+
     return savedGame;
   }
 
@@ -400,6 +404,7 @@ export class GameService {
         nextTeam.id,
         nextTeam.name,
         game.turnTimeLimit,
+        game.turnStartedAt,
       );
 
       // Start timer if game has time limit
@@ -422,6 +427,8 @@ export class GameService {
           nextTeam.id,
           nextTeam.name,
           false, // Manual advance (not automatic)
+          game.turnTimeLimit,
+          game.turnStartedAt,
         );
       }
     }
