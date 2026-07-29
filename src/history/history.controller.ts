@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   HttpStatus,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -13,15 +14,21 @@ import {
   ApiResponse,
   ApiParam,
   ApiQuery,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { HistoryService } from './history.service';
 import { GameResult } from './game-result.entity';
 import { QueryHistoryDto } from './dto/query-history.dto';
 import { PlayerStatsDto } from './dto/player-stats.dto';
+import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 
+// History exposes game records, per-player stats and leaderboards (aggregated
+// player PII). It was fully public — require a signed-in games master.
 @ApiTags('history')
+@ApiBearerAuth()
 @Controller('history')
+@UseGuards(ClerkAuthGuard)
 @UseInterceptors(CacheInterceptor)
 export class HistoryController {
   constructor(private readonly historyService: HistoryService) {}

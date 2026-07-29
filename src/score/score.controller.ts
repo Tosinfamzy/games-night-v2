@@ -27,6 +27,7 @@ import { Score } from './score.entity';
 import { TeamScore } from './interfaces/team-score.interface';
 import { ScoreResponseDto } from '../common/dto/score.response';
 import { HostGuard } from '../auth/guards/host.guard';
+import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
 
 @ApiTags('scores')
@@ -87,8 +88,10 @@ export class ScoreController {
       .then((score) => ScoreResponseDto.fromEntity(score));
   }
 
+  // Admin-only cross-tenant list — was unauthenticated. Requires a signed-in GM.
   @Get()
-  @ApiOperation({ summary: 'Get all score records' })
+  @UseGuards(ClerkAuthGuard)
+  @ApiOperation({ summary: 'Get all score records (admin)' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'List of all scores.',

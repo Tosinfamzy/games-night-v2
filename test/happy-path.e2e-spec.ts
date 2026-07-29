@@ -282,14 +282,15 @@ describe('Games Night happy path (e2e)', () => {
     await post(`/sessions/${sessionId}/complete`, {});
   });
 
-  it('14. reads game results and session history', async () => {
+  it('14. reads game results; history now requires host auth', async () => {
     await request(server).get(`/games/${gameId}/results`).expect(200);
 
-    const res = await request(server)
+    // The history controller aggregates player PII and is now host-only —
+    // an anonymous read is rejected.
+    await request(server)
       .get(`/history/games`)
       .query({ sessionId })
-      .expect(200);
-    expect(Array.isArray(res.body)).toBe(true);
+      .expect(400);
   });
 
   it('15. reads chat history for the session (HTTP surface)', async () => {

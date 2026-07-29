@@ -8,10 +8,12 @@ import { Session } from '../session/session.entity';
 import { Team } from '../team/team.entity';
 import { Player } from '../player/player.entity';
 import { Score } from '../score/score.entity';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([GameResult, Game, Session, Team, Player, Score]),
+    AuthModule,
   ],
   providers: [HistoryService],
   controllers: [HistoryController],

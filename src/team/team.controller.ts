@@ -21,6 +21,7 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { HostGuard } from '../auth/guards/host.guard';
+import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
 import { TeamService } from './team.service';
 import { CreateTeamDto } from './dto/create-team.dto';
@@ -58,8 +59,10 @@ export class TeamController {
       .then((team) => TeamResponseDto.fromEntity(team));
   }
 
+  // Admin-only cross-tenant list — was unauthenticated. Requires a signed-in GM.
   @Get()
-  @ApiOperation({ summary: 'Get all teams' })
+  @UseGuards(ClerkAuthGuard)
+  @ApiOperation({ summary: 'Get all teams (admin)' })
   @ApiResponse({
     status: 200,
     description: 'List of all teams',
