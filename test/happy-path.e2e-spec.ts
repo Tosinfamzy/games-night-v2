@@ -172,6 +172,11 @@ describe('Games Night happy path (e2e)', () => {
     expect(playerBId).toEqual(expect.any(String));
     expect(a.playerToken).toEqual(expect.any(String));
     expect(b.playerToken).toEqual(expect.any(String));
+
+    // A joining player must not receive the host-only join code or RSVP token.
+    const joinedSession = a.session as JsonRecord;
+    expect(joinedSession.joinCode).toBeUndefined();
+    expect(joinedSession.publicRsvpToken).toBeUndefined();
   });
 
   it('6. creates two session teams linked to the game', async () => {
