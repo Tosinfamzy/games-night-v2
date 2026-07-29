@@ -21,6 +21,13 @@ export class PublicRsvpViewDto {
   @ApiProperty({ example: 'Weekly board game meetup', nullable: true })
   description: string | null;
 
+  @ApiProperty({
+    description: "The host's invite message, shown as a greeting on the page.",
+    example: "You're invited! Bring snacks and your A-game 🎲",
+    nullable: true,
+  })
+  inviteMessage: string | null;
+
   @ApiProperty({ example: 'Ada', nullable: true })
   hostName: string | null;
 

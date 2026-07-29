@@ -36,6 +36,14 @@ export class SessionResponseDto extends SessionSummaryDto {
   @ApiProperty({ example: 'Community Hall', nullable: true })
   location?: string | null;
 
+  @ApiProperty({
+    description:
+      'Host-authored invite message (share text + public RSVP greeting).',
+    example: "You're invited! Bring snacks and your A-game 🎲",
+    nullable: true,
+  })
+  inviteMessage?: string | null;
+
   @ApiProperty({ type: () => GamesMasterSummaryDto, nullable: true })
   host: GamesMasterSummaryDto | null;
 
@@ -84,6 +92,7 @@ export class SessionResponseDto extends SessionSummaryDto {
     Object.assign(dto, SessionSummaryDto.fromEntity(entity));
     dto.description = entity.description ?? null;
     dto.location = entity.location ?? null;
+    dto.inviteMessage = entity.inviteMessage ?? null;
     dto.host = GamesMasterSummaryDto.fromEntity(entity.host);
     if (includeHostSecrets) {
       dto.publicRsvpToken = entity.publicRsvpToken;

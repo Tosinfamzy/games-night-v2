@@ -97,6 +97,7 @@ export class SessionService {
       description: dto.description,
       date: dto.date,
       location: dto.location,
+      inviteMessage: dto.inviteMessage,
       host,
       status: SessionStatus.SCHEDULED,
       joinCode,
@@ -207,6 +208,9 @@ export class SessionService {
       description: dto.description ?? session.description,
       date: dto.date ?? session.date,
       location: dto.location ?? session.location,
+      // `?? existing` keeps the message when the field is omitted; passing an
+      // explicit empty string clears it.
+      inviteMessage: dto.inviteMessage ?? session.inviteMessage,
     });
 
     return await this.repo.save(session);

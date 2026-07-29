@@ -151,6 +151,7 @@ export class InviteService {
       date: session.date,
       location: session.location ?? null,
       description: session.description ?? null,
+      inviteMessage: session.inviteMessage ?? null,
       hostName: session.host?.name ?? null,
       goingHeadcount: headcount,
     };
