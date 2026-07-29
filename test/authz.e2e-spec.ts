@@ -86,6 +86,14 @@ describe('Host authorization (e2e)', () => {
       .expect(201);
   });
 
+  it('accepts a negative score (penalty rounds)', async () => {
+    await request(server)
+      .post(`/scores/games/${seed.gameId}/submit`)
+      .set('Authorization', bearer(seed.hostToken))
+      .send({ teamId: seed.teamIds[0], score: -5, roundNumber: 1 })
+      .expect(201);
+  });
+
   it('leaves reads and public routes open (no token needed)', async () => {
     await request(server).get(`/scores/games/${seed.gameId}`).expect(200);
     await request(server).get(`/sessions/${seed.sessionId}`).expect(200);
