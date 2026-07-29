@@ -277,6 +277,44 @@ describe('ScoreService', () => {
     });
   });
 
+  describe('getGameScores includes teams with no scores', () => {
+    it('seeds every team in the game at 0 so a scoreless team still ranks', async () => {
+      // Two teams in the game; only team-1 has a (negative) score row.
+      gameRepo.findOne.mockResolvedValue({
+        id: 'game-1',
+        teams: [
+          { id: 'team-1', name: 'A' },
+          { id: 'team-2', name: 'B' },
+        ],
+      });
+      const mockQueryBuilder = {
+        leftJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        groupBy: jest.fn().mockReturnThis(),
+        getRawMany: jest.fn().mockResolvedValue([
+          {
+            teamId: 'team-1',
+            teamName: 'A',
+            bonusPointsCount: '0',
+            roundNumber: 1,
+            roundPoints: '-5',
+          },
+        ]),
+      };
+      scoreRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder as any);
+
+      const result = await service.getGameScores('game-1');
+
+      expect(result).toHaveLength(2);
+      const teamB = result.find((t) => t.teamId === 'team-2');
+      // The scoreless team is present at 0 and thus outranks team-1 at -5.
+      expect(teamB).toBeDefined();
+      expect(teamB!.totalPoints).toBe(0);
+      expect(result.find((t) => t.teamId === 'team-1')!.totalPoints).toBe(-5);
+    });
+  });
+
   describe('getGameScores multi-round totals', () => {
     it('sums totalPoints across every round, not just one', async () => {
       const mockQueryBuilder = {
