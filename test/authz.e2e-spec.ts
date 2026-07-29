@@ -224,8 +224,10 @@ describe('Host authorization (e2e)', () => {
     },
   );
 
-  it('rejects anonymous game-library mutation', async () => {
-    const res = await request(server)
+  it('no longer exposes game-library mutation endpoints (read-only catalog)', async () => {
+    // The shared catalog is seeded server-side; create/update/delete were
+    // removed so no GM can mutate entries every other host depends on.
+    const create = await request(server)
       .post('/game-library')
       .send({
         name: 'Anon Game',
@@ -236,7 +238,17 @@ describe('Host authorization (e2e)', () => {
         difficulty: 'Easy',
         categories: ['x'],
       });
-    expect(res.status).toBe(400);
-    expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+    expect(create.status).toBe(404);
+
+    const del = await request(server).delete(
+      '/game-library/00000000-0000-0000-0000-000000000000',
+    );
+    expect(del.status).toBe(404);
+  });
+
+  it('still serves the catalog read-only to anyone', async () => {
+    const res = await request(server).get('/game-library');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
   });
 });

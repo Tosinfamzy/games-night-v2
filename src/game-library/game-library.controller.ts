@@ -1,47 +1,20 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-  UseGuards,
-  ParseUUIDPipe,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiQuery,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
-import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
+import { Controller, Get, Param, Query, ParseUUIDPipe } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { GameLibraryService } from './game-library.service';
-import { CreateGameLibraryDto } from './dto/create-game-library.dto';
-import { UpdateGameLibraryDto } from './dto/update-game-library.dto';
 import { GameLibraryResponseDto } from '../common/dto/game-library.response';
 
+/**
+ * The game library is a single shared catalog across all games masters, seeded
+ * server-side (see GameLibraryService.onModuleInit). It is intentionally
+ * READ-ONLY over the API: there is no per-tenant ownership, so exposing
+ * create/update/activate/deactivate/delete would let any authenticated GM mutate
+ * or remove entries every other host depends on. Catalog changes are made via
+ * seeding / migrations, not HTTP.
+ */
 @ApiTags('Game Library')
 @Controller('game-library')
 export class GameLibraryController {
   constructor(private readonly gameLibraryService: GameLibraryService) {}
-
-  @Post()
-  @UseGuards(ClerkAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a new game in the library' })
-  @ApiResponse({
-    status: 201,
-    description: 'Game successfully created',
-    type: GameLibraryResponseDto,
-  })
-  create(@Body() createGameLibraryDto: CreateGameLibraryDto) {
-    return this.gameLibraryService
-      .create(createGameLibraryDto)
-      .then((record) => GameLibraryResponseDto.fromEntity(record));
-  }
 
   @Get()
   @ApiOperation({ summary: 'Get all active games from the library' })
@@ -119,73 +92,5 @@ export class GameLibraryController {
     return this.gameLibraryService
       .findOne(id)
       .then((game) => GameLibraryResponseDto.fromEntity(game));
-  }
-
-  @Patch(':id')
-  @UseGuards(ClerkAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update a game' })
-  @ApiResponse({
-    status: 200,
-    description: 'Game successfully updated',
-    type: GameLibraryResponseDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Game not found',
-  })
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateGameLibraryDto: UpdateGameLibraryDto,
-  ) {
-    return this.gameLibraryService
-      .update(id, updateGameLibraryDto)
-      .then((game) => GameLibraryResponseDto.fromEntity(game));
-  }
-
-  @Patch(':id/deactivate')
-  @UseGuards(ClerkAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Deactivate a game (soft delete)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Game successfully deactivated',
-    type: GameLibraryResponseDto,
-  })
-  deactivate(@Param('id', ParseUUIDPipe) id: string) {
-    return this.gameLibraryService
-      .deactivate(id)
-      .then((game) => GameLibraryResponseDto.fromEntity(game));
-  }
-
-  @Patch(':id/activate')
-  @UseGuards(ClerkAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Activate a game' })
-  @ApiResponse({
-    status: 200,
-    description: 'Game successfully activated',
-    type: GameLibraryResponseDto,
-  })
-  activate(@Param('id', ParseUUIDPipe) id: string) {
-    return this.gameLibraryService
-      .activate(id)
-      .then((game) => GameLibraryResponseDto.fromEntity(game));
-  }
-
-  @Delete(':id')
-  @UseGuards(ClerkAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Permanently delete a game' })
-  @ApiResponse({
-    status: 200,
-    description: 'Game successfully deleted',
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Game not found',
-  })
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.gameLibraryService.remove(id);
   }
 }
