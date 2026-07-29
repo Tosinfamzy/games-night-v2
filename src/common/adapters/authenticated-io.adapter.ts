@@ -1,7 +1,9 @@
 import { INestApplicationContext, Logger } from '@nestjs/common';
 import { IoAdapter } from '@nestjs/platform-socket.io';
+import { DataSource } from 'typeorm';
 import { Server, ServerOptions } from 'socket.io';
 import { AuthService } from '../../auth/auth.service';
+import { Player } from '../../player/player.entity';
 import { extractPlayerToken } from '../utils/ws-token.util';
 import { ErrorCode } from '../errors/error-code.enum';
 import { AppSocketData } from '../types/socket.types';
@@ -32,30 +34,50 @@ export class AuthenticatedIoAdapter extends IoAdapter {
     // super preserves the per-gateway CORS/options untouched.
     const server = super.createIOServer(port, options) as Server;
     const authService = this.app.get(AuthService, { strict: false });
+    const playerRepo = this.app
+      .get(DataSource, { strict: false })
+      .getRepository(Player);
 
     for (const namespace of AuthenticatedIoAdapter.AUTH_NAMESPACES) {
       // Per-namespace: `server.use(...)` only applies to the default '/' namespace.
       server.of(namespace).use((socket, next) => {
-        try {
-          const token = extractPlayerToken(socket.handshake);
-          const player = token ? authService.validatePlayerToken(token) : null;
+        void (async () => {
+          try {
+            const token = extractPlayerToken(socket.handshake);
+            const player = token
+              ? authService.validatePlayerToken(token)
+              : null;
 
-          if (!player) {
-            return next(this.unauthorized('Invalid or expired player token'));
+            if (!player) {
+              return next(this.unauthorized('Invalid or expired player token'));
+            }
+
+            // A player token stays signed-valid for 24h; re-check the player
+            // still exists in that session so a kicked/removed player can't keep
+            // reconnecting the sockets on an otherwise-valid token.
+            const stillMember = await playerRepo.exists({
+              where: {
+                id: player.playerId,
+                session: { id: player.sessionId },
+              },
+            });
+            if (!stillMember) {
+              return next(this.unauthorized('Player is no longer in session'));
+            }
+
+            (socket.data as AppSocketData).player = {
+              playerId: player.playerId,
+              sessionId: player.sessionId,
+              playerName: player.playerName,
+            };
+            return next();
+          } catch (error) {
+            this.logger.error(
+              `WS handshake auth error on ${namespace}: ${String(error)}`,
+            );
+            return next(this.unauthorized('Invalid player token'));
           }
-
-          (socket.data as AppSocketData).player = {
-            playerId: player.playerId,
-            sessionId: player.sessionId,
-            playerName: player.playerName,
-          };
-          return next();
-        } catch (error) {
-          this.logger.error(
-            `WS handshake auth error on ${namespace}: ${String(error)}`,
-          );
-          return next(this.unauthorized('Invalid player token'));
-        }
+        })();
       });
     }
 

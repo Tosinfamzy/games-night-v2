@@ -18,12 +18,23 @@ export class ClerkService {
   private readonly logger = new Logger(ClerkService.name);
   private readonly secretKey?: string;
   private readonly client: ClerkClient | null;
+  // Allowed `azp` (authorized-party) origins for Clerk tokens — Clerk's
+  // recommended defense against token reuse across origins. Opt-in: only
+  // enforced when CLERK_AUTHORIZED_PARTIES (comma-separated origins) is set, so
+  // an unset/misconfigured value can't lock every host out.
+  private readonly authorizedParties: string[];
 
   constructor(private readonly config: ConfigService) {
     this.secretKey = this.config.get<string>('CLERK_SECRET_KEY');
     this.client = this.secretKey
       ? createClerkClient({ secretKey: this.secretKey })
       : null;
+    this.authorizedParties = (
+      this.config.get<string>('CLERK_AUTHORIZED_PARTIES') ?? ''
+    )
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
     if (!this.secretKey) {
       this.logger.warn(
         'CLERK_SECRET_KEY is not set — games-master (Clerk) auth is disabled',
@@ -46,6 +57,9 @@ export class ClerkService {
     try {
       const payload = (await verifyToken(token, {
         secretKey: this.secretKey,
+        ...(this.authorizedParties.length
+          ? { authorizedParties: this.authorizedParties }
+          : {}),
       })) as unknown as { sub?: unknown };
       const sub = payload.sub;
       return typeof sub === 'string' ? sub : null;
