@@ -177,6 +177,42 @@ describe('SessionService', () => {
         expect(joinCodeUtil.generateJoinCode).toHaveBeenCalledTimes(1);
       });
 
+      it('should persist the host-authored inviteMessage', async () => {
+        const gamesMaster = createMockGamesMaster({ id: 'gm-1', name: 'GM' });
+        const savedSession = createMockSession({
+          id: 'session-1',
+          joinCode: '123456',
+          host: gamesMaster as GamesMaster,
+        });
+        (joinCodeUtil.generateJoinCode as jest.Mock).mockReturnValue('123456');
+        gamesMasterRepo.findOneBy.mockResolvedValue(gamesMaster);
+        sessionRepo.findOne.mockImplementation(({ where }) => {
+          if (where?.joinCode) return Promise.resolve(null);
+          if (where?.id) return Promise.resolve(savedSession);
+          return Promise.resolve(null);
+        });
+        sessionRepo.create.mockReturnValue(savedSession);
+        sessionRepo.save.mockResolvedValue(savedSession);
+        playerRepo.create.mockReturnValue(
+          createMockPlayer({ id: 'player-1', name: 'GM' }),
+        );
+        playerRepo.save.mockResolvedValue(
+          createMockPlayer({ id: 'player-1', name: 'GM' }),
+        );
+        authService.generatePlayerToken.mockReturnValue('mock-token');
+
+        await service.create({
+          name: 'Test Session',
+          date: new Date(),
+          gamesMasterId: 'gm-1',
+          inviteMessage: "You're invited! 🎲",
+        });
+
+        expect(sessionRepo.create).toHaveBeenCalledWith(
+          expect.objectContaining({ inviteMessage: "You're invited! 🎲" }),
+        );
+      });
+
       it('should retry join code generation if collision occurs', async () => {
         const gamesMaster = createMockGamesMaster({
           id: 'gm-1',

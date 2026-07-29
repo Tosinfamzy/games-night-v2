@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsString,
   IsOptional,
+  MaxLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -43,6 +44,18 @@ export class CreateSessionDto {
   @IsString()
   @IsOptional()
   location?: string;
+
+  @ApiProperty({
+    description:
+      'Host-authored invite message, used as the default share text for the ' +
+      'RSVP link and shown on the public RSVP page. Send an empty string to clear it.',
+    example: "You're invited! Bring snacks and your A-game 🎲",
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(500)
+  inviteMessage?: string;
 
   @ApiProperty({
     description:

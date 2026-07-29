@@ -142,6 +142,7 @@ describe('InviteService', () => {
         date: new Date('2026-09-01T19:00:00Z'),
         location: 'HQ',
         description: null,
+        inviteMessage: "You're invited! 🎲",
         host: { name: 'Ada', email: 'secret@host.com' },
       });
       inviteRepo.find.mockResolvedValue([invite(RsvpStatus.GOING, 2)]);
@@ -154,6 +155,7 @@ describe('InviteService', () => {
         date: new Date('2026-09-01T19:00:00Z'),
         location: 'HQ',
         description: null,
+        inviteMessage: "You're invited! 🎲",
         hostName: 'Ada',
         goingHeadcount: 3, // 1 + 2 plus-ones
       });

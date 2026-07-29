@@ -79,6 +79,15 @@ export class Session {
   publicRsvpToken: string;
 
   @ApiProperty({
+    description:
+      'Host-authored invite message. Doubles as the default share text for the RSVP link and the greeting shown on the public RSVP page.',
+    example: "You're invited! Bring snacks and your A-game 🎲",
+    required: false,
+  })
+  @Column({ type: 'text', nullable: true })
+  inviteMessage?: string;
+
+  @ApiProperty({
     description: 'Games master hosting this session',
     type: () => GamesMaster,
   })
