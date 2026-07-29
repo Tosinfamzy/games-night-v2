@@ -45,6 +45,7 @@ export interface MockGameService {
   completeGame: jest.Mock;
   pauseGame: jest.Mock;
   resumeGame: jest.Mock;
+  getGamesNeedingTimer: jest.Mock;
 }
 
 export interface MockGameGateway {
@@ -170,6 +171,7 @@ export const createMockGameService = (): MockGameService => ({
   completeGame: jest.fn(),
   pauseGame: jest.fn(),
   resumeGame: jest.fn(),
+  getGamesNeedingTimer: jest.fn().mockResolvedValue([]),
 });
 
 export const createMockGameGateway = (): MockGameGateway => ({

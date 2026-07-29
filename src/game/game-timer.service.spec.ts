@@ -39,6 +39,7 @@ describe('GameTimerService', () => {
       completeGame: jest.fn(),
       pauseGame: jest.fn(),
       resumeGame: jest.fn(),
+      getGamesNeedingTimer: jest.fn().mockResolvedValue([]),
     };
 
     gameGateway = createMockGameGateway();
@@ -598,6 +599,50 @@ describe('GameTimerService', () => {
 
       // Should only have 1 timer (last one)
       expect(service.getActiveTimerCount()).toBe(1);
+    });
+  });
+
+  describe('lifecycle: rehydrate + shutdown', () => {
+    it('rebuilds timers from persisted games on boot', async () => {
+      gameService.getGamesNeedingTimer.mockResolvedValue([
+        {
+          id: 'game-boot',
+          turnTimeLimit: 60,
+          currentTurnTeamId: 'team-1',
+          turnStartedAt: new Date(),
+          teams: [{ id: 'team-1', name: 'Reds' }],
+        },
+      ]);
+
+      await service.onApplicationBootstrap();
+
+      expect(service.getActiveTimerCount()).toBe(1);
+    });
+
+    it('skips games with no current team', async () => {
+      gameService.getGamesNeedingTimer.mockResolvedValue([
+        {
+          id: 'g',
+          turnTimeLimit: 60,
+          currentTurnTeamId: 'missing',
+          turnStartedAt: new Date(),
+          teams: [{ id: 'team-1', name: 'Reds' }],
+        },
+      ]);
+
+      await service.onApplicationBootstrap();
+
+      expect(service.getActiveTimerCount()).toBe(0);
+    });
+
+    it('clears every timer on shutdown', () => {
+      service.startTimer('g1', 't1', 'A', 60, new Date());
+      service.startTimer('g2', 't2', 'B', 60, new Date());
+      expect(service.getActiveTimerCount()).toBe(2);
+
+      service.onModuleDestroy();
+
+      expect(service.getActiveTimerCount()).toBe(0);
     });
   });
 });

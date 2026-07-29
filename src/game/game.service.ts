@@ -483,6 +483,9 @@ export class GameService {
     game.turnStartedAt = new Date(); // Reset turn timer
     const savedGame = await this.repo.save(game);
 
+    // Pause stopped the turn timer — restart it so the countdown resumes.
+    this.startTurnTimerIfNeeded(savedGame);
+
     // Broadcast game resumed event
     this.gameGateway.broadcastGameResumed(savedGame.id);
 
@@ -623,5 +626,44 @@ export class GameService {
    */
   async getTimerStatus(id: string) {
     return this.statsService.getTimerStatus(id);
+  }
+
+  /**
+   * (Re)start the turn timer for a game if it's in a timed, turn-active state.
+   * Safe no-op when there's no time limit, current team, or start time.
+   */
+  private startTurnTimerIfNeeded(game: Game): void {
+    if (!game.turnTimeLimit || !game.currentTurnTeamId || !game.turnStartedAt) {
+      return;
+    }
+    const team = (game.teams ?? []).find(
+      (t) => t.id === game.currentTurnTeamId,
+    );
+    if (team) {
+      this.gameTimerService.startTimer(
+        game.id,
+        team.id,
+        team.name,
+        game.turnTimeLimit,
+        game.turnStartedAt,
+      );
+    }
+  }
+
+  /**
+   * Games that should have a live turn timer — used to rehydrate timers after a
+   * restart/redeploy, since they're held in memory and otherwise lost.
+   */
+  async getGamesNeedingTimer(): Promise<Game[]> {
+    const games = await this.repo.find({
+      where: [
+        { status: GameStatus.IN_PROGRESS },
+        { status: GameStatus.ROUND_IN_PROGRESS },
+      ],
+      relations: ['teams'],
+    });
+    return games.filter(
+      (g) => g.turnTimeLimit && g.currentTurnTeamId && g.turnStartedAt,
+    );
   }
 }
