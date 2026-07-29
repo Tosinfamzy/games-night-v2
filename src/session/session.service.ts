@@ -309,16 +309,33 @@ export class SessionService {
       'games.gameLibrary',
     ]);
 
+    // De-duplicate the request itself.
+    const requestedIds = [...new Set(dto.gameLibraryIds)];
+
     // Verify all game library IDs exist
     const gameLibraries = await this.gameLibraryRepo.find({
-      where: { id: In(dto.gameLibraryIds) },
+      where: { id: In(requestedIds) },
     });
-    if (gameLibraries.length !== dto.gameLibraryIds.length) {
+    if (gameLibraries.length !== requestedIds.length) {
       throw new NotFoundException('One or more game library IDs not found');
     }
 
+    // Skip libraries already added to this session so a game can't be added
+    // twice (the FE hides these too, but never trust the client).
+    const existingLibraryIds = new Set(
+      session.games.map((game) => game.gameLibrary?.id).filter(Boolean),
+    );
+    const librariesToAdd = gameLibraries.filter(
+      (lib) => !existingLibraryIds.has(lib.id),
+    );
+    if (librariesToAdd.length === 0) {
+      throw new BadRequestException(
+        'All requested games are already in this session',
+      );
+    }
+
     // Create Game instances from GameLibrary templates
-    const newGames = gameLibraries.map((gameLibrary) =>
+    const newGames = librariesToAdd.map((gameLibrary) =>
       this.gameRepo.create({
         name: gameLibrary.name,
         session,
@@ -348,8 +365,18 @@ export class SessionService {
       );
     }
 
-    if (game.status === GameStatus.IN_PROGRESS) {
-      throw new BadRequestException('Cannot remove a game that is in progress');
+    // A game that's being played (any live round/turn or paused mid-play) can't
+    // be removed — only not-yet-started or finished games.
+    const midPlayStatuses: GameStatus[] = [
+      GameStatus.IN_PROGRESS,
+      GameStatus.ROUND_IN_PROGRESS,
+      GameStatus.ROUND_ENDED,
+      GameStatus.PAUSED,
+    ];
+    if (midPlayStatuses.includes(game.status)) {
+      throw new BadRequestException(
+        'Cannot remove a game that is currently being played',
+      );
     }
 
     await this.gameRepo.remove(game);
@@ -362,9 +389,15 @@ export class SessionService {
   ): Promise<Session> {
     const session = await this.findOne(sessionId, ['games']);
 
-    // Remove existing games that aren't in progress
+    // Remove existing games that aren't being played (keep any live/paused ones).
+    const midPlayStatuses: GameStatus[] = [
+      GameStatus.IN_PROGRESS,
+      GameStatus.ROUND_IN_PROGRESS,
+      GameStatus.ROUND_ENDED,
+      GameStatus.PAUSED,
+    ];
     const gamesToRemove = session.games.filter(
-      (game) => game.status !== GameStatus.IN_PROGRESS,
+      (game) => !midPlayStatuses.includes(game.status),
     );
     if (gamesToRemove.length > 0) {
       await this.gameRepo.remove(gamesToRemove);
