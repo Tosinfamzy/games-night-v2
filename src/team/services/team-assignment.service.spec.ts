@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TeamAssignmentService } from './team-assignment.service';
 import { TeamFormationService } from './team-formation.service';
@@ -61,6 +62,14 @@ describe('TeamAssignmentService', () => {
         {
           provide: TeamFormationService,
           useValue: formationService,
+        },
+        {
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn((cb: (m: unknown) => unknown) =>
+              cb({ save: (entity: unknown) => teamRepo.save(entity) }),
+            ),
+          },
         },
       ],
     }).compile();

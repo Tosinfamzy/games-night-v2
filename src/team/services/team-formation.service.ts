@@ -6,7 +6,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Team } from '../team.entity';
 import { Game } from '../../game/game.entity';
 import { Player } from '../../player/player.entity';
@@ -32,6 +32,7 @@ export class TeamFormationService {
     private readonly gameRepo: Repository<Game>,
     @Inject(forwardRef(() => SessionGateway))
     private readonly sessionGateway: SessionGateway,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -79,22 +80,26 @@ export class TeamFormationService {
     const teamNames = this.generateTeamNames(dto.teamCount, dto.teamNames);
     const teamColors = this.generateTeamColors(dto.teamCount, dto.teamColors);
 
-    // Create teams
-    const teams: Team[] = [];
-    for (let i = 0; i < dto.teamCount; i++) {
-      const team = this.repo.create({
-        name: teamNames[i],
-        color: teamColors[i],
-        position: i + 1,
-        game,
-        session: game.session,
-        players: [],
-      });
-      const savedTeam = await this.repo.save(team);
-      teams.push(savedTeam);
+    // Create all teams atomically — a mid-loop failure must not leave a
+    // half-formed team set. Broadcasts fire only after the commit succeeds.
+    const teams = await this.dataSource.transaction(async (manager) => {
+      const created: Team[] = [];
+      for (let i = 0; i < dto.teamCount; i++) {
+        const team = manager.create(Team, {
+          name: teamNames[i],
+          color: teamColors[i],
+          position: i + 1,
+          game,
+          session: game.session,
+          players: [],
+        });
+        created.push(await manager.save(team));
+      }
+      return created;
+    });
 
-      // Broadcast team created event
-      this.sessionGateway.broadcastTeamCreated(game.session.id, savedTeam);
+    for (const team of teams) {
+      this.sessionGateway.broadcastTeamCreated(game.session.id, team);
     }
 
     // Assign players based on strategy with improved algorithms

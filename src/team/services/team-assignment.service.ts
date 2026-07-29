@@ -6,7 +6,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, DataSource } from 'typeorm';
 import { findOneOrThrow } from '../../common/utils/find-or-throw.util';
 import { Team } from '../team.entity';
 import { Game } from '../../game/game.entity';
@@ -33,6 +33,7 @@ export class TeamAssignmentService {
     private readonly sessionGateway: SessionGateway,
     @Inject(forwardRef(() => TeamFormationService))
     private readonly formationService: TeamFormationService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -249,9 +250,14 @@ export class TeamAssignmentService {
       toTeam.players.push(player);
     }
 
-    // Save both teams
-    const savedFromTeam = await this.repo.save(fromTeam);
-    const savedToTeam = await this.repo.save(toTeam);
+    // Save both teams atomically — otherwise a failure after the first save
+    // leaves the player removed from one team and not added to the other.
+    const [savedFromTeam, savedToTeam] = await this.dataSource.transaction(
+      async (manager) => [
+        await manager.save(fromTeam),
+        await manager.save(toTeam),
+      ],
+    );
 
     // Broadcast updates
     const sessionId = fromTeam.session?.id;
