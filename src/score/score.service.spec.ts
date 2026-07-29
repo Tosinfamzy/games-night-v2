@@ -78,13 +78,14 @@ describe('ScoreService', () => {
   describe('create', () => {
     it('should create a score successfully', async () => {
       const session = createMockSession();
+      const team = createMockTeam({ id: 'team-1' });
       const game = createMockGame({
         id: 'game-1',
         status: GameStatus.ROUND_IN_PROGRESS,
         currentRound: 2,
         session: session as any,
+        teams: [team] as any,
       });
-      const team = createMockTeam({ id: 'team-1' });
       const mockScore = createMockScore({
         points: 10,
         game: game as Game,
@@ -106,7 +107,7 @@ describe('ScoreService', () => {
 
       expect(gameRepo.findOne).toHaveBeenCalledWith({
         where: { id: 'game-1' },
-        relations: ['session'],
+        relations: ['session', 'teams'],
       });
       expect(teamRepo.findOneBy).toHaveBeenCalledWith({ id: 'team-1' });
       expect(scoreRepo.save).toHaveBeenCalled();
@@ -195,13 +196,14 @@ describe('ScoreService', () => {
   describe('submitGameScore', () => {
     it('should submit game score and emit event', async () => {
       const session = createMockSession();
+      const team = createMockTeam({ id: 'team-1', session: session as any });
       const game = createMockGame({
         id: 'game-1',
         status: GameStatus.ROUND_IN_PROGRESS,
         currentRound: 3,
         session: session as any,
+        teams: [team] as any,
       });
-      const team = createMockTeam({ id: 'team-1', session: session as any });
       const mockScore = createMockScore({
         points: 20,
         game: game as Game,
@@ -231,12 +233,13 @@ describe('ScoreService', () => {
 
     it('should use game currentRound if roundNumber not provided', async () => {
       const session = createMockSession();
+      const team = createMockTeam({ id: 'team-1', session: session as any });
       const game = createMockGame({
         status: GameStatus.ROUND_IN_PROGRESS,
         currentRound: 5,
         session: session as any,
+        teams: [team] as any,
       });
-      const team = createMockTeam({ id: 'team-1', session: session as any });
       const mockScore = createMockScore({
         roundNumber: 5,
         game: game as Game,
@@ -256,23 +259,23 @@ describe('ScoreService', () => {
       expect(mockScore.roundNumber).toBe(5);
     });
 
-    it('rejects a team that belongs to a different session', async () => {
+    it('rejects a team that is not one of this game’s teams', async () => {
+      // The game has its own team; the submitted team-x isn't in game.teams.
+      const ownTeam = createMockTeam({ id: 'team-own' });
       const game = createMockGame({
         id: 'game-1',
         status: GameStatus.ROUND_IN_PROGRESS,
         currentRound: 1,
         session: createMockSession({ id: 'session-A' }) as any,
+        teams: [ownTeam] as any,
       });
-      const foreignTeam = createMockTeam({
-        id: 'team-x',
-        session: createMockSession({ id: 'session-B' }) as any,
-      });
+      const foreignTeam = createMockTeam({ id: 'team-x' });
       gameRepo.findOne.mockResolvedValue(game);
       teamRepo.findOne.mockResolvedValue(foreignTeam);
 
       await expect(
         service.submitGameScore('game-1', { teamId: 'team-x', score: 5 }),
-      ).rejects.toThrow('Team does not belong to this game’s session');
+      ).rejects.toThrow('Team is not part of this game');
       expect(scoreRepo.save).not.toHaveBeenCalled();
     });
   });

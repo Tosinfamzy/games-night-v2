@@ -493,6 +493,14 @@ export class GameService {
    * Force start a game (bypass team requirements for testing)
    */
   async forceStartGame(id: string): Promise<Game> {
+    // A test/dev hatch that bypasses the ≥2-teams rule — never allow it in
+    // production, where it can drive a teamless game to completion.
+    if (process.env.NODE_ENV === 'production') {
+      throw DomainError.gameInvalidState(
+        'Force-start is not available in production',
+      );
+    }
+
     const game = await this.findOne(id);
 
     if (game.status !== GameStatus.PENDING) {
@@ -567,33 +575,6 @@ export class GameService {
    */
   async getResults(id: string): Promise<GameResultsDto> {
     return this.statsService.getResults(id);
-  }
-
-  async updateGameStatus(id: string, status: GameStatus): Promise<Game> {
-    const game = await this.findOne(id);
-
-    // Validate status transition
-    if (
-      game.status === GameStatus.COMPLETED &&
-      status !== GameStatus.COMPLETED
-    ) {
-      throw DomainError.gameInvalidState(
-        'Cannot change status of a completed game',
-      );
-    }
-
-    if (
-      game.status === GameStatus.CANCELLED &&
-      status !== GameStatus.CANCELLED
-    ) {
-      throw DomainError.gameInvalidState(
-        'Cannot change status of a cancelled game',
-      );
-    }
-
-    game.status = status;
-
-    return await this.repo.save(game);
   }
 
   async getGamesBySession(sessionId: string): Promise<Game[]> {
