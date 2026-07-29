@@ -135,6 +135,25 @@ export class ScoreService {
   }
 
   async getGameScores(gameId: string): Promise<TeamScore[]> {
+    const teamScoresMap = new Map<string, TeamScore>();
+
+    // Seed every team in the game at 0 first, so a team that hasn't scored (or
+    // is on a negative total) still appears and ranks correctly — otherwise a
+    // team at -5 could be "crowned" over a team sitting at 0 with no rows.
+    const game = await this.gameRepo.findOne({
+      where: { id: gameId },
+      relations: ['teams'],
+    });
+    for (const team of game?.teams ?? []) {
+      teamScoresMap.set(team.id, {
+        teamId: team.id,
+        teamName: team.name,
+        totalPoints: 0,
+        bonusPointsCount: 0,
+        roundPoints: {},
+      });
+    }
+
     const rawScores = await this.repo
       .createQueryBuilder('score')
       .leftJoin('score.team', 'team')
@@ -153,11 +172,9 @@ export class ScoreService {
       .groupBy('team.id, team.name, score.roundNumber')
       .getRawMany<RawTeamScore>();
 
-    // Transform the raw results into the desired format
-    const teamScoresMap = new Map<string, TeamScore>();
-
     for (const score of rawScores) {
       if (!teamScoresMap.has(score.teamId)) {
+        // A score for a team not currently attached to the game (edge case).
         teamScoresMap.set(score.teamId, {
           teamId: score.teamId,
           teamName: score.teamName,
@@ -175,6 +192,11 @@ export class ScoreService {
     }
 
     return Array.from(teamScoresMap.values());
+  }
+
+  /** Delete every score row for a game (used when resetting a game). */
+  async deleteGameScores(gameId: string): Promise<void> {
+    await this.repo.delete({ game: { id: gameId } });
   }
 
   async findOne(id: string): Promise<Score> {
@@ -354,20 +376,28 @@ export class ScoreService {
       team.gamesPlayed++;
     }
 
-    // Second pass: determine winners for each game
-    const gameWinnersMap = new Map<string, string>();
-    const gamePointsMap = new Map<string, number>();
-
+    // Second pass: determine each game's winner. Collect every team's points
+    // per game, then take the unique max — seeding from 0 (the old default)
+    // meant an all-negative game had no winner and a real 0 could never win.
+    const perGame = new Map<
+      string,
+      Array<{ teamId: string; points: number }>
+    >();
     for (const [, team] of teamMap) {
       for (const [gameId, points] of Object.entries(team.gamePoints)) {
-        const currentMax = gamePointsMap.get(gameId) || 0;
-        if (points > currentMax) {
-          gamePointsMap.set(gameId, points);
-          gameWinnersMap.set(gameId, team.teamId);
-        } else if (points === currentMax) {
-          // Tie - remove winner
-          gameWinnersMap.delete(gameId);
-        }
+        const entries = perGame.get(gameId) ?? [];
+        entries.push({ teamId: team.teamId, points });
+        perGame.set(gameId, entries);
+      }
+    }
+
+    const gameWinnersMap = new Map<string, string>();
+    for (const [gameId, entries] of perGame) {
+      const max = Math.max(...entries.map((e) => e.points));
+      const leaders = entries.filter((e) => e.points === max);
+      // Only a clear (untied) top team wins the game.
+      if (leaders.length === 1) {
+        gameWinnersMap.set(gameId, leaders[0].teamId);
       }
     }
 

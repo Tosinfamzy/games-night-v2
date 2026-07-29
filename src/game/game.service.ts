@@ -532,11 +532,14 @@ export class GameService {
       game.winnerId = winner.winnerId;
     }
 
-    // Store complete results as JSON
+    // Store complete results as JSON. A game is tied when more than one team
+    // shares rank 1 — the previous `standings[0].isTied` check was always false
+    // (row 0's "tied with the previous row" flag can never be true).
+    const isTied = standings.filter((s) => s.rank === 1).length > 1;
     game.results = {
       standings,
       winningScore: winner?.score || null,
-      isTied: standings.length > 0 && standings[0].isTied === true,
+      isTied,
       completedAt: new Date().toISOString(),
     };
 
@@ -608,11 +611,18 @@ export class GameService {
       throw DomainError.gameInvalidState('Cannot reset a completed game');
     }
 
+    // Actually clear the scores — the controller promises this, and without it
+    // a replayed game double-counts old rounds (getGameScores groups by round
+    // number, so a fresh round 1 sums with the stale round 1).
+    await this.scoreService.deleteGameScores(id);
+    this.gameTimerService.stopTimer(id);
+
     // Reset game state
     game.status = GameStatus.PENDING;
     game.currentRound = 0;
     game.currentTurnTeamId = undefined;
     game.turnStartedAt = undefined;
+    game.statusBeforePause = undefined;
     game.winnerId = undefined;
     game.results = undefined;
     game.completedAt = undefined;

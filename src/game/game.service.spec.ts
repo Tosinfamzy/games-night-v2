@@ -31,7 +31,10 @@ describe('GameService', () => {
     Pick<TeamService, 'findByGame' | 'createTeamsForGame' | 'getTeamStats'>
   >;
   let scoreService: jest.Mocked<
-    Pick<ScoreService, 'getRankedGameScores' | 'determineWinner'>
+    Pick<
+      ScoreService,
+      'getRankedGameScores' | 'determineWinner' | 'deleteGameScores'
+    >
   >;
   let gameGateway: jest.Mocked<
     Pick<
@@ -69,6 +72,7 @@ describe('GameService', () => {
     scoreService = {
       getRankedGameScores: jest.fn(),
       determineWinner: jest.fn(),
+      deleteGameScores: jest.fn().mockResolvedValue(undefined),
     };
 
     gameGateway = {
@@ -459,16 +463,15 @@ describe('GameService', () => {
         gameRepo.findOne.mockResolvedValue(game);
         scoreService.getRankedGameScores.mockResolvedValue(standings);
         scoreService.determineWinner.mockResolvedValue(null);
-        gameRepo.save.mockResolvedValue({
-          ...game,
-          status: GameStatus.COMPLETED,
-          completedAt: new Date(),
-        });
+        gameRepo.save.mockImplementation((g) => Promise.resolve(g as Game));
 
         const result = await service.completeGame('game-1');
 
         expect(result.status).toBe(GameStatus.COMPLETED);
         expect(result.winnerId).toBeUndefined();
+        // Two teams share rank 1 → results.isTied must be true (was always
+        // false under the old standings[0].isTied check).
+        expect(result.results?.isTied).toBe(true);
       });
 
       it('should throw BadRequestException if game is already completed', async () => {
@@ -478,6 +481,32 @@ describe('GameService', () => {
         await expect(service.completeGame('game-1')).rejects.toThrow(
           BadRequestException,
         );
+      });
+    });
+
+    describe('resetGame', () => {
+      it('deletes the game scores and stops the timer on reset', async () => {
+        const game = createMockGame({
+          status: GameStatus.ROUND_IN_PROGRESS,
+          currentRound: 2,
+        });
+        gameRepo.findOne.mockResolvedValue(game);
+        gameRepo.save.mockImplementation((g) => Promise.resolve(g as Game));
+
+        const result = await service.resetGame('game-1');
+
+        expect(scoreService.deleteGameScores).toHaveBeenCalledWith('game-1');
+        expect(gameTimerService.stopTimer).toHaveBeenCalledWith('game-1');
+        expect(result.status).toBe(GameStatus.PENDING);
+        expect(result.currentRound).toBe(0);
+      });
+
+      it('refuses to reset a completed game', async () => {
+        const game = createMockGame({ status: GameStatus.COMPLETED });
+        gameRepo.findOne.mockResolvedValue(game);
+
+        await expect(service.resetGame('game-1')).rejects.toThrow();
+        expect(scoreService.deleteGameScores).not.toHaveBeenCalled();
       });
     });
   });
