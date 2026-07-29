@@ -202,6 +202,7 @@ describe('GameService', () => {
         const game = createMockGame({
           id: 'game-1',
           status: GameStatus.PENDING,
+          session: { id: 'session-1' } as Session,
         });
         const teams = [
           createMockTeam({ id: 'team-1' }),
@@ -236,7 +237,10 @@ describe('GameService', () => {
       });
 
       it('should throw BadRequestException if less than 2 teams', async () => {
-        const game = createMockGame({ status: GameStatus.PENDING });
+        const game = createMockGame({
+          status: GameStatus.PENDING,
+          session: { id: 'session-1' } as Session,
+        });
         const team = createMockTeam({ id: 'team-1' });
 
         gameRepo.findOne.mockResolvedValue(game);
@@ -245,6 +249,24 @@ describe('GameService', () => {
         await expect(
           service.startGame('game-1', { teamIds: ['team-1'] }),
         ).rejects.toThrow(BadRequestException);
+      });
+
+      it('rejects teams that belong to another session', async () => {
+        const game = createMockGame({
+          id: 'game-1',
+          status: GameStatus.PENDING,
+          session: { id: 'session-1' } as Session,
+        });
+        gameRepo.findOne.mockResolvedValue(game);
+        // Scoped lookup finds nothing — the team is not in this game's session.
+        teamRepo.findOne.mockResolvedValue(null);
+
+        await expect(
+          service.startGame('game-1', { teamIds: ['foreign-team'] }),
+        ).rejects.toThrow(NotFoundException);
+        expect(teamRepo.findOne).toHaveBeenCalledWith({
+          where: { id: 'foreign-team', session: { id: 'session-1' } },
+        });
       });
     });
 

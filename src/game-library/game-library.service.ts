@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GameLibrary } from './game-library.entity';
@@ -7,6 +12,8 @@ import { UpdateGameLibraryDto } from './dto/update-game-library.dto';
 
 @Injectable()
 export class GameLibraryService implements OnModuleInit {
+  private readonly logger = new Logger(GameLibraryService.name);
+
   constructor(
     @InjectRepository(GameLibrary)
     private readonly gameLibraryRepo: Repository<GameLibrary>,
@@ -55,9 +62,9 @@ export class GameLibraryService implements OnModuleInit {
       const existingGame = await this.findByName(gameDto.name);
       if (!existingGame) {
         await this.create(gameDto);
-        console.log(`✅ Game library seeded with ${gameDto.name}`);
+        this.logger.log(`Game library seeded with ${gameDto.name}`);
       } else {
-        console.log(`ℹ️  ${gameDto.name} already exists in game library`);
+        this.logger.debug(`${gameDto.name} already exists in game library`);
       }
     }
   }

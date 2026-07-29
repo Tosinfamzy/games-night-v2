@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Session } from '../session.entity';
 import { Player, PlayerStatus } from '../../player/player.entity';
 import { Team } from '../../team/team.entity';
@@ -43,6 +43,7 @@ export class SessionPlayerService {
     private readonly authService: AuthService,
     private readonly readinessService: SessionReadinessService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -298,23 +299,24 @@ export class SessionPlayerService {
     // Remove player from session
     session.players = session.players.filter((p) => p.id !== playerId);
 
-    // Remove player from all teams in this session
+    // Detach from teams, persist the session, and delete the player atomically,
+    // so a mid-way failure can't leave the player on a team but off the session.
     const teams = await this.teamRepo.find({
       where: { session: { id: sessionId } },
       relations: ['players'],
     });
 
-    for (const team of teams) {
-      if (team.players) {
-        team.players = team.players.filter((p) => p.id !== playerId);
-        await this.teamRepo.save(team);
+    await this.dataSource.transaction(async (manager) => {
+      for (const team of teams) {
+        if (team.players?.some((p) => p.id === playerId)) {
+          team.players = team.players.filter((p) => p.id !== playerId);
+          await manager.save(team);
+        }
       }
-    }
 
-    await this.sessionRepo.save(session);
-
-    // Delete the player entity
-    await this.playerRepo.remove(player);
+      await manager.save(session);
+      await manager.remove(player);
+    });
 
     return session;
   }

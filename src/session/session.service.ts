@@ -6,7 +6,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, DataSource } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { findOneOrThrow } from '../common/utils/find-or-throw.util';
 import { Session } from './session.entity';
@@ -65,6 +65,7 @@ export class SessionService {
     private readonly lifecycleService: SessionLifecycleService,
     @Inject(forwardRef(() => SessionPlayerService))
     private readonly playerService: SessionPlayerService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async create(dto: CreateSessionDto): Promise<CreateSessionResponseDto> {
@@ -92,30 +93,39 @@ export class SessionService {
       throw new BadRequestException('Failed to generate unique join code');
     }
 
-    const session = this.repo.create({
-      name: dto.name,
-      description: dto.description,
-      date: dto.date,
-      location: dto.location,
-      inviteMessage: dto.inviteMessage,
-      host,
-      status: SessionStatus.SCHEDULED,
-      joinCode,
-      // Single shareable RSVP link token. A UUID needs no collision retry.
-      publicRsvpToken: randomUUID(),
-    });
-    const savedSession = await this.repo.save(session);
+    // Create the session and auto-enrol the GM as a player atomically, so a
+    // failure can't leave a hostless session (or a session with no GM player).
+    const { savedSession, savedPlayer } = await this.dataSource.transaction(
+      async (manager) => {
+        const savedSession = await manager.save(
+          manager.create(Session, {
+            name: dto.name,
+            description: dto.description,
+            date: dto.date,
+            location: dto.location,
+            inviteMessage: dto.inviteMessage,
+            host,
+            status: SessionStatus.SCHEDULED,
+            joinCode,
+            // Single shareable RSVP link token. A UUID needs no collision retry.
+            publicRsvpToken: randomUUID(),
+          }),
+        );
 
-    // AUTO-ENROLL GM AS PLAYER
-    const gmPlayer = this.playerRepo.create({
-      name: host.name,
-      session: savedSession,
-      status: PlayerStatus.JOINED,
-      lastConnectedAt: new Date(),
-      userId: host.id, // Link to GM's user ID for tracking
-      isGuest: false,
-    });
-    const savedPlayer = await this.playerRepo.save(gmPlayer);
+        const savedPlayer = await manager.save(
+          manager.create(Player, {
+            name: host.name,
+            session: savedSession,
+            status: PlayerStatus.JOINED,
+            lastConnectedAt: new Date(),
+            userId: host.id, // Link to GM's user ID for tracking
+            isGuest: false,
+          }),
+        );
+
+        return { savedSession, savedPlayer };
+      },
+    );
 
     // Reload session with player included
     const updatedSession = await this.findOne(savedSession.id, [
