@@ -647,22 +647,11 @@ export class SessionController {
       );
   }
 
-  @Delete(':id/players/:playerId')
-  @HostOf('session')
-  @ApiOperation({ summary: 'Remove player from session' })
-  @ApiParam({ name: 'id', description: 'Session ID' })
-  @ApiParam({ name: 'playerId', description: 'Player ID' })
-  @ApiResponse({
-    status: HttpStatus.NO_CONTENT,
-    description: 'Player removed from session successfully.',
-  })
-  @HttpCode(HttpStatus.NO_CONTENT)
-  removePlayerFromSession(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Param('playerId', ParseUUIDPipe) playerId: string,
-  ): Promise<void> {
-    return this.service.removePlayerFromSession(id, playerId);
-  }
+  // Kicking a player lives at DELETE :id/players/:playerId below (kickPlayer),
+  // which cleans up team membership and works while a session is in progress.
+  // An earlier, more limited duplicate of this route was removed — Express only
+  // ever matched the first registration, so the documented kick contract never
+  // ran.
 
   // Results and leaderboard endpoints
   @Get(':id/leaderboard')

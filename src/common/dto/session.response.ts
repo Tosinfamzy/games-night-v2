@@ -80,10 +80,12 @@ export class SessionResponseDto extends SessionSummaryDto {
   })
   playerIds: string[];
 
-  // `includeHostSecrets` gates the shareable RSVP token, which grants access to
-  // the private guest list / self-RSVP page. It defaults to true for the
-  // host-authenticated routes; the public reads (GET /:id for a non-host, join-
-  // code lookup) pass false so an anonymous caller can't harvest it.
+  // `includeHostSecrets` gates the host-only join levers: the `joinCode` (anyone
+  // with it can join the session) and the shareable RSVP token (grants the
+  // private guest list / self-RSVP page). It defaults to true for the host-
+  // authenticated routes; the public reads (GET /:id for a non-host, join-code
+  // lookup, join/rejoin responses) pass false so a caller holding only a session
+  // id can't harvest them.
   static fromEntity(
     entity: Session,
     includeHostSecrets = true,
@@ -96,6 +98,9 @@ export class SessionResponseDto extends SessionSummaryDto {
     dto.host = GamesMasterSummaryDto.fromEntity(entity.host);
     if (includeHostSecrets) {
       dto.publicRsvpToken = entity.publicRsvpToken;
+    } else {
+      // Omit the join code from the serialized payload for non-host callers.
+      delete (dto as { joinCode?: string }).joinCode;
     }
     dto.gamesCount = entity.games?.length ?? 0;
     dto.teamsCount = entity.teams?.length ?? 0;
@@ -136,7 +141,9 @@ export class SessionJoinResponseDto {
     playerToken: string;
   }): SessionJoinResponseDto {
     const dto = new SessionJoinResponseDto();
-    dto.session = SessionResponseDto.fromEntity(params.session);
+    // A joining player is not the host — don't hand them the host-only join code
+    // or shareable RSVP token in the join/rejoin payload.
+    dto.session = SessionResponseDto.fromEntity(params.session, false);
     dto.playerId = params.playerId;
     dto.playerName = params.playerName;
     dto.message = params.message;
