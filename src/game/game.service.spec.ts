@@ -271,6 +271,22 @@ describe('GameService', () => {
         expect(result.status).toBe(GameStatus.PAUSED);
       });
 
+      it('records the pre-pause status and stops the timer', async () => {
+        const game = createMockGame({ status: GameStatus.ROUND_IN_PROGRESS });
+        gameRepo.findOne.mockResolvedValue(game);
+        gameRepo.save.mockImplementation((g) => Promise.resolve(g as Game));
+
+        await service.pauseGame('game-1');
+
+        expect(gameRepo.save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            status: GameStatus.PAUSED,
+            statusBeforePause: GameStatus.ROUND_IN_PROGRESS,
+          }),
+        );
+        expect(gameTimerService.stopTimer).toHaveBeenCalledWith('game-1');
+      });
+
       it('should throw BadRequestException if game is not in progress', async () => {
         const game = createMockGame({ status: GameStatus.PENDING });
         gameRepo.findOne.mockResolvedValue(game);
@@ -299,6 +315,35 @@ describe('GameService', () => {
 
         expect(result.status).toBe(GameStatus.IN_PROGRESS);
         expect(result.turnStartedAt).toBeDefined();
+      });
+
+      it('restores the exact pre-pause status (mid-round)', async () => {
+        const game = createMockGame({
+          status: GameStatus.PAUSED,
+          currentRound: 2,
+          statusBeforePause: GameStatus.ROUND_IN_PROGRESS,
+        });
+        gameRepo.findOne.mockResolvedValue(game);
+        gameRepo.save.mockImplementation((g) => Promise.resolve(g as Game));
+
+        const result = await service.resumeGame('game-1');
+
+        // Not IN_PROGRESS — the game was mid-round when paused.
+        expect(result.status).toBe(GameStatus.ROUND_IN_PROGRESS);
+        expect(result.statusBeforePause).toBeUndefined();
+      });
+
+      it('falls back to IN_PROGRESS when no pre-pause status was recorded', async () => {
+        const game = createMockGame({
+          status: GameStatus.PAUSED,
+          currentRound: 1,
+        });
+        gameRepo.findOne.mockResolvedValue(game);
+        gameRepo.save.mockImplementation((g) => Promise.resolve(g as Game));
+
+        const result = await service.resumeGame('game-1');
+
+        expect(result.status).toBe(GameStatus.IN_PROGRESS);
       });
 
       it('should throw BadRequestException if game is not paused', async () => {
@@ -553,10 +598,16 @@ describe('GameService', () => {
           ...game,
           status: GameStatus.COMPLETED,
         });
+        // Ending the final round delegates to completeGame, which computes
+        // standings + winner and writes history.
+        scoreService.getRankedGameScores.mockResolvedValue([]);
+        scoreService.determineWinner.mockResolvedValue(null);
 
         const result = await service.endCurrentRound('game-1');
 
         expect(result.status).toBe(GameStatus.COMPLETED);
+        expect(scoreService.getRankedGameScores).toHaveBeenCalledWith('game-1');
+        expect(gameTimerService.stopTimer).toHaveBeenCalledWith('game-1');
       });
 
       it('should throw BadRequestException if no round in progress', async () => {

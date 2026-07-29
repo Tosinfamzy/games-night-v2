@@ -18,7 +18,6 @@ import { TeamStandingDto } from '../common/dto/team-standing.dto';
 interface RawTeamScore {
   teamId: string;
   teamName: string;
-  totalPoints: string;
   bonusPointsCount: string;
   roundNumber: number;
   roundPoints: string;
@@ -107,11 +106,21 @@ export class ScoreService {
       throw new NotFoundException(`Team with ID ${dto.teamId} not found`);
     }
 
+    // The team must belong to this game's session — otherwise a host could
+    // award points to a team playing in someone else's session entirely.
+    if (team.session?.id !== game.session?.id) {
+      throw DomainError.gameInvalidState(
+        'Team does not belong to this game’s session',
+      );
+    }
+
     const score = this.repo.create({
       points: dto.score,
       game,
       team,
-      roundNumber: dto.roundNumber || game.currentRound,
+      // Always the server's current round: a client-supplied roundNumber could
+      // otherwise backfill or double-count points against a past/future round.
+      roundNumber: game.currentRound,
     });
 
     const savedScore = await this.repo.save(score);
@@ -134,11 +143,13 @@ export class ScoreService {
       .select([
         'team.id as "teamId"',
         'team.name as "teamName"',
-        'CAST(SUM(score.points) AS INTEGER) as "totalPoints"',
         'CAST(COUNT(CASE WHEN score.isBonus THEN 1 END) AS INTEGER) as "bonusPointsCount"',
         'score.roundNumber as "roundNumber"',
         'CAST(SUM(score.points) AS INTEGER) as "roundPoints"',
       ])
+      // One row per (team, round). totalPoints is summed across those rows in
+      // the loop below — grouping by round means SUM() here is per-round only,
+      // so the grand total must be accumulated, not read from a single row.
       .groupBy('team.id, team.name, score.roundNumber')
       .getRawMany<RawTeamScore>();
 
@@ -150,15 +161,17 @@ export class ScoreService {
         teamScoresMap.set(score.teamId, {
           teamId: score.teamId,
           teamName: score.teamName,
-          totalPoints: parseInt(score.totalPoints, 10) || 0,
-          bonusPointsCount: parseInt(score.bonusPointsCount, 10) || 0,
+          totalPoints: 0,
+          bonusPointsCount: 0,
           roundPoints: {},
         });
       }
 
       const teamScore = teamScoresMap.get(score.teamId)!;
-      teamScore.roundPoints[score.roundNumber] =
-        parseInt(score.roundPoints, 10) || 0;
+      const roundPoints = parseInt(score.roundPoints, 10) || 0;
+      teamScore.roundPoints[score.roundNumber] = roundPoints;
+      teamScore.totalPoints += roundPoints;
+      teamScore.bonusPointsCount += parseInt(score.bonusPointsCount, 10) || 0;
     }
 
     return Array.from(teamScoresMap.values());

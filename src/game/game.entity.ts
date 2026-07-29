@@ -50,6 +50,19 @@ export class Game {
   status: GameStatus;
 
   @ApiProperty({
+    enum: GameStatus,
+    required: false,
+    description:
+      'Status the game held before it was paused, so resume can restore the ' +
+      'exact prior state (e.g. mid-round vs between-rounds).',
+  })
+  // Plain varchar (not a DB enum): it only ever holds a GameStatus string, and
+  // a dedicated enum type would add a second Postgres type that parallel test
+  // workers race to CREATE. varchar avoids that with no loss of correctness.
+  @Column({ type: 'varchar', nullable: true })
+  statusBeforePause?: GameStatus;
+
+  @ApiProperty({
     example: 1,
     description: 'Current round number',
     default: 0,
