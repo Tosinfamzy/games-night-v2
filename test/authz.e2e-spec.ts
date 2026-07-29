@@ -198,6 +198,16 @@ describe('Host authorization (e2e)', () => {
       .expect(201);
   });
 
+  // Admin cross-tenant list endpoints must not be an anonymous data dump.
+  it.each(['/games', '/teams', '/scores', '/history/games'])(
+    'rejects anonymous access to admin list %s',
+    async (path) => {
+      const res = await request(server).get(path);
+      expect(res.status).toBe(400);
+      expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+    },
+  );
+
   it('rejects anonymous game-library mutation', async () => {
     const res = await request(server)
       .post('/game-library')

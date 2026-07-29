@@ -7,18 +7,23 @@
  * in production. Both layers now use `isAllowedOrigin`.
  */
 
-const ALLOWED_ORIGIN_PATTERNS: RegExp[] = [
+// localhost / LAN origins — only honoured outside production.
+const DEV_ORIGIN_PATTERNS: RegExp[] = [
   /^http:\/\/localhost(:\d+)?$/,
   /^http:\/\/127\.0\.0\.1(:\d+)?$/,
   /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/,
   /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
-  /^https:\/\/.*\.vercel\.app$/,
 ];
+
+// The frontend's hosting domain — allowed in every environment.
+const ALWAYS_ORIGIN_PATTERNS: RegExp[] = [/^https:\/\/.*\.vercel\.app$/];
 
 /**
  * Whether a request/handshake `Origin` is allowed. A missing Origin (server-to-
  * server calls, health checks, native socket clients) is allowed. `FRONTEND_URL`
- * is read at call time so env changes are honored without a rebuild.
+ * is read at call time so env changes are honored without a rebuild. The
+ * localhost/LAN patterns are disabled in production so a prod deployment only
+ * accepts its real frontend origin(s).
  */
 export function isAllowedOrigin(origin?: string): boolean {
   if (!origin) {
@@ -28,7 +33,16 @@ export function isAllowedOrigin(origin?: string): boolean {
   if (frontendUrl && origin === frontendUrl) {
     return true;
   }
-  return ALLOWED_ORIGIN_PATTERNS.some((pattern) => pattern.test(origin));
+  if (ALWAYS_ORIGIN_PATTERNS.some((pattern) => pattern.test(origin))) {
+    return true;
+  }
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    DEV_ORIGIN_PATTERNS.some((pattern) => pattern.test(origin))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /**

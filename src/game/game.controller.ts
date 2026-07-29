@@ -28,6 +28,7 @@ import { GameStatus } from './enums/game-status.enum';
 import { GameResponseDto } from '../common/dto/game.response';
 import { GameResultsDto } from '../common/dto/game-results.dto';
 import { HostGuard } from '../auth/guards/host.guard';
+import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
 
 @ApiTags('games')
@@ -58,8 +59,11 @@ export class GameController {
     return this.service.create(dto).then((game) => this.serializeGame(game.id));
   }
 
+  // Admin-only cross-tenant list — was unauthenticated and dumped every game in
+  // the database. Requires a signed-in games master.
   @Get()
-  @ApiOperation({ summary: 'Get all games' })
+  @UseGuards(ClerkAuthGuard)
+  @ApiOperation({ summary: 'Get all games (admin)' })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'List of all games.',

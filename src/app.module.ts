@@ -44,6 +44,14 @@ import * as Joi from 'joi';
         JWT_SECRET: Joi.string().required(),
         JWT_EXPIRATION: Joi.string().default('15m'),
         JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
+        // Required in production so Clerk auth can't silently disable itself
+        // (which would reopen host actions to anyone).
+        CLERK_SECRET_KEY: Joi.string().when('NODE_ENV', {
+          is: 'production',
+          then: Joi.required(),
+          otherwise: Joi.optional(),
+        }),
+        FRONTEND_URL: Joi.string().optional(),
       }),
     }),
     TypeOrmModule.forRootAsync({
