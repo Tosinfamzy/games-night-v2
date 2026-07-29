@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { SessionLifecycleService } from './session-lifecycle.service';
 import { SessionReadinessService } from './session-readiness.service';
@@ -60,6 +61,19 @@ describe('SessionLifecycleService', () => {
         {
           provide: SessionReadinessService,
           useValue: readinessService,
+        },
+        {
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn((cb: (m: unknown) => unknown) =>
+              cb({
+                save: (obj: Record<string, unknown>) =>
+                  obj && 'joinCode' in obj
+                    ? sessionRepo.save(obj)
+                    : gameRepo.save(obj),
+              }),
+            ),
+          },
         },
       ],
     }).compile();

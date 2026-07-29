@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { DataSource } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { SessionPlayerService } from './session-player.service';
 import { SessionReadinessService } from './session-readiness.service';
@@ -75,6 +76,20 @@ describe('SessionPlayerService', () => {
         {
           provide: EventEmitter2,
           useValue: eventEmitter,
+        },
+        {
+          provide: DataSource,
+          useValue: {
+            transaction: jest.fn((cb: (m: unknown) => unknown) =>
+              cb({
+                save: (obj: Record<string, unknown>) =>
+                  obj && 'joinCode' in obj
+                    ? sessionRepo.save(obj)
+                    : teamRepo.save(obj),
+                remove: (obj: Record<string, unknown>) => playerRepo.remove(obj),
+              }),
+            ),
+          },
         },
       ],
     }).compile();

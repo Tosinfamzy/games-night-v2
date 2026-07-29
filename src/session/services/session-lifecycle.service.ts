@@ -5,7 +5,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { findOneOrThrow } from '../../common/utils/find-or-throw.util';
 import { Session } from '../session.entity';
 import { Game } from '../../game/game.entity';
@@ -29,6 +29,7 @@ export class SessionLifecycleService {
     @Inject(forwardRef(() => SessionGateway))
     private readonly sessionGateway: SessionGateway,
     private readonly readinessService: SessionReadinessService,
+    private readonly dataSource: DataSource,
   ) {}
 
   /**
@@ -128,23 +129,22 @@ export class SessionLifecycleService {
       );
     }
 
-    // Cancel all in-progress games
-    if (session.games?.length) {
-      const activeGames = session.games.filter(
-        (game) =>
-          ![GameStatus.COMPLETED, GameStatus.CANCELLED].includes(game.status),
-      );
-
-      await Promise.all(
-        activeGames.map((game) => {
-          game.status = GameStatus.CANCELLED;
-          return this.gameRepo.save(game);
-        }),
-      );
-    }
+    // Cancel all in-progress games and the session in one transaction, so we
+    // never end up with a "cancelled" session that still has running games.
+    const activeGames = (session.games ?? []).filter(
+      (game) =>
+        ![GameStatus.COMPLETED, GameStatus.CANCELLED].includes(game.status),
+    );
 
     session.status = SessionStatus.CANCELLED;
-    const savedSession = await this.sessionRepo.save(session);
+
+    const savedSession = await this.dataSource.transaction(async (manager) => {
+      for (const game of activeGames) {
+        game.status = GameStatus.CANCELLED;
+        await manager.save(game);
+      }
+      return manager.save(session);
+    });
 
     // Broadcast session cancelled event
     this.sessionGateway.broadcastSessionStatusChange(

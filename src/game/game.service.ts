@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   Inject,
@@ -8,6 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { findOneOrThrow } from '../common/utils/find-or-throw.util';
+import { getErrorMessage } from '../common/utils/error.util';
 import { DomainError } from '../common/errors/domain-errors';
 import { Game } from './game.entity';
 import { CreateGameDto } from './dto/create-game.dto';
@@ -31,6 +33,8 @@ import { GameStats } from './interfaces/game.interface';
 
 @Injectable()
 export class GameService {
+  private readonly logger = new Logger(GameService.name);
+
   constructor(
     @InjectRepository(Game)
     private readonly repo: Repository<Game>,
@@ -98,12 +102,18 @@ export class GameService {
       throw DomainError.gameInvalidState(`Game is already ${game.status}`);
     }
 
-    // Validate and fetch teams
+    // Validate and fetch teams — scoped to the game's own session so a host
+    // can't pull in teams belonging to another session (whose names would then
+    // surface in this game's results).
     const teams = await Promise.all(
       dto.teamIds.map(async (teamId) => {
-        const team = await this.teamRepo.findOne({ where: { id: teamId } });
+        const team = await this.teamRepo.findOne({
+          where: { id: teamId, session: { id: game.session.id } },
+        });
         if (!team) {
-          throw new NotFoundException(`Team with ID ${teamId} not found`);
+          throw new NotFoundException(
+            `Team with ID ${teamId} not found in this session`,
+          );
         }
         return team;
       }),
@@ -573,7 +583,9 @@ export class GameService {
     try {
       await this.historyService.createGameResult(id);
     } catch (error) {
-      console.error('Failed to create game result:', error);
+      this.logger.error(
+        `Failed to create game result for game ${id}: ${getErrorMessage(error)}`,
+      );
       // Don't fail the entire game completion if history creation fails
     }
 

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { SessionService } from './session.service';
 import { Session } from './session.entity';
@@ -53,6 +54,7 @@ describe('SessionService', () => {
   let sessionReadinessService: MockSessionReadinessService;
   let sessionLifecycleService: MockSessionLifecycleService;
   let sessionPlayerService: MockSessionPlayerService;
+  let dataSource: { transaction: jest.Mock };
 
   beforeEach(async () => {
     sessionRepo = createMockRepository();
@@ -68,6 +70,23 @@ describe('SessionService', () => {
     sessionReadinessService = createMockSessionReadinessService();
     sessionLifecycleService = createMockSessionLifecycleService();
     sessionPlayerService = createMockSessionPlayerService();
+
+    // The transaction manager delegates to the same repo mocks the create tests
+    // assert on, so wrapping create() in a transaction changes nothing for them.
+    dataSource = {
+      transaction: jest.fn((cb: (m: unknown) => unknown) =>
+        cb({
+          create: (entity: unknown, data: unknown) =>
+            entity === Session
+              ? sessionRepo.create(data)
+              : playerRepo.create(data),
+          save: (obj: Record<string, unknown>) =>
+            obj && 'joinCode' in obj
+              ? sessionRepo.save(obj)
+              : playerRepo.save(obj),
+        }),
+      ),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -119,6 +138,10 @@ describe('SessionService', () => {
         {
           provide: SessionPlayerService,
           useValue: sessionPlayerService,
+        },
+        {
+          provide: DataSource,
+          useValue: dataSource,
         },
       ],
     }).compile();
