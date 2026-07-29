@@ -11,6 +11,8 @@ import {
   HttpCode,
   UseGuards,
   UnauthorizedException,
+  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -56,13 +58,17 @@ import {
 } from '../auth/guards/clerk-auth.guard';
 import { CurrentGm } from '../auth/decorators/current-gm.decorator';
 import { GamesMaster } from '../games-master/games-master.entity';
+import { AuthService } from '../auth/auth.service';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
 @UseGuards(HostGuard)
 @Controller('sessions')
 export class SessionController {
-  constructor(private readonly service: SessionService) {}
+  constructor(
+    private readonly service: SessionService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Post()
   @UseGuards(OptionalClerkAuthGuard)
@@ -136,6 +142,37 @@ export class SessionController {
         const isHost = Boolean(gm?.id && gm.id === session.host?.id);
         return SessionResponseDto.fromEntity(session, isHost);
       });
+  }
+
+  @Post(':id/host-connection')
+  @UseGuards(ClerkAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary:
+      'Issue a session-scoped player token for the signed-in host, so a ' +
+      'Clerk-only host (with no join token in this browser) can open the ' +
+      'real-time sockets for their own session.',
+  })
+  @ApiResponse({ status: HttpStatus.OK, description: 'Player token issued.' })
+  async getHostConnection(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentGm() gm?: GamesMaster,
+  ): Promise<{ playerToken: string }> {
+    const session = await this.service.findOne(id, ['host', 'players']);
+    if (!gm?.id || session.host?.id !== gm.id) {
+      throw new ForbiddenException('Only the session host can do this');
+    }
+    // The host is auto-added as a player on create with userId = host id.
+    const hostPlayer = session.players?.find((p) => p.userId === gm.id);
+    if (!hostPlayer) {
+      throw new NotFoundException('No host player exists for this session');
+    }
+    const playerToken = this.authService.generatePlayerToken(
+      hostPlayer.id,
+      id,
+      hostPlayer.name,
+    );
+    return { playerToken };
   }
 
   @Post(':id/start')
