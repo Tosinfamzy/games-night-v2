@@ -74,9 +74,18 @@ export class AuthService {
 
   async refreshToken(refreshToken: string) {
     try {
-      const payload = this.jwtService.verify<{ sub: string }>(refreshToken, {
-        secret: this.configService.get<string>('JWT_SECRET'),
-      });
+      const payload = this.jwtService.verify<{ sub: string; type?: string }>(
+        refreshToken,
+        {
+          secret: this.configService.get<string>('JWT_SECRET'),
+        },
+      );
+
+      // Only a token minted as a refresh token may be exchanged — an access
+      // token (same signature/secret) must not work here.
+      if (payload.type !== 'refresh') {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
 
       const user = await this.userService.findById(payload.sub);
       if (!user) {
@@ -194,12 +203,16 @@ export class AuthService {
     const refreshExpiration =
       this.configService.get<string>('JWT_REFRESH_EXPIRATION') || '7d';
 
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: parseExpiration(accessExpiration),
-    });
-    const refreshToken = this.jwtService.sign(payload, {
-      expiresIn: parseExpiration(refreshExpiration),
-    });
+    // Tag each token with its kind so a refresh can't be performed with an
+    // access token (and vice versa) — see refreshToken().
+    const accessToken = this.jwtService.sign(
+      { ...payload, type: 'access' },
+      { expiresIn: parseExpiration(accessExpiration) },
+    );
+    const refreshToken = this.jwtService.sign(
+      { ...payload, type: 'refresh' },
+      { expiresIn: parseExpiration(refreshExpiration) },
+    );
 
     return {
       accessToken,

@@ -384,7 +384,7 @@ describe('AuthService', () => {
         email: 'test@example.com',
       });
 
-      jwtService.verify.mockReturnValue({ sub: 'user-1' });
+      jwtService.verify.mockReturnValue({ sub: 'user-1', type: 'refresh' });
       userService.findById.mockResolvedValue(mockUser);
       configService.get
         .mockReturnValueOnce('secret')
@@ -419,7 +419,7 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException if user not found', async () => {
-      jwtService.verify.mockReturnValue({ sub: 'user-1' });
+      jwtService.verify.mockReturnValue({ sub: 'user-1', type: 'refresh' });
       userService.findById.mockResolvedValue(null);
       configService.get.mockReturnValue('secret');
 
@@ -429,6 +429,17 @@ describe('AuthService', () => {
       await expect(service.refreshToken('valid-token')).rejects.toThrow(
         'Invalid refresh token',
       );
+    });
+
+    it('rejects an access token presented as a refresh token', async () => {
+      // Same signature/secret, but minted as an access token.
+      jwtService.verify.mockReturnValue({ sub: 'user-1', type: 'access' });
+      configService.get.mockReturnValue('secret');
+
+      await expect(service.refreshToken('an-access-token')).rejects.toThrow(
+        'Invalid refresh token',
+      );
+      expect(userService.findById).not.toHaveBeenCalled();
     });
 
     it('should handle expired token', async () => {
