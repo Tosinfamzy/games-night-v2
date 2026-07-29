@@ -29,7 +29,9 @@ export class GameResult {
     description: 'Game this result belongs to',
     type: () => Game,
   })
-  @Index()
+  // Unique: a game has exactly one result record — guards against duplicate
+  // history rows from a re-completion or a concurrent final-round end.
+  @Index({ unique: true })
   // CASCADE: removing a game drops its result record instead of failing on the
   // FK. Session name/id + gameName are denormalised on this row for history.
   @ManyToOne(() => Game, { eager: true, onDelete: 'CASCADE' })

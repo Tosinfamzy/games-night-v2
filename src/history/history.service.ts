@@ -185,6 +185,16 @@ export class HistoryService {
       throw new NotFoundException(`Game with ID ${gameId} not found`);
     }
 
+    // Idempotent: a game has exactly one result record. If two completions race
+    // (or a game is re-completed), return the existing row instead of inserting
+    // a duplicate (also enforced by a unique constraint on game_result.gameId).
+    const existing = await this.gameResultRepo.findOne({
+      where: { game: { id: gameId } },
+    });
+    if (existing) {
+      return existing;
+    }
+
     if (!game.completedAt || !game.results) {
       throw new Error('Game must be completed before creating a result record');
     }
