@@ -91,6 +91,14 @@ export class Invite {
   @Column({ type: 'timestamptz', nullable: true })
   reminderSentAt?: Date;
 
+  @ApiProperty({
+    description:
+      'When the "you haven\'t RSVP\'d yet" nudge was sent (null = not yet)',
+    required: false,
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  rsvpReminderSentAt?: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

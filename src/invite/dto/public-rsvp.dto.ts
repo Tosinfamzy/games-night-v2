@@ -33,12 +33,13 @@ export class PublicRsvpDto {
 
   @ApiProperty({
     example: 'ada@example.com',
-    description: 'Guest email (optional; used to dedupe repeat RSVPs)',
-    required: false,
+    description:
+      'Guest email — required on the open RSVP link so we can send reminders ' +
+      '(also dedupes repeat RSVPs).',
   })
   @IsEmail()
-  @IsOptional()
-  email?: string;
+  @IsNotEmpty()
+  email: string;
 
   @ApiProperty({
     example: 1,
