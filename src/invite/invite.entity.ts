@@ -84,6 +84,13 @@ export class Invite {
   @Column({ type: 'timestamp', nullable: true })
   respondedAt?: Date;
 
+  @ApiProperty({
+    description: 'When the day-of reminder email was sent (null = not yet)',
+    required: false,
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  reminderSentAt?: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

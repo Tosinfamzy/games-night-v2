@@ -8,6 +8,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { createKeyv } from '@keyv/redis';
 import { GamesMasterModule } from './games-master/games-master.module';
 import { SessionModule } from './session/session.module';
@@ -52,6 +53,10 @@ import * as Joi from 'joi';
           otherwise: Joi.optional(),
         }),
         FRONTEND_URL: Joi.string().optional(),
+        // Email (day-of reminders). Optional: unset -> mail is inert (logged,
+        // not sent), so local/test/CI never try to send.
+        RESEND_API_KEY: Joi.string().optional(),
+        MAIL_FROM: Joi.string().optional(),
       }),
     }),
     TypeOrmModule.forRootAsync({
@@ -109,6 +114,7 @@ import * as Joi from 'joi';
       skipIf: () => process.env.NODE_ENV === 'test',
     }),
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     GamesMasterModule,
     SessionModule,
     PlayerModule,
