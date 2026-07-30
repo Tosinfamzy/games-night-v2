@@ -95,7 +95,8 @@ export class InviteController {
   }
 
   @ApiOperation({
-    summary: 'Join the live session straight from an invite link (no join code)',
+    summary:
+      'Join the live session straight from an invite link (no join code)',
   })
   @Post('invites/:token/join')
   joinViaInvite(
