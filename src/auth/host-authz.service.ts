@@ -209,6 +209,58 @@ export class HostAuthzService {
     throw DomainError.invalidToken('A valid token is required for this action');
   }
 
+  /**
+   * Authorize a session-scoped read: the caller must belong to the session (any
+   * player token for it) or be its host (Clerk games-master). Without this, any
+   * caller holding a session/game/team id could enumerate participants, teams,
+   * and scores.
+   */
+  async authorizeSessionMember(
+    request: Request,
+    meta: HostOfMeta,
+  ): Promise<boolean> {
+    const token = extractBearerToken(request);
+    if (!token) {
+      throw DomainError.invalidToken(
+        'A valid token is required to view this resource',
+      );
+    }
+
+    // Malformed/missing id: defer to the pipe/handler (400/404) rather than 500.
+    const rawId = this.extractRawId(meta, request);
+    if (!rawId || !UUID_RE.test(rawId)) {
+      return true;
+    }
+    const sessionId = await this.resolveSessionId(meta, request);
+    if (!sessionId) {
+      throw new NotFoundException('Target resource not found');
+    }
+
+    // Player token: any member of this session may read it.
+    const player = this.authService.validatePlayerToken(token);
+    if (player) {
+      if (player.sessionId !== sessionId) {
+        throw new ForbiddenException(
+          'Your session token does not match this session',
+        );
+      }
+      return true;
+    }
+
+    // Clerk games-master: only the session's own host may read it.
+    const clerkUserId = await this.clerk.verify(token);
+    if (clerkUserId) {
+      if (await this.isSessionHostByGm(clerkUserId, sessionId)) {
+        return true;
+      }
+      throw new ForbiddenException('Only the session host can view this');
+    }
+
+    throw DomainError.invalidToken(
+      'A valid token is required to view this resource',
+    );
+  }
+
   private async isSessionHostByPlayer(
     playerId: string,
     sessionId: string,

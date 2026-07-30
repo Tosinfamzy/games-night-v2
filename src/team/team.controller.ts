@@ -21,6 +21,8 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { HostGuard } from '../auth/guards/host.guard';
+import { SessionMemberGuard } from '../auth/guards/session-member.guard';
+import { SessionMember } from '../auth/decorators/session-member.decorator';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
 import { TeamService } from './team.service';
@@ -36,7 +38,7 @@ import { TeamResponseDto } from '../common/dto/team.response';
 
 @ApiTags('teams')
 @ApiBearerAuth()
-@UseGuards(HostGuard)
+@UseGuards(HostGuard, SessionMemberGuard)
 @Controller('teams')
 export class TeamController {
   constructor(private readonly service: TeamService) {}
@@ -75,6 +77,7 @@ export class TeamController {
   }
 
   @Get(':id')
+  @SessionMember('team', 'id')
   @ApiOperation({ summary: 'Get a team by ID' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -147,6 +150,7 @@ export class TeamController {
   }
 
   @Get('game/:gameId')
+  @SessionMember('game', 'gameId')
   @ApiOperation({ summary: 'Get all teams for a game' })
   @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -202,6 +206,7 @@ export class TeamController {
   }
 
   @Get('game/:gameId/stats')
+  @SessionMember('game', 'gameId')
   @ApiOperation({ summary: 'Get team statistics for a game' })
   @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -229,6 +234,7 @@ export class TeamController {
   }
 
   @Get('game/:gameId/suggestions')
+  @SessionMember('game', 'gameId')
   @ApiOperation({ summary: 'Get team formation suggestions for a game' })
   @ApiParam({ name: 'gameId', type: 'string', format: 'uuid' })
   @ApiResponse({

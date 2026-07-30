@@ -27,12 +27,14 @@ import { Score } from './score.entity';
 import { TeamScore } from './interfaces/team-score.interface';
 import { ScoreResponseDto } from '../common/dto/score.response';
 import { HostGuard } from '../auth/guards/host.guard';
+import { SessionMemberGuard } from '../auth/guards/session-member.guard';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
+import { SessionMember } from '../auth/decorators/session-member.decorator';
 
 @ApiTags('scores')
 @ApiBearerAuth()
-@UseGuards(HostGuard)
+@UseGuards(HostGuard, SessionMemberGuard)
 @Controller('scores')
 export class ScoreController {
   constructor(private readonly service: ScoreService) {}
@@ -106,6 +108,7 @@ export class ScoreController {
   }
 
   @Get('games/:gameId')
+  @SessionMember('game', 'gameId')
   @ApiOperation({ summary: 'Get all scores for a specific game' })
   @ApiParam({ name: 'gameId', description: 'ID of the game' })
   @ApiResponse({
@@ -125,6 +128,7 @@ export class ScoreController {
   }
 
   @Get(':id')
+  @SessionMember('score', 'id')
   @ApiOperation({ summary: 'Get a score by ID' })
   @ApiParam({ name: 'id', description: 'ID of the score record' })
   @ApiResponse({

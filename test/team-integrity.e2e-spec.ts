@@ -49,12 +49,16 @@ describe('Team data integrity (e2e)', () => {
       .set('Authorization', bearer(seed.hostToken))
       .expect(200);
 
-    // The team is gone...
-    await request(server).get(`/teams/${teamId}`).expect(404);
+    // The team is gone... (read is membership-guarded — send the host token).
+    await request(server)
+      .get(`/teams/${teamId}`)
+      .set('Authorization', bearer(seed.hostToken))
+      .expect(404);
 
     // ...and its scores went with it (leaderboard no longer references it).
     const scores = await request(server)
       .get(`/scores/games/${seed.gameId}`)
+      .set('Authorization', bearer(seed.hostToken))
       .expect(200);
     const body = scores.body as Array<{ teamId?: string }>;
     expect(body.every((s) => s.teamId !== teamId)).toBe(true);

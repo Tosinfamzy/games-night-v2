@@ -49,7 +49,9 @@ import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../user/user.entity';
 import { HostGuard } from '../auth/guards/host.guard';
+import { SessionMemberGuard } from '../auth/guards/session-member.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
+import { SessionMember } from '../auth/decorators/session-member.decorator';
 import { SessionActorGuard } from '../auth/guards/session-actor.guard';
 import { SessionActor } from '../auth/decorators/session-actor.decorator';
 import {
@@ -62,7 +64,7 @@ import { AuthService } from '../auth/auth.service';
 
 @ApiTags('sessions')
 @ApiBearerAuth()
-@UseGuards(HostGuard)
+@UseGuards(HostGuard, SessionMemberGuard)
 @Controller('sessions')
 export class SessionController {
   constructor(
@@ -455,6 +457,7 @@ export class SessionController {
   }
 
   @Get(':id/validation')
+  @SessionMember('session', 'id')
   @ApiOperation({ summary: 'Validate player count for session games' })
   @ApiParam({
     name: 'id',
@@ -470,6 +473,7 @@ export class SessionController {
   }
 
   @Get(':id/can-start')
+  @SessionMember('session', 'id')
   @ApiOperation({ summary: 'Check if session can be started' })
   @ApiParam({
     name: 'id',
@@ -485,6 +489,7 @@ export class SessionController {
   }
 
   @Get(':id/readiness')
+  @SessionMember('session', 'id')
   @ApiOperation({ summary: 'Get comprehensive session readiness status' })
   @ApiParam({
     name: 'id',
@@ -501,6 +506,7 @@ export class SessionController {
 
   // Game management endpoints
   @Get(':id/games')
+  @SessionMember('session', 'id')
   @ApiOperation({ summary: 'Get all games for a session' })
   @ApiParam({
     name: 'id',
@@ -524,6 +530,7 @@ export class SessionController {
 
   // Team management endpoints
   @Get(':id/teams')
+  @SessionMember('session', 'id')
   @ApiOperation({ summary: 'Get all teams for a session' })
   @ApiParam({
     name: 'id',
@@ -630,6 +637,7 @@ export class SessionController {
   }
 
   @Get(':id/players')
+  @SessionMember('session', 'id')
   @ApiOperation({ summary: 'Get all players in session' })
   @ApiParam({ name: 'id', description: 'Session ID' })
   @ApiResponse({
@@ -655,6 +663,7 @@ export class SessionController {
 
   // Results and leaderboard endpoints
   @Get(':id/leaderboard')
+  @SessionMember('session', 'id')
   @ApiOperation({
     summary: 'Get session leaderboard with complete standings across all games',
   })

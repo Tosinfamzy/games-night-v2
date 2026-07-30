@@ -47,7 +47,11 @@ describe('Game removal cascade (e2e)', () => {
       .set('Authorization', bearer(seed.hostToken))
       .expect(204);
 
-    // The game (and, by cascade, its scores/teams) is gone.
-    await request(server).get(`/games/${seed.gameId}`).expect(404);
+    // The game (and, by cascade, its scores/teams) is gone. The read is
+    // membership-guarded — send the host token to reach the 404.
+    await request(server)
+      .get(`/games/${seed.gameId}`)
+      .set('Authorization', bearer(seed.hostToken))
+      .expect(404);
   });
 });

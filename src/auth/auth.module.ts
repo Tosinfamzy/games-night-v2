@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { WsPlayerAuthGuard } from './guards/ws-player-auth.guard';
 import { HostGuard } from './guards/host.guard';
 import { SessionActorGuard } from './guards/session-actor.guard';
+import { SessionMemberGuard } from './guards/session-member.guard';
 import {
   ClerkAuthGuard,
   OptionalClerkAuthGuard,
@@ -52,6 +53,7 @@ import { Team } from '../team/team.entity';
     HostAuthzService,
     HostGuard,
     SessionActorGuard,
+    SessionMemberGuard,
     ClerkService,
     ClerkAuthGuard,
     OptionalClerkAuthGuard,
@@ -64,6 +66,7 @@ import { Team } from '../team/team.entity';
     HostAuthzService,
     HostGuard,
     SessionActorGuard,
+    SessionMemberGuard,
     ClerkService,
     ClerkAuthGuard,
     OptionalClerkAuthGuard,

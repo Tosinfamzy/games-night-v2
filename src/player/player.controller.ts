@@ -21,6 +21,8 @@ import {
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { HostGuard } from '../auth/guards/host.guard';
+import { SessionMemberGuard } from '../auth/guards/session-member.guard';
+import { SessionMember } from '../auth/decorators/session-member.decorator';
 import { HostOf } from '../auth/decorators/host-of.decorator';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { PlayerService } from './player.service';
@@ -35,7 +37,7 @@ import { PlayerResponseDto } from '../common/dto/player.response';
 // Host-guarded: this controller could delete/rename/re-status any player by id
 // (IDOR). The public join route below opts out (no @HostOf). Self player-status
 // changes go through the session routes, not here.
-@UseGuards(HostGuard)
+@UseGuards(HostGuard, SessionMemberGuard)
 @Controller('players')
 export class PlayerController {
   constructor(private readonly service: PlayerService) {}
@@ -78,6 +80,7 @@ export class PlayerController {
   }
 
   @Get('session/:sessionId')
+  @SessionMember('session', 'sessionId')
   @ApiOperation({ summary: 'Get all players in a session' })
   @ApiParam({ name: 'sessionId', description: 'ID of the session' })
   @ApiResponse({
@@ -100,6 +103,7 @@ export class PlayerController {
   }
 
   @Get(':id')
+  @SessionMember('player', 'id')
   @ApiOperation({ summary: 'Get a player by ID' })
   @ApiParam({ name: 'id', description: 'ID of the player' })
   @ApiResponse({
@@ -254,6 +258,7 @@ export class PlayerController {
   }
 
   @Get('session/:sessionId/stats')
+  @SessionMember('session', 'sessionId')
   @ApiOperation({ summary: 'Get player statistics for a session' })
   @ApiParam({ name: 'sessionId', description: 'ID of the session' })
   @ApiResponse({

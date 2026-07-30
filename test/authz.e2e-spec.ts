@@ -94,10 +94,32 @@ describe('Host authorization (e2e)', () => {
       .expect(201);
   });
 
-  it('leaves reads and public routes open (no token needed)', async () => {
-    await request(server).get(`/scores/games/${seed.gameId}`).expect(200);
+  it('keeps public routes open (no token needed)', async () => {
+    // The session entry-point read stays open (basic info only; host secrets are
+    // already stripped for non-hosts), as does the join-code lookup.
     await request(server).get(`/sessions/${seed.sessionId}`).expect(200);
     await request(server).get(`/sessions/join/${seed.joinCode}`).expect(200);
+  });
+
+  it('requires session membership for participant-data reads', async () => {
+    // Anonymous: rejected.
+    const anon = await request(server).get(`/scores/games/${seed.gameId}`);
+    expect(anon.status).toBe(400);
+    expect((anon.body as { code?: string }).code).toBe('TOKEN_INVALID');
+
+    // A member (host or player) with a token: allowed.
+    await request(server)
+      .get(`/scores/games/${seed.gameId}`)
+      .set('Authorization', bearer(seed.hostToken))
+      .expect(200);
+    await request(server)
+      .get(`/sessions/${seed.sessionId}/players`)
+      .set('Authorization', bearer(nonHostToken))
+      .expect(200);
+    await request(server)
+      .get(`/sessions/${seed.sessionId}/teams`)
+      .set('Authorization', bearer(seed.hostToken))
+      .expect(200);
   });
 
   it('does not leak the host RSVP token to anonymous session reads', async () => {

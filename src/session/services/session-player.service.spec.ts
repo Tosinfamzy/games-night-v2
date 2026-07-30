@@ -86,7 +86,8 @@ describe('SessionPlayerService', () => {
                   obj && 'joinCode' in obj
                     ? sessionRepo.save(obj)
                     : teamRepo.save(obj),
-                remove: (obj: Record<string, unknown>) => playerRepo.remove(obj),
+                remove: (obj: Record<string, unknown>) =>
+                  playerRepo.remove(obj),
               }),
             ),
           },
