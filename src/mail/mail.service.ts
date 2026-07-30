@@ -117,9 +117,6 @@ export class MailService {
       minute: '2-digit',
     });
     const host = e.hostName ? ` by ${escapeHtml(e.hostName)}` : '';
-    const location = e.location
-      ? `<p style="margin:4px 0;color:#555;">📍 ${escapeHtml(e.location)}</p>`
-      : '';
 
     return `
 <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1c1b19;">
@@ -127,7 +124,7 @@ export class MailService {
   <p style="font-size:16px;">
     <strong>${escapeHtml(e.sessionName)}</strong> is happening today${host} — ${escapeHtml(when)}. Ready to play?
   </p>
-  ${location}
+  ${this.locationLine(e.location)}
   <a href="${e.inviteUrl}"
      style="display:inline-block;margin:20px 0;background:#4f46e5;color:#fff;text-decoration:none;font-weight:600;padding:14px 28px;border-radius:10px;">
     🎮 Join the game night
@@ -153,11 +150,19 @@ export class MailService {
   <p style="font-size:16px;">
     You're invited to ${host} <strong>${escapeHtml(e.sessionName)}</strong> — ${escapeHtml(when)}. Can you make it?
   </p>
+  ${this.locationLine(e.location)}
   <a href="${e.inviteUrl}"
      style="display:inline-block;margin:20px 0;background:#4f46e5;color:#fff;text-decoration:none;font-weight:600;padding:14px 28px;border-radius:10px;">
     Let them know →
   </a>
   <p style="font-size:13px;color:#888;">Or open this link: <br><a href="${e.inviteUrl}" style="color:#4f46e5;">${e.inviteUrl}</a></p>
 </div>`.trim();
+  }
+
+  /** A 📍 location line linking to Google Maps, or '' when there's no location. */
+  private locationLine(location: string | null): string {
+    if (!location) return '';
+    const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+    return `<p style="margin:4px 0;color:#555;">📍 <a href="${maps}" style="color:#4f46e5;">${escapeHtml(location)}</a></p>`;
   }
 }
