@@ -18,6 +18,8 @@ import { RsvpDto } from './dto/rsvp.dto';
 import { PublicRsvpDto } from './dto/public-rsvp.dto';
 import { PublicRsvpViewDto } from './dto/public-rsvp-view.dto';
 import { PublicInviteDto } from './dto/public-invite.dto';
+import { JoinViaInviteDto } from './dto/join-via-invite.dto';
+import { SessionJoinResponseDto } from '../common/dto/session.response';
 
 @ApiTags('invite')
 // Host-guarded overall; the token-based public RSVP routes below opt out by
@@ -90,6 +92,27 @@ export class InviteController {
     return this.inviteService
       .rsvp(token, dto)
       .then((invite) => PublicInviteDto.fromEntity(invite));
+  }
+
+  @ApiOperation({
+    summary: 'Join the live session straight from an invite link (no join code)',
+  })
+  @Post('invites/:token/join')
+  joinViaInvite(
+    @Param('token', ParseUUIDPipe) token: string,
+    @Body() dto: JoinViaInviteDto,
+  ): Promise<SessionJoinResponseDto> {
+    return this.inviteService
+      .joinViaInvite(token, dto.name)
+      .then(({ session, player, message, playerToken }) =>
+        SessionJoinResponseDto.fromEntities({
+          session,
+          playerId: player.id,
+          playerName: player.name,
+          message,
+          playerToken,
+        }),
+      );
   }
 
   // ----- Open self-serve RSVP (single shareable session link, no auth) -----

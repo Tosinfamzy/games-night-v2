@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Invite } from '../invite.entity';
 import { RsvpStatus } from '../enums/rsvp-status.enum';
+import { SessionStatus } from '../../session/enums/session-status.enum';
 
 /** Safe session projection for public invite responses (no joinCode, no
  * publicRsvpToken, no host code). Keeps `host.name` nested so the existing RSVP
@@ -20,6 +21,12 @@ class PublicInviteSessionDto {
 
   @ApiProperty({ nullable: true })
   location: string | null;
+
+  @ApiProperty({
+    enum: SessionStatus,
+    description: 'Session status — lets a guest see if they can join yet.',
+  })
+  status: SessionStatus;
 
   @ApiProperty({ nullable: true, example: { name: 'Ada' } })
   host: { name: string } | null;
@@ -75,6 +82,7 @@ export class PublicInviteDto {
           description: invite.session.description ?? null,
           date: invite.session.date,
           location: invite.session.location ?? null,
+          status: invite.session.status,
           host: invite.session.host ? { name: invite.session.host.name } : null,
         }
       : null;

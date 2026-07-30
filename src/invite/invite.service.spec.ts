@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { InviteService } from './invite.service';
 import { Invite } from './invite.entity';
 import { Session } from '../session/session.entity';
+import { SessionPlayerService } from '../session/services/session-player.service';
 import { RsvpStatus } from './enums/rsvp-status.enum';
 
 type MockRepo = {
@@ -44,11 +45,13 @@ describe('InviteService', () => {
   let inviteRepo: MockRepo;
   let sessionRepo: MockRepo;
   let events: { emit: jest.Mock };
+  let sessionPlayerService: { joinSession: jest.Mock };
 
   beforeEach(async () => {
     inviteRepo = mockRepo();
     sessionRepo = mockRepo();
     events = { emit: jest.fn() };
+    sessionPlayerService = { joinSession: jest.fn() };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
@@ -56,6 +59,7 @@ describe('InviteService', () => {
         { provide: getRepositoryToken(Invite), useValue: inviteRepo },
         { provide: getRepositoryToken(Session), useValue: sessionRepo },
         { provide: EventEmitter2, useValue: events },
+        { provide: SessionPlayerService, useValue: sessionPlayerService },
       ],
     }).compile();
 
@@ -160,6 +164,49 @@ describe('InviteService', () => {
         goingHeadcount: 3, // 1 + 2 plus-ones
       });
       expect(JSON.stringify(view)).not.toContain('secret@host.com');
+    });
+  });
+
+  describe('joinViaInvite', () => {
+    it("joins the invite's session under the RSVP name via the normal flow", async () => {
+      inviteRepo.findOne.mockResolvedValue({
+        id: 'invite-1',
+        name: 'Alice',
+        session: { id: 'session-1', joinCode: '123456' },
+      });
+      const joinResult = {
+        session: {},
+        player: { id: 'p1', name: 'Alice' },
+        message: 'ok',
+        playerToken: 'tok',
+      };
+      sessionPlayerService.joinSession.mockResolvedValue(joinResult);
+
+      const result = await service.joinViaInvite('invite-token');
+
+      // Uses the invite's session join code + the RSVP name, so the join-flow's
+      // name->invite bridge checks this very guest in.
+      expect(sessionPlayerService.joinSession).toHaveBeenCalledWith({
+        joinCode: '123456',
+        playerName: 'Alice',
+      });
+      expect(result).toBe(joinResult);
+    });
+
+    it('falls back to a provided name when the invite has none', async () => {
+      inviteRepo.findOne.mockResolvedValue({
+        id: 'invite-2',
+        name: null,
+        session: { id: 'session-1', joinCode: '654321' },
+      });
+      sessionPlayerService.joinSession.mockResolvedValue({});
+
+      await service.joinViaInvite('invite-token', 'Bob');
+
+      expect(sessionPlayerService.joinSession).toHaveBeenCalledWith({
+        joinCode: '654321',
+        playerName: 'Bob',
+      });
     });
   });
 
