@@ -221,6 +221,7 @@ describe('InviteService', () => {
 
       const result = await service.selfRsvp('rsvp-token', {
         name: 'Grace',
+        email: 'grace@example.com',
         status: RsvpStatus.GOING,
         plusOnes: 1,
       });
@@ -251,6 +252,7 @@ describe('InviteService', () => {
 
       const result = await service.selfRsvp('rsvp-token', {
         name: 'Grace',
+        email: 'grace@example.com',
         status: RsvpStatus.MAYBE,
       });
 
@@ -270,6 +272,7 @@ describe('InviteService', () => {
 
       const result = await service.selfRsvp('rsvp-token', {
         name: 'Grace',
+        email: 'grace@example.com',
         status: RsvpStatus.MAYBE,
         plusOnes: 5,
       });

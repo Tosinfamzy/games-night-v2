@@ -9,8 +9,11 @@ import { SessionStatus } from '../session/enums/session-status.enum';
 import { MailService } from '../mail/mail.service';
 import { getErrorMessage } from '../common/utils/error.util';
 
-/** Email guests this many hours before the session starts. */
+/** Email confirmed guests this many hours before the session starts. */
 const REMINDER_LEAD_HOURS = 3;
+
+/** Nudge still-pending guests when the session is within this many hours. */
+const RSVP_NUDGE_LEAD_HOURS = 48;
 
 /**
  * Sends a one-off day-of reminder email to guests who said they're coming, a few
@@ -31,10 +34,12 @@ export class ReminderService {
   @Cron('*/15 * * * *')
   async handleCron(): Promise<void> {
     try {
-      const sent = await this.sendDueReminders();
-      if (sent > 0) {
-        this.logger.log(`Sent ${sent} day-of reminder(s)`);
-      }
+      const reminders = await this.sendDueReminders();
+      if (reminders > 0)
+        this.logger.log(`Sent ${reminders} day-of reminder(s)`);
+
+      const nudges = await this.sendDueRsvpNudges();
+      if (nudges > 0) this.logger.log(`Sent ${nudges} RSVP nudge(s)`);
     } catch (error) {
       this.logger.error(`Reminder run failed: ${getErrorMessage(error)}`);
     }
@@ -91,6 +96,57 @@ export class ReminderService {
       // run rather than silently swallowing the reminder.
       if (sent) {
         invite.reminderSentAt = now;
+        await this.inviteRepo.save(invite);
+        sentCount += 1;
+      }
+    }
+
+    return sentCount;
+  }
+
+  /**
+   * Nudge still-pending guests (with an email, not yet nudged) whose SCHEDULED
+   * session starts within the RSVP-nudge window. Returns how many were sent.
+   */
+  async sendDueRsvpNudges(now: Date = new Date()): Promise<number> {
+    if (!this.mail.enabled) return 0;
+    const frontendUrl = this.config.get<string>('FRONTEND_URL');
+    if (!frontendUrl) return 0;
+
+    const windowEnd = new Date(
+      now.getTime() + RSVP_NUDGE_LEAD_HOURS * 3600_000,
+    );
+
+    const invites = await this.inviteRepo
+      .createQueryBuilder('invite')
+      .leftJoinAndSelect('invite.session', 'session')
+      .leftJoinAndSelect('session.host', 'host')
+      .where('invite.rsvpReminderSentAt IS NULL')
+      .andWhere('invite.email IS NOT NULL')
+      .andWhere('invite.rsvpStatus = :status', { status: RsvpStatus.PENDING })
+      .andWhere('session.status = :sessionStatus', {
+        sessionStatus: SessionStatus.SCHEDULED,
+      })
+      .andWhere('session.date > :now', { now })
+      .andWhere('session.date <= :windowEnd', { windowEnd })
+      .getMany();
+
+    let sentCount = 0;
+    for (const invite of invites) {
+      if (!invite.session || !invite.email) continue;
+
+      const sent = await this.mail.sendRsvpNudge({
+        to: invite.email,
+        guestName: invite.name ?? null,
+        sessionName: invite.session.name,
+        date: invite.session.date,
+        location: invite.session.location ?? null,
+        hostName: invite.session.host?.name ?? null,
+        inviteUrl: `${frontendUrl.replace(/\/$/, '')}/invite/${invite.inviteToken}`,
+      });
+
+      if (sent) {
+        invite.rsvpReminderSentAt = now;
         await this.inviteRepo.save(invite);
         sentCount += 1;
       }

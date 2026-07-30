@@ -99,3 +99,48 @@ describe('ReminderService.sendDueReminders', () => {
     expect(inviteRepo.save).not.toHaveBeenCalled();
   });
 });
+
+describe('ReminderService.sendDueRsvpNudges', () => {
+  let inviteRepo: { createQueryBuilder: jest.Mock; save: jest.Mock };
+  let mail: { enabled: boolean; sendRsvpNudge: jest.Mock };
+  let config: { get: jest.Mock };
+
+  const make = () =>
+    new ReminderService(inviteRepo as never, mail as never, config as never);
+
+  beforeEach(() => {
+    inviteRepo = { createQueryBuilder: jest.fn(), save: jest.fn() };
+    mail = { enabled: true, sendRsvpNudge: jest.fn() };
+    config = { get: jest.fn().mockReturnValue('https://fe.example') };
+  });
+
+  it('nudges pending guests and marks them so they are not re-nudged', async () => {
+    const invite = eligibleInvite({
+      rsvpStatus: RsvpStatus.PENDING,
+      rsvpReminderSentAt: undefined,
+    });
+    inviteRepo.createQueryBuilder.mockReturnValue(qbReturning([invite]));
+    mail.sendRsvpNudge.mockResolvedValue(true);
+    const now = new Date('2026-08-30T19:00:00Z');
+
+    const sent = await make().sendDueRsvpNudges(now);
+
+    expect(sent).toBe(1);
+    expect(mail.sendRsvpNudge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'pim@example.com',
+        inviteUrl: 'https://fe.example/invite/tok-1',
+      }),
+    );
+    expect((invite as { rsvpReminderSentAt?: Date }).rsvpReminderSentAt).toBe(
+      now,
+    );
+    expect(inviteRepo.save).toHaveBeenCalledWith(invite);
+  });
+
+  it('does nothing when email is not configured', async () => {
+    mail.enabled = false;
+    expect(await make().sendDueRsvpNudges()).toBe(0);
+    expect(inviteRepo.createQueryBuilder).not.toHaveBeenCalled();
+  });
+});
