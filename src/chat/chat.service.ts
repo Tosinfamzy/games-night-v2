@@ -118,8 +118,13 @@ export class ChatService {
     // Check if there are more messages
     const hasMore = messages.length > limit;
 
-    // Return only the requested number of messages
-    const resultMessages = hasMore ? messages.slice(0, limit) : messages;
+    // We fetch the most-recent `limit` newest-first (DESC) for correct "latest N"
+    // + cursor pagination, but return them oldest-first (ascending) so the client
+    // renders them chronologically — oldest at top, newest at the bottom, like a
+    // normal chat. (Returning DESC made new messages appear at the top.)
+    const resultMessages = (hasMore ? messages.slice(0, limit) : messages)
+      .slice()
+      .reverse();
 
     return {
       messages: resultMessages.map((msg) => MessageResponseDto.fromEntity(msg)),

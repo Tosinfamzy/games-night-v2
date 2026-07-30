@@ -209,16 +209,18 @@ describe('ChatService', () => {
   describe('getMessageHistory', () => {
     it('should return message history for a session', async () => {
       const session = createMockSession({ id: 'session-1' });
+      // The query orders newest-first (DESC), so the query builder yields the
+      // newer message first — as the real DB would.
       const messages = [
-        createMockMessage({
-          id: 'msg-1',
-          content: 'Message 1',
-          createdAt: new Date('2025-01-01T10:00:00Z'),
-        }),
         createMockMessage({
           id: 'msg-2',
           content: 'Message 2',
           createdAt: new Date('2025-01-01T10:01:00Z'),
+        }),
+        createMockMessage({
+          id: 'msg-1',
+          content: 'Message 1',
+          createdAt: new Date('2025-01-01T10:00:00Z'),
         }),
       ];
 
@@ -244,7 +246,9 @@ describe('ChatService', () => {
 
       expect(result.messages).toHaveLength(2);
       expect(result.hasMore).toBe(false);
+      // Returned oldest-first so the client renders chronologically.
       expect(result.messages[0].content).toBe('Message 1');
+      expect(result.messages[1].content).toBe('Message 2');
     });
 
     it('should throw NotFoundException if session not found', async () => {
