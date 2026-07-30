@@ -1,10 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { findOneOrThrow } from '../common/utils/find-or-throw.util';
 import { Session } from '../session/session.entity';
+import {
+  SessionPlayerService,
+  JoinSessionResult,
+} from '../session/services/session-player.service';
 import { Invite } from './invite.entity';
 import { RsvpStatus } from './enums/rsvp-status.enum';
 import { CreateInviteDto } from './dto/create-invite.dto';
@@ -36,7 +40,30 @@ export class InviteService {
     @InjectRepository(Session)
     private readonly sessionRepo: Repository<Session>,
     private readonly eventEmitter: EventEmitter2,
+    private readonly sessionPlayerService: SessionPlayerService,
   ) {}
+
+  /**
+   * Public: a guest joins the live session straight from their invite link — no
+   * join code needed. Delegates to the normal join flow (keyed off the invite's
+   * session), so all its rules apply: only joinable while SCHEDULED, no duplicate
+   * players, and the PLAYER_JOINED bridge auto-checks-in this very invite (it
+   * matches by name — so we join under the name they RSVP'd with).
+   */
+  async joinViaInvite(
+    token: string,
+    name?: string,
+  ): Promise<JoinSessionResult> {
+    const invite = await this.findByToken(token);
+    if (!invite.session) {
+      throw new NotFoundException('This invite is not linked to a session');
+    }
+    const playerName = invite.name?.trim() || name?.trim() || 'Guest';
+    return this.sessionPlayerService.joinSession({
+      joinCode: invite.session.joinCode,
+      playerName,
+    });
+  }
 
   /** GM adds a named guest to a session's guest list. */
   async createForSession(
