@@ -119,6 +119,7 @@ describe('ScoreController (e2e)', () => {
     it('should return aggregated team scores for a game with scores', async () => {
       const response = await request(httpServer)
         .get(`/scores/games/${seed.gameId}`)
+        .set('Authorization', `Bearer ${seed.hostToken}`)
         .expect(200);
 
       const scores = response.body as TeamScoreResponse[];
@@ -133,14 +134,14 @@ describe('ScoreController (e2e)', () => {
       }
     });
 
-    it('should return an empty array for a game with no scores', async () => {
-      // getGameScores does not assert game existence; an unknown game simply
-      // has no scores, so the endpoint returns 200 with an empty array.
-      const response = await request(httpServer)
+    it('404s for an unknown game (membership guard resolves no session)', async () => {
+      // The @SessionMember read guard resolves the game's session first; an
+      // unknown game resolves to nothing, so the read is rejected before the
+      // handler rather than returning an empty array for an id that isn't ours.
+      await request(httpServer)
         .get(`/scores/games/${uuidv4()}`)
-        .expect(200);
-
-      expect(response.body).toEqual([]);
+        .set('Authorization', `Bearer ${seed.hostToken}`)
+        .expect(404);
     });
   });
 });

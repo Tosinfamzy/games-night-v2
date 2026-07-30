@@ -67,8 +67,12 @@ describe('Session & player removal cascade (e2e)', () => {
       .set('Authorization', bearer(seed.hostToken))
       .expect(200);
 
-    // Session (and by cascade its games) is gone.
+    // Session (and by cascade its games) is gone. The game read is
+    // membership-guarded, so send the host token to reach the 404.
     await request(server).get(`/sessions/${seed.sessionId}`).expect(404);
-    await request(server).get(`/games/${seed.gameId}`).expect(404);
+    await request(server)
+      .get(`/games/${seed.gameId}`)
+      .set('Authorization', bearer(seed.hostToken))
+      .expect(404);
   });
 });

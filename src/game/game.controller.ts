@@ -27,12 +27,14 @@ import { NextTurnDto } from './dto/next-turn.dto';
 import { GameResponseDto } from '../common/dto/game.response';
 import { GameResultsDto } from '../common/dto/game-results.dto';
 import { HostGuard } from '../auth/guards/host.guard';
+import { SessionMemberGuard } from '../auth/guards/session-member.guard';
+import { SessionMember } from '../auth/decorators/session-member.decorator';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
 
 @ApiTags('games')
 @ApiBearerAuth()
-@UseGuards(HostGuard)
+@UseGuards(HostGuard, SessionMemberGuard)
 @Controller('games')
 export class GameController {
   constructor(private readonly service: GameService) {}
@@ -75,6 +77,7 @@ export class GameController {
   }
 
   @Get(':id')
+  @SessionMember('game', 'id')
   @ApiOperation({ summary: 'Get a game by ID' })
   @ApiParam({ name: 'id', type: 'string', format: 'uuid' })
   @ApiResponse({
@@ -270,6 +273,7 @@ export class GameController {
   }
 
   @Get(':id/readiness')
+  @SessionMember('game', 'id')
   @ApiOperation({ summary: 'Check if a game is ready to start' })
   @ApiParam({ name: 'id', description: 'ID of the game' })
   @ApiResponse({
@@ -357,6 +361,7 @@ export class GameController {
   }
 
   @Get(':id/stats')
+  @SessionMember('game', 'id')
   @ApiOperation({ summary: 'Get comprehensive game statistics' })
   @ApiParam({ name: 'id', description: 'ID of the game' })
   @ApiResponse({
@@ -422,6 +427,7 @@ export class GameController {
   }
 
   @Get(':id/results')
+  @SessionMember('game', 'id')
   @ApiOperation({ summary: 'Get game results with rankings and winner' })
   @ApiParam({ name: 'id', description: 'Game ID' })
   @ApiResponse({
@@ -462,6 +468,7 @@ export class GameController {
   }
 
   @Get(':id/timer')
+  @SessionMember('game', 'id')
   @ApiOperation({
     summary: 'Get current timer status for a game',
   })

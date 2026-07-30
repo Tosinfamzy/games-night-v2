@@ -259,6 +259,7 @@ describe('Games Night happy path (e2e)', () => {
   it('11. reads the aggregated team leaderboard for the game', async () => {
     const res = await request(server)
       .get(`/scores/games/${gameId}`)
+      .set('Authorization', `Bearer ${accessToken ?? ''}`)
       .expect(200);
     const scores = res.body as Array<{
       teamId: string;
@@ -279,7 +280,10 @@ describe('Games Night happy path (e2e)', () => {
   });
 
   it('12. reads the session leaderboard', async () => {
-    await request(server).get(`/sessions/${sessionId}/leaderboard`).expect(200);
+    await request(server)
+      .get(`/sessions/${sessionId}/leaderboard`)
+      .set('Authorization', `Bearer ${accessToken ?? ''}`)
+      .expect(200);
   });
 
   it('13. completes the game and the session', async () => {
@@ -288,7 +292,10 @@ describe('Games Night happy path (e2e)', () => {
   });
 
   it('14. reads game results; history now requires host auth', async () => {
-    await request(server).get(`/games/${gameId}/results`).expect(200);
+    await request(server)
+      .get(`/games/${gameId}/results`)
+      .set('Authorization', `Bearer ${accessToken ?? ''}`)
+      .expect(200);
 
     // The history controller aggregates player PII and is now host-only —
     // an anonymous read is rejected.

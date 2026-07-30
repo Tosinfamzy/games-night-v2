@@ -5,6 +5,7 @@ import { SessionService } from './session.service';
 import { AuthService } from '../auth/auth.service';
 import { HostGuard } from '../auth/guards/host.guard';
 import { SessionActorGuard } from '../auth/guards/session-actor.guard';
+import { SessionMemberGuard } from '../auth/guards/session-member.guard';
 import {
   ClerkAuthGuard,
   OptionalClerkAuthGuard,
@@ -41,6 +42,8 @@ describe('SessionController', () => {
       .overrideGuard(HostGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(SessionActorGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(SessionMemberGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(OptionalClerkAuthGuard)
       .useValue({ canActivate: () => true })
