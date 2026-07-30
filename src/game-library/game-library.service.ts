@@ -31,7 +31,8 @@ export class GameLibraryService implements OnModuleInit {
         name: 'Articulate',
         description:
           'A fun word-guessing game where teams compete to describe words without saying them directly. Players must get their teammates to guess words by describing them without using rhymes, sounds-like clues, or direct translations.',
-        minPlayers: 4,
+        // Playable head-to-head (2 teams of 1) up to bigger groups.
+        minPlayers: 2,
         maxPlayers: 12,
         estimatedDuration: 30,
         difficulty: 'Easy',
@@ -39,6 +40,21 @@ export class GameLibraryService implements OnModuleInit {
         equipment: 'Articulate cards, Timer, Score pad',
         rules:
           'Teams take turns describing words while teammates guess. No rhyming, sounds-like, or direct translations allowed. Teams move around the board based on correct guesses.',
+        isActive: true,
+      },
+      {
+        name: 'UNO',
+        description:
+          'The classic fast-paced card game. Match the top card by color or number, use action cards to skip, reverse, and stack draws on your opponents, and shout "UNO!" when you are down to one card. First to empty their hand wins the round.',
+        // Works head-to-head with just two players, so it's easy to jump into.
+        minPlayers: 2,
+        maxPlayers: 10,
+        estimatedDuration: 20,
+        difficulty: 'Easy',
+        categories: ['Card Game', 'Family Game', 'Party Game'],
+        equipment: 'UNO deck',
+        rules:
+          'Match the top card by colour or number, or play an action/wild card; draw when you cannot play. Call "UNO" when you have one card left. First to empty their hand wins the round — play as many rounds as you like and keep score here.',
         isActive: true,
       },
       {
