@@ -89,10 +89,10 @@ export class HistoryService {
   /**
    * Compute a player's stats from pre-loaded game results.
    *
-   * A player participates in a game through their team(s); finalScores records
-   * per-team scores, so we match the player's team ids against each result's
-   * finalScores. `results` must be ordered by completedAt DESC and have
-   * `winningTeam` loaded.
+   * A player participates in a team game through their team(s), and in an
+   * individual game directly. finalScores entries are keyed by team id (team
+   * mode) or by the player's own id (individual mode), so we match on either.
+   * `results` must be ordered by completedAt DESC and have `winningTeam` loaded.
    */
   private buildPlayerStats(
     player: Player,
@@ -107,14 +107,26 @@ export class HistoryService {
     const gameCounts = new Map<string, number>();
 
     for (const result of results) {
-      const playerScore = result.finalScores.find((s) => teamIds.has(s.teamId));
+      const playerScore = result.finalScores.find(
+        (s) => s.teamId === player.id || teamIds.has(s.teamId),
+      );
       if (!playerScore) {
         continue;
       }
 
       gamesPlayed++;
       totalScore += playerScore.score;
-      if (result.winningTeam && playerScore.teamId === result.winningTeam.id) {
+      // Team win: the player's team is the winning team. Individual win: the
+      // player's own entry took rank 1 in a non-tied game (no winning team FK).
+      const teamWin =
+        result.winningTeam != null &&
+        playerScore.teamId === result.winningTeam.id;
+      const individualWin =
+        playerScore.entrantType === 'player' &&
+        playerScore.teamId === player.id &&
+        playerScore.rank === 1 &&
+        !result.isTied;
+      if (teamWin || individualWin) {
         gamesWon++;
       }
       gameCounts.set(
@@ -204,18 +216,26 @@ export class HistoryService {
     const endTime = game.completedAt.getTime();
     const durationMinutes = Math.round((endTime - startTime) / 1000 / 60);
 
-    // Build final scores from game results
+    // Build final scores from game results. entrantType carries through so an
+    // individual game's entries are recognisable as players, not teams.
     const finalScores = game.results.standings.map((standing) => ({
       teamId: standing.teamId,
       teamName: standing.teamName,
+      entrantType: standing.entrantType ?? 'team',
       score: standing.totalPoints,
       rank: standing.rank,
     }));
 
-    // Find winning team
+    // The winning team FK only resolves in team mode; the winner *name* is
+    // recorded for both modes (in individual mode winnerId is a player id, whose
+    // name is the rank-1 standing's teamName slot).
     let winningTeam: Team | undefined;
+    let winningTeamName: string | undefined;
     if (game.winnerId && !game.results.isTied) {
       winningTeam = game.teams.find((team) => team.id === game.winnerId);
+      winningTeamName = game.results.standings.find(
+        (s) => s.teamId === game.winnerId,
+      )?.teamName;
     }
 
     const gameResult = this.gameResultRepo.create({
@@ -223,7 +243,7 @@ export class HistoryService {
       session: game.session,
       gameName: game.name,
       winningTeam,
-      winningTeamName: winningTeam?.name,
+      winningTeamName,
       finalScores,
       completedAt: game.completedAt,
       durationMinutes,
