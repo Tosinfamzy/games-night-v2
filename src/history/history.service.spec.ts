@@ -107,6 +107,40 @@ describe('HistoryService', () => {
       expect(stats.lastPlayedAt).toBe('2026-02-02T00:00:00.000Z'); // latest match
     });
 
+    it('credits an individual-mode game by the player’s own id + rank 1', async () => {
+      // Player is on no team — their finalScores entry is keyed by their id.
+      playerRepo.findOne.mockResolvedValue(player('p3', 'Ada', []));
+      gameResultRepo.find.mockResolvedValue([
+        makeResult(
+          'UNO',
+          [
+            {
+              teamId: 'p3',
+              teamName: 'Ada',
+              entrantType: 'player',
+              score: 30,
+              rank: 1,
+            },
+            {
+              teamId: 'p4',
+              teamName: 'Bob',
+              entrantType: 'player',
+              score: 20,
+              rank: 2,
+            },
+          ],
+          null, // individual game — no winning team FK
+          new Date('2026-04-04T00:00:00Z'),
+        ),
+      ]);
+
+      const stats = await service.getPlayerStats('p3');
+
+      expect(stats.gamesPlayed).toBe(1);
+      expect(stats.gamesWon).toBe(1); // rank 1, not tied
+      expect(stats.totalScore).toBe(30);
+    });
+
     it('returns zeroed stats for a player with no matching results', async () => {
       playerRepo.findOne.mockResolvedValue(player('p2', 'Bob', ['team-x']));
       gameResultRepo.find.mockResolvedValue([

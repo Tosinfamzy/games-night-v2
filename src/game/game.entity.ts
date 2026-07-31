@@ -20,6 +20,8 @@ export interface GameResults {
   standings: Array<{
     teamId: string;
     teamName: string;
+    /** 'team' (default) or 'player' for an individual-mode entrant. */
+    entrantType?: 'team' | 'player';
     rank: number;
     totalPoints: number;
   }>;

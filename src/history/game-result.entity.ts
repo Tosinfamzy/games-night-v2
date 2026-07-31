@@ -15,6 +15,9 @@ import { Team } from '../team/team.entity';
 export interface FinalScore {
   teamId: string;
   teamName: string;
+  /** 'team' (default) or 'player' for an individual-mode entry, where
+   *  teamId/teamName carry the player's id/name. Absent on legacy records. */
+  entrantType?: 'team' | 'player';
   score: number;
   rank: number;
 }
