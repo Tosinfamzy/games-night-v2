@@ -266,6 +266,39 @@ describe('GameService', () => {
         ).rejects.toThrow(BadRequestException);
       });
 
+      it('starts an individual game with ≥2 players and no teams', async () => {
+        const game = createMockGame({
+          id: 'game-1',
+          status: GameStatus.PENDING,
+          scoreMode: ScoreMode.INDIVIDUAL,
+          session: { id: 'session-1' } as Session,
+        });
+        gameRepo.findOne.mockResolvedValue(game);
+        playerRepo.count.mockResolvedValue(2);
+        gameRepo.save.mockImplementation((g) => Promise.resolve(g as Game));
+
+        const result = await service.startGame('game-1', { teamIds: [] });
+
+        expect(result.status).toBe(GameStatus.IN_PROGRESS);
+        expect(result.currentRound).toBe(1);
+        expect(result.teams).toEqual([]);
+      });
+
+      it('rejects an individual game with fewer than 2 players', async () => {
+        const game = createMockGame({
+          id: 'game-1',
+          status: GameStatus.PENDING,
+          scoreMode: ScoreMode.INDIVIDUAL,
+          session: { id: 'session-1' } as Session,
+        });
+        gameRepo.findOne.mockResolvedValue(game);
+        playerRepo.count.mockResolvedValue(1);
+
+        await expect(
+          service.startGame('game-1', { teamIds: [] }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
       it('should throw BadRequestException if less than 2 teams', async () => {
         const game = createMockGame({
           status: GameStatus.PENDING,
