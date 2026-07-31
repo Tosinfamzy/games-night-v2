@@ -6,7 +6,9 @@ import {
   IsInt,
   Min,
   IsOptional,
+  IsEnum,
 } from 'class-validator';
+import { ScoreMode } from '../enums/score-mode.enum';
 
 export class CreateGameDto {
   @ApiProperty({ example: 'Chess', description: 'Name of the game' })
@@ -31,4 +33,16 @@ export class CreateGameDto {
   @Min(1)
   @IsOptional()
   maxRounds?: number;
+
+  @ApiProperty({
+    enum: ScoreMode,
+    default: ScoreMode.TEAM,
+    required: false,
+    description:
+      'Score by team (default) or by individual player. Individual mode lets a ' +
+      '1-v-1 game skip building one-person teams.',
+  })
+  @IsEnum(ScoreMode)
+  @IsOptional()
+  scoreMode?: ScoreMode;
 }

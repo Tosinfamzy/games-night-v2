@@ -13,6 +13,7 @@ import { GameGateway } from './game.gateway';
 import { GameTimerService } from './game-timer.service';
 import { HistoryService } from '../history/history.service';
 import { GameStatus } from './enums/game-status.enum';
+import { ScoreMode } from './enums/score-mode.enum';
 import { createMockRepository } from '../../test/utils/test-db';
 import {
   createMockGame,
@@ -182,6 +183,35 @@ describe('GameService', () => {
       expect(result).toEqual(mockGame);
       expect(result.status).toBe(GameStatus.PENDING);
       expect(result.currentRound).toBe(0);
+    });
+
+    it('creates the game in the requested individual score mode', async () => {
+      const session = createMockSession({ id: 'session-1' });
+      sessionRepo.findOne.mockResolvedValue(session);
+      gameRepo.create.mockImplementation((g) => g as Game);
+      gameRepo.save.mockImplementation((g) => Promise.resolve(g as Game));
+
+      const result = await service.create({
+        sessionId: 'session-1',
+        name: '1-v-1',
+        scoreMode: ScoreMode.INDIVIDUAL,
+      });
+
+      expect(result.scoreMode).toBe(ScoreMode.INDIVIDUAL);
+    });
+
+    it('defaults scoreMode to team when not provided', async () => {
+      const session = createMockSession({ id: 'session-1' });
+      sessionRepo.findOne.mockResolvedValue(session);
+      gameRepo.create.mockImplementation((g) => g as Game);
+      gameRepo.save.mockImplementation((g) => Promise.resolve(g as Game));
+
+      const result = await service.create({
+        sessionId: 'session-1',
+        name: 'Quiz',
+      });
+
+      expect(result.scoreMode).toBe(ScoreMode.TEAM);
     });
 
     it('should throw NotFoundException if session not found', async () => {
