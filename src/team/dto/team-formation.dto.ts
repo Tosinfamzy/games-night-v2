@@ -5,6 +5,7 @@ import {
   IsArray,
   IsEnum,
   IsNumber,
+  IsObject,
   Min,
   Max,
 } from 'class-validator';
@@ -60,5 +61,9 @@ export class AssignPlayersDto {
     example: { 'team-1-id': ['player-1-id', 'player-2-id'] },
     description: 'Manual team assignments',
   })
+  // Without a class-validator decorator this property is stripped/rejected by
+  // the global whitelist pipe ("property teamAssignments should not exist"),
+  // which silently broke the manual-assign endpoint.
+  @IsObject()
   teamAssignments: Record<string, string[]>;
 }

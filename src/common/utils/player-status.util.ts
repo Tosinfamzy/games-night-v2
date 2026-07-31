@@ -8,11 +8,3 @@ import { PlayerStatus } from '../../player/player.entity';
 export function isActivePlayer(player: { status: PlayerStatus }): boolean {
   return player.status !== PlayerStatus.DISCONNECTED;
 }
-
-/**
- * A player who is actively in a started game (status PLAYING). Team *formation*
- * uses this stricter check — players are moved to PLAYING when the session starts.
- */
-export function isPlayingPlayer(player: { status: PlayerStatus }): boolean {
-  return player.status === PlayerStatus.PLAYING;
-}

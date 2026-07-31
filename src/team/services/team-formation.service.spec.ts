@@ -132,10 +132,12 @@ describe('TeamFormationService', () => {
       ).rejects.toThrow('Game with ID invalid-id not found');
     });
 
-    it('should throw BadRequestException if no active players', async () => {
+    it('should throw BadRequestException if no active players (all disconnected)', async () => {
+      // Team formation runs before the session starts, so eligible players are
+      // JOINED/READY, not PLAYING. "No active players" means everyone left.
       const players = [
-        createMockPlayer({ id: 'p1', status: PlayerStatus.JOINED }), // Not PLAYING
-        createMockPlayer({ id: 'p2', status: PlayerStatus.READY }), // Not PLAYING
+        createMockPlayer({ id: 'p1', status: PlayerStatus.DISCONNECTED }),
+        createMockPlayer({ id: 'p2', status: PlayerStatus.DISCONNECTED }),
       ];
       const session = createMockSession({
         id: 'session-1',
