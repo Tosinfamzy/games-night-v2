@@ -23,6 +23,7 @@ import { Player } from '../player/player.entity';
 import { TeamService } from '../team/team.service';
 import { ScoreService } from '../score/score.service';
 import { GameStatus } from './enums/game-status.enum';
+import { ScoreMode } from './enums/score-mode.enum';
 import { CreateTeamsDto } from '../team/dto/team-formation.dto';
 import { GameResultsDto } from '../common/dto/game-results.dto';
 import { GameGateway } from './game.gateway';
@@ -71,6 +72,7 @@ export class GameService {
       maxRounds: dto.maxRounds || 1,
       currentRound: 0,
       status: GameStatus.PENDING,
+      scoreMode: dto.scoreMode ?? ScoreMode.TEAM,
     });
     return await this.repo.save(game);
   }
@@ -260,6 +262,18 @@ export class GameService {
 
     if (dto.name) {
       game.name = dto.name;
+    }
+
+    if (dto.scoreMode && dto.scoreMode !== game.scoreMode) {
+      // Changing how a game is scored after it has started would orphan the
+      // scores already recorded against the old entrant kind, so only allow it
+      // while the game is still pending.
+      if (game.status !== GameStatus.PENDING) {
+        throw DomainError.gameInvalidState(
+          'Score mode can only be changed before the game starts',
+        );
+      }
+      game.scoreMode = dto.scoreMode;
     }
 
     return this.repo.save(game);
