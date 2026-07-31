@@ -14,6 +14,7 @@ import { Team } from '../team/team.entity';
 import { Score } from '../score/score.entity';
 import { GameLibrary } from '../game-library/game-library.entity';
 import { GameStatus } from './enums/game-status.enum';
+import { ScoreMode } from './enums/score-mode.enum';
 
 export interface GameResults {
   standings: Array<{
@@ -79,12 +80,32 @@ export class Game {
   maxRounds: number;
 
   @ApiProperty({
+    enum: ScoreMode,
+    default: ScoreMode.TEAM,
+    description:
+      'Whether the game is scored by team or by individual player. ' +
+      'Individual mode lets a 1-v-1 game skip building one-person teams.',
+  })
+  // Plain varchar (not a DB enum) for the same reason as statusBeforePause —
+  // avoids a second Postgres enum type that parallel test workers race to create.
+  @Column({ type: 'varchar', default: ScoreMode.TEAM })
+  scoreMode: ScoreMode;
+
+  @ApiProperty({
     example: 'uuid',
     description: 'ID of the team whose turn it is',
     required: false,
   })
   @Column({ nullable: true })
   currentTurnTeamId?: string;
+
+  @ApiProperty({
+    example: 'uuid',
+    description: 'ID of the player whose turn it is (individual mode)',
+    required: false,
+  })
+  @Column({ nullable: true })
+  currentTurnPlayerId?: string;
 
   @ApiProperty({
     example: '2025-01-15T10:30:00Z',
