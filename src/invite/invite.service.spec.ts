@@ -6,6 +6,7 @@ import { Invite } from './invite.entity';
 import { Session } from '../session/session.entity';
 import { SessionPlayerService } from '../session/services/session-player.service';
 import { RsvpStatus } from './enums/rsvp-status.enum';
+import { SessionStatus } from '../session/enums/session-status.enum';
 
 type MockRepo = {
   create: jest.Mock;
@@ -143,6 +144,7 @@ describe('InviteService', () => {
       sessionRepo.findOne.mockResolvedValue({
         id: 'session-1',
         name: 'Games Night',
+        status: SessionStatus.SCHEDULED,
         date: new Date('2026-09-01T19:00:00Z'),
         location: 'HQ',
         description: null,
@@ -156,6 +158,7 @@ describe('InviteService', () => {
       expect(view).toEqual({
         sessionId: 'session-1',
         sessionName: 'Games Night',
+        status: SessionStatus.SCHEDULED,
         date: new Date('2026-09-01T19:00:00Z'),
         location: 'HQ',
         description: null,

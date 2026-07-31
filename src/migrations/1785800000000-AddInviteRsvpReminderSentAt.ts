@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddInviteRsvpReminderSentAt1785800000000
-  implements MigrationInterface
-{
+export class AddInviteRsvpReminderSentAt1785800000000 implements MigrationInterface {
   name = 'AddInviteRsvpReminderSentAt1785800000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

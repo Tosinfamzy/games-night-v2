@@ -175,6 +175,7 @@ export class InviteService {
     return {
       sessionId: session.id,
       sessionName: session.name,
+      status: session.status,
       date: session.date,
       location: session.location ?? null,
       description: session.description ?? null,
