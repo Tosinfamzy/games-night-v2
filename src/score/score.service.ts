@@ -12,6 +12,7 @@ import { Player } from '../player/player.entity';
 import { SubmitGameScoreDto } from './dto/submit-game-score.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { GameStatus } from '../game/enums/game-status.enum';
+import { ScoreMode } from '../game/enums/score-mode.enum';
 import { TeamScore } from './interfaces/team-score.interface';
 import { TeamStandingDto } from '../common/dto/team-standing.dto';
 
@@ -89,7 +90,8 @@ export class ScoreService {
   ): Promise<Score> {
     const game = await this.gameRepo.findOne({
       where: { id: gameId },
-      relations: ['session', 'teams'],
+      // session.players is needed to validate an individual-mode entrant.
+      relations: ['session', 'teams', 'session.players'],
     });
 
     if (!game) {
@@ -102,33 +104,63 @@ export class ScoreService {
       );
     }
 
-    const team = await this.teamRepo.findOne({
-      where: { id: dto.teamId },
-    });
-
-    if (!team) {
-      throw new NotFoundException(`Team with ID ${dto.teamId} not found`);
-    }
-
-    // The team must be one of THIS game's teams — not merely in the same
-    // session — otherwise a host could score a team playing a different game.
-    if (!(game.teams ?? []).some((t) => t.id === dto.teamId)) {
-      throw DomainError.gameInvalidState('Team is not part of this game');
-    }
-
     const score = this.repo.create({
       points: dto.score,
       game,
-      team,
       // Always the server's current round: a client-supplied roundNumber could
       // otherwise backfill or double-count points against a past/future round.
       roundNumber: game.currentRound,
     });
 
+    let entrantType: 'team' | 'player';
+    let entrantId: string;
+
+    if (game.scoreMode === ScoreMode.INDIVIDUAL) {
+      if (!dto.playerId) {
+        throw DomainError.gameInvalidState(
+          'playerId is required for an individual-mode game',
+        );
+      }
+      // The player must belong to THIS game's session — not merely exist —
+      // otherwise a host could score someone playing elsewhere.
+      const player = (game.session?.players ?? []).find(
+        (p) => p.id === dto.playerId,
+      );
+      if (!player) {
+        throw DomainError.gameInvalidState(
+          'Player is not part of this game’s session',
+        );
+      }
+      score.player = player;
+      entrantType = 'player';
+      entrantId = player.id;
+    } else {
+      if (!dto.teamId) {
+        throw DomainError.gameInvalidState(
+          'teamId is required for a team-mode game',
+        );
+      }
+      const team = await this.teamRepo.findOne({ where: { id: dto.teamId } });
+      if (!team) {
+        throw new NotFoundException(`Team with ID ${dto.teamId} not found`);
+      }
+      // The team must be one of THIS game's teams — not merely in the same
+      // session — otherwise a host could score a team playing a different game.
+      if (!(game.teams ?? []).some((t) => t.id === dto.teamId)) {
+        throw DomainError.gameInvalidState('Team is not part of this game');
+      }
+      score.team = team;
+      entrantType = 'team';
+      entrantId = team.id;
+    }
+
     const savedScore = await this.repo.save(score);
     this.eventEmitter.emit('score.submitted', {
       gameId,
-      teamId: dto.teamId,
+      entrantType,
+      entrantId,
+      teamId: score.team?.id,
+      playerId: score.player?.id,
       points: dto.score,
       roundNumber: savedScore.roundNumber,
     });
@@ -137,63 +169,86 @@ export class ScoreService {
   }
 
   async getGameScores(gameId: string): Promise<TeamScore[]> {
-    const teamScoresMap = new Map<string, TeamScore>();
-
-    // Seed every team in the game at 0 first, so a team that hasn't scored (or
-    // is on a negative total) still appears and ranks correctly — otherwise a
-    // team at -5 could be "crowned" over a team sitting at 0 with no rows.
     const game = await this.gameRepo.findOne({
       where: { id: gameId },
-      relations: ['teams'],
+      relations: ['teams', 'session', 'session.players'],
     });
-    for (const team of game?.teams ?? []) {
-      teamScoresMap.set(team.id, {
-        teamId: team.id,
-        teamName: team.name,
+
+    return game?.scoreMode === ScoreMode.INDIVIDUAL
+      ? this.aggregateByEntrant(gameId, 'player', game.session?.players ?? [])
+      : this.aggregateByEntrant(gameId, 'team', game?.teams ?? []);
+  }
+
+  /**
+   * Aggregate a game's scores by entrant — team or individual player. Both use
+   * the same shape (`TeamScore`); for a player entrant, teamId/teamName carry
+   * the player's id/name and entrantType is 'player'. Every entrant is seeded at
+   * 0 first, so one that hasn't scored (or is negative) still ranks correctly
+   * rather than a lower entrant being "crowned" over a 0 with no rows.
+   */
+  private async aggregateByEntrant(
+    gameId: string,
+    entrantType: 'team' | 'player',
+    entrants: Array<{ id: string; name: string }>,
+  ): Promise<TeamScore[]> {
+    const scoresMap = new Map<string, TeamScore>();
+    for (const entrant of entrants) {
+      scoresMap.set(entrant.id, {
+        teamId: entrant.id,
+        teamName: entrant.name,
+        entrantType,
         totalPoints: 0,
         bonusPointsCount: 0,
         roundPoints: {},
       });
     }
 
+    const relation = entrantType === 'player' ? 'score.player' : 'score.team';
     const rawScores = await this.repo
       .createQueryBuilder('score')
-      .leftJoin('score.team', 'team')
+      .leftJoin(relation, 'entrant')
       .leftJoin('score.game', 'game')
       .where('game.id = :gameId', { gameId })
       .select([
-        'team.id as "teamId"',
-        'team.name as "teamName"',
+        'entrant.id as "teamId"',
+        'entrant.name as "teamName"',
         'CAST(COUNT(CASE WHEN score.isBonus THEN 1 END) AS INTEGER) as "bonusPointsCount"',
         'score.roundNumber as "roundNumber"',
         'CAST(SUM(score.points) AS INTEGER) as "roundPoints"',
       ])
-      // One row per (team, round). totalPoints is summed across those rows in
+      // One row per (entrant, round). totalPoints is summed across those rows in
       // the loop below — grouping by round means SUM() here is per-round only,
       // so the grand total must be accumulated, not read from a single row.
-      .groupBy('team.id, team.name, score.roundNumber')
+      .groupBy('entrant.id, entrant.name, score.roundNumber')
       .getRawMany<RawTeamScore>();
 
     for (const score of rawScores) {
-      if (!teamScoresMap.has(score.teamId)) {
-        // A score for a team not currently attached to the game (edge case).
-        teamScoresMap.set(score.teamId, {
+      // Skip rows whose entrant is null (a score of the other kind — e.g. a
+      // team-only score when aggregating players); they'd form a phantom group.
+      if (score.teamId == null) {
+        continue;
+      }
+      if (!scoresMap.has(score.teamId)) {
+        // A score for an entrant not currently attached to the game (edge case).
+        scoresMap.set(score.teamId, {
           teamId: score.teamId,
           teamName: score.teamName,
+          entrantType,
           totalPoints: 0,
           bonusPointsCount: 0,
           roundPoints: {},
         });
       }
 
-      const teamScore = teamScoresMap.get(score.teamId)!;
+      const entrantScore = scoresMap.get(score.teamId)!;
       const roundPoints = parseInt(score.roundPoints, 10) || 0;
-      teamScore.roundPoints[score.roundNumber] = roundPoints;
-      teamScore.totalPoints += roundPoints;
-      teamScore.bonusPointsCount += parseInt(score.bonusPointsCount, 10) || 0;
+      entrantScore.roundPoints[score.roundNumber] = roundPoints;
+      entrantScore.totalPoints += roundPoints;
+      entrantScore.bonusPointsCount +=
+        parseInt(score.bonusPointsCount, 10) || 0;
     }
 
-    return Array.from(teamScoresMap.values());
+    return Array.from(scoresMap.values());
   }
 
   /** Delete every score row for a game (used when resetting a game). */
@@ -266,6 +321,7 @@ export class ScoreService {
       standings.push({
         teamId: score.teamId,
         teamName: score.teamName,
+        entrantType: score.entrantType,
         rank: currentRank,
         totalPoints: score.totalPoints,
         bonusPointsCount: score.bonusPointsCount,

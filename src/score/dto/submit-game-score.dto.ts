@@ -3,9 +3,21 @@ import { IsNumber, IsUUID, IsOptional, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class SubmitGameScoreDto {
-  @ApiProperty({ description: 'Team ID' })
+  @ApiProperty({
+    description: 'Team ID — required for team-mode games.',
+    required: false,
+  })
   @IsUUID()
-  teamId: string;
+  @IsOptional()
+  teamId?: string;
+
+  @ApiProperty({
+    description: 'Player ID — required for individual-mode games.',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  playerId?: string;
 
   @ApiProperty({
     description:

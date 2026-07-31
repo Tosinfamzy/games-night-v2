@@ -100,7 +100,10 @@ export class GameGateway extends BaseGateway {
   @OnEvent('score.submitted')
   handleScoreSubmitted(payload: {
     gameId: string;
-    teamId: string;
+    entrantType?: 'team' | 'player';
+    entrantId?: string;
+    teamId?: string;
+    playerId?: string;
     points: number;
     roundNumber: number;
   }): void {
@@ -110,10 +113,14 @@ export class GameGateway extends BaseGateway {
 
     // Forward the fields the service actually emits — the old handler
     // destructured a `score` object that was never sent, so every broadcast
-    // carried `score: undefined` and dropped the round number.
+    // carried `score: undefined` and dropped the round number. teamId/playerId
+    // let the client update the right entrant in either scoring mode.
     this.emitToRoom(room, 'game:score-submitted', {
       gameId: payload.gameId,
+      entrantType: payload.entrantType,
+      entrantId: payload.entrantId,
       teamId: payload.teamId,
+      playerId: payload.playerId,
       points: payload.points,
       roundNumber: payload.roundNumber,
       timestamp: new Date().toISOString(),

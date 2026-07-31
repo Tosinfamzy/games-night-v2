@@ -13,9 +13,19 @@ export class TeamStandingDto implements TeamScore {
 
   @ApiProperty({
     example: 'The Trivia Masters',
-    description: 'Team name',
+    description: 'Team name (or player name when entrantType is "player")',
   })
   teamName: string;
+
+  @ApiProperty({
+    enum: ['team', 'player'],
+    example: 'team',
+    required: false,
+    description:
+      'Whether this standing is a team or an individual player. In individual ' +
+      'mode, teamId/teamName hold the player id/name.',
+  })
+  entrantType?: 'team' | 'player';
 
   @ApiProperty({
     example: 1,
