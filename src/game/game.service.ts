@@ -121,14 +121,25 @@ export class GameService {
       }),
     );
 
-    if (teams.length < 2) {
+    // Individual games score players directly, so they need ≥2 players in the
+    // session rather than ≥2 teams (which they never build).
+    if (game.scoreMode === ScoreMode.INDIVIDUAL) {
+      const playerCount = await this.playerRepo.count({
+        where: { session: { id: game.session.id } },
+      });
+      if (playerCount < 2) {
+        throw new BadRequestException(
+          'At least two players are required to start an individual game',
+        );
+      }
+    } else if (teams.length < 2) {
       throw new BadRequestException(
         'At least two teams are required to start a game',
       );
     }
 
-    // Set teams and update game status
-    game.teams = teams;
+    // Set teams and update game status. Individual games don't use teams.
+    game.teams = game.scoreMode === ScoreMode.INDIVIDUAL ? [] : teams;
     game.status = GameStatus.IN_PROGRESS;
     game.currentRound = 1;
 
@@ -344,6 +355,21 @@ export class GameService {
         reason: `Game is already ${game.status}`,
         teamsCount: game.teams?.length || 0,
       };
+    }
+
+    // Individual games are ready with ≥2 players in the session; they don't
+    // build teams, so skip the team checks entirely.
+    if (game.scoreMode === ScoreMode.INDIVIDUAL) {
+      const playerCount = await this.playerRepo.count({
+        where: { session: { id: game.session.id } },
+      });
+      return playerCount >= 2
+        ? { ready: true, teamsCount: 0 }
+        : {
+            ready: false,
+            reason: 'At least 2 players are required to start the game',
+            teamsCount: 0,
+          };
     }
 
     const teams = await this.teamService.findByGame(id);

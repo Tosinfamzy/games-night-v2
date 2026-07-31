@@ -171,11 +171,14 @@ export class ScoreService {
   async getGameScores(gameId: string): Promise<TeamScore[]> {
     const game = await this.gameRepo.findOne({
       where: { id: gameId },
-      relations: ['teams', 'session', 'session.players'],
+      relations: ['teams'],
     });
 
+    // Individual games have no fixed roster (a 1-v-1 lives inside a larger
+    // session), so entrants are the players who have actually scored — seeded
+    // from the score rows — not every player in the session.
     return game?.scoreMode === ScoreMode.INDIVIDUAL
-      ? this.aggregateByEntrant(gameId, 'player', game.session?.players ?? [])
+      ? this.aggregateByEntrant(gameId, 'player', [])
       : this.aggregateByEntrant(gameId, 'team', game?.teams ?? []);
   }
 
@@ -416,6 +419,12 @@ export class ScoreService {
 
     // First pass: collect all game points per team
     for (const result of rawResults) {
+      // Individual-mode scores have no team (team=null → null teamId); by design
+      // they don't feed the team-based session leaderboard, so skip them rather
+      // than collapsing them all into a phantom null "team".
+      if (result.teamId == null) {
+        continue;
+      }
       if (!teamMap.has(result.teamId)) {
         teamMap.set(result.teamId, {
           teamId: result.teamId,
