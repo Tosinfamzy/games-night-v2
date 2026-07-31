@@ -17,8 +17,18 @@ export class GameResponseDto {
   @ApiProperty({ example: 3 })
   maxRounds: number;
 
+  @ApiProperty({
+    enum: ['team', 'individual'],
+    example: 'team',
+    description: 'Whether the game is scored by team or by individual player.',
+  })
+  scoreMode: string;
+
   @ApiProperty({ example: 'team-uuid', nullable: true })
   currentTurnTeamId: string | null;
+
+  @ApiProperty({ example: 'player-uuid', nullable: true })
+  currentTurnPlayerId: string | null;
 
   @ApiProperty({ example: '2025-07-19T15:30:00.000Z', nullable: true })
   turnStartedAt: Date | null;
@@ -72,7 +82,9 @@ export class GameResponseDto {
     dto.status = entity.status;
     dto.currentRound = entity.currentRound;
     dto.maxRounds = entity.maxRounds;
+    dto.scoreMode = entity.scoreMode;
     dto.currentTurnTeamId = entity.currentTurnTeamId ?? null;
+    dto.currentTurnPlayerId = entity.currentTurnPlayerId ?? null;
     dto.turnStartedAt = entity.turnStartedAt ?? null;
     dto.turnTimeLimit = entity.turnTimeLimit ?? null;
     dto.sessionId = entity.session?.id ?? null;
