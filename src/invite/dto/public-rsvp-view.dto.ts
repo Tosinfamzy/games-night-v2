@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { SessionStatus } from '../../session/enums/session-status.enum';
 
 /**
  * Public, no-auth view of an event behind its shareable RSVP link. Deliberately
@@ -11,6 +12,15 @@ export class PublicRsvpViewDto {
 
   @ApiProperty({ example: 'Friday Game Night' })
   sessionName: string;
+
+  @ApiProperty({
+    enum: SessionStatus,
+    example: SessionStatus.SCHEDULED,
+    description:
+      'Session lifecycle status, so the RSVP page can hide the form and ' +
+      'show the right banner for a cancelled/finished/live event.',
+  })
+  status: SessionStatus;
 
   @ApiProperty({ example: '2025-07-14T19:00:00Z' })
   date: Date;
