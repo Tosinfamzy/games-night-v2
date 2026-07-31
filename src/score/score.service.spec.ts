@@ -8,6 +8,7 @@ import { Game } from '../game/game.entity';
 import { Team } from '../team/team.entity';
 import { Player } from '../player/player.entity';
 import { GameStatus } from '../game/enums/game-status.enum';
+import { ScoreMode } from '../game/enums/score-mode.enum';
 import { createMockRepository } from '../../test/utils/test-db';
 import {
   createMockScore,
@@ -224,11 +225,83 @@ describe('ScoreService', () => {
 
       expect(eventEmitter.emit).toHaveBeenCalledWith('score.submitted', {
         gameId: 'game-1',
+        entrantType: 'team',
+        entrantId: 'team-1',
         teamId: 'team-1',
+        playerId: undefined,
         points: 20,
         roundNumber: 3,
       });
       expect(result).toEqual(mockScore);
+    });
+
+    it('records an individual-mode score against the player', async () => {
+      const player = createMockPlayer({ id: 'player-1', name: 'Ada' });
+      const session = createMockSession({ players: [player] as any });
+      const game = createMockGame({
+        id: 'game-1',
+        status: GameStatus.ROUND_IN_PROGRESS,
+        currentRound: 2,
+        scoreMode: ScoreMode.INDIVIDUAL,
+        session: session as any,
+        teams: [],
+      });
+      const mockScore = createMockScore({
+        points: 15,
+        game: game as Game,
+        player: player as Player,
+        roundNumber: 2,
+      });
+
+      gameRepo.findOne.mockResolvedValue(game);
+      scoreRepo.create.mockReturnValue(mockScore);
+      scoreRepo.save.mockResolvedValue(mockScore);
+
+      const result = await service.submitGameScore('game-1', {
+        playerId: 'player-1',
+        score: 15,
+      });
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith('score.submitted', {
+        gameId: 'game-1',
+        entrantType: 'player',
+        entrantId: 'player-1',
+        teamId: undefined,
+        playerId: 'player-1',
+        points: 15,
+        roundNumber: 2,
+      });
+      expect(result).toEqual(mockScore);
+    });
+
+    it('rejects an individual-mode score for a player not in the session', async () => {
+      const game = createMockGame({
+        id: 'game-1',
+        status: GameStatus.ROUND_IN_PROGRESS,
+        scoreMode: ScoreMode.INDIVIDUAL,
+        session: createMockSession({ players: [] }) as any,
+        teams: [],
+      });
+      gameRepo.findOne.mockResolvedValue(game);
+
+      await expect(
+        service.submitGameScore('game-1', { playerId: 'stranger', score: 5 }),
+      ).rejects.toThrow();
+    });
+
+    it('rejects an individual-mode score with no playerId', async () => {
+      const game = createMockGame({
+        id: 'game-1',
+        status: GameStatus.ROUND_IN_PROGRESS,
+        scoreMode: ScoreMode.INDIVIDUAL,
+        session: createMockSession() as any,
+        teams: [],
+      });
+      gameRepo.findOne.mockResolvedValue(game);
+
+      await expect(
+        service.submitGameScore('game-1', { score: 5 }),
+      ).rejects.toThrow();
     });
 
     it('should use game currentRound if roundNumber not provided', async () => {
@@ -404,6 +477,7 @@ describe('ScoreService', () => {
       expect(result[0]).toEqual({
         teamId: 'team-1',
         teamName: 'Team A',
+        entrantType: 'team',
         rank: 1,
         totalPoints: 100,
         bonusPointsCount: 2,
@@ -413,6 +487,7 @@ describe('ScoreService', () => {
       expect(result[1]).toEqual({
         teamId: 'team-2',
         teamName: 'Team B',
+        entrantType: 'team',
         rank: 2,
         totalPoints: 80,
         bonusPointsCount: 1,
@@ -422,6 +497,7 @@ describe('ScoreService', () => {
       expect(result[2]).toEqual({
         teamId: 'team-3',
         teamName: 'Team C',
+        entrantType: 'team',
         rank: 3,
         totalPoints: 60,
         bonusPointsCount: 0,
