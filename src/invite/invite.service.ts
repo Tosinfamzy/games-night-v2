@@ -65,6 +65,58 @@ export class InviteService {
     });
   }
 
+  /**
+   * Host-side "check in": turn a guest-list entry into live players without the
+   * guest needing a device — the guest themselves plus one player per plus-one
+   * (e.g. "Milly", "Milly +1", "Milly +2"). Idempotent by name (joinSession
+   * dedupes on the unique (session, name) index), so re-checking-in or a later
+   * self-join won't duplicate. Marks the guest GOING and links their playerId.
+   */
+  async checkInGuest(
+    sessionId: string,
+    inviteId: string,
+  ): Promise<{ invite: Invite; playersAdded: number }> {
+    const invite = await findOneOrThrow(
+      this.inviteRepo,
+      { id: inviteId, session: { id: sessionId } },
+      'Invite not found',
+      ['session', 'session.host'],
+    );
+    if (!invite.session) {
+      throw new NotFoundException('This invite is not linked to a session');
+    }
+
+    const joinCode = invite.session.joinCode;
+    const guestName = invite.name?.trim() || 'Guest';
+
+    // The guest themselves.
+    const main = await this.sessionPlayerService.joinSession({
+      joinCode,
+      playerName: guestName,
+    });
+    let playersAdded = 1;
+
+    // One anonymous player per plus-one so they can be teamed and scored.
+    for (let i = 1; i <= (invite.plusOnes ?? 0); i++) {
+      await this.sessionPlayerService.joinSession({
+        joinCode,
+        playerName: `${guestName} +${i}`,
+      });
+      playersAdded++;
+    }
+
+    invite.playerId = main.player.id;
+    invite.rsvpStatus = RsvpStatus.GOING;
+    const saved = await this.inviteRepo.save(invite);
+    saved.session = invite.session;
+    this.eventEmitter.emit('invite.updated', {
+      sessionId: invite.session.id,
+      invite: saved,
+    });
+
+    return { invite: saved, playersAdded };
+  }
+
   /** GM adds a named guest to a session's guest list. */
   async createForSession(
     sessionId: string,

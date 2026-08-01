@@ -73,6 +73,19 @@ export class InviteController {
     return this.inviteService.remove(sessionId, inviteId);
   }
 
+  @ApiBearerAuth()
+  @HostOf('session', 'sessionId')
+  @ApiOperation({
+    summary: 'Check a guest in: add them (and their plus-ones) as live players',
+  })
+  @Post('sessions/:sessionId/invites/:inviteId/check-in')
+  checkIn(
+    @Param('sessionId', ParseUUIDPipe) sessionId: string,
+    @Param('inviteId', ParseUUIDPipe) inviteId: string,
+  ): Promise<{ invite: Invite; playersAdded: number }> {
+    return this.inviteService.checkInGuest(sessionId, inviteId);
+  }
+
   // ----- Public RSVP (token-based, no auth) -----
 
   @ApiOperation({ summary: 'View an invite (with event details) by token' })

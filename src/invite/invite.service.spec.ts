@@ -213,6 +213,70 @@ describe('InviteService', () => {
     });
   });
 
+  describe('checkInGuest', () => {
+    it('adds the guest plus one player per plus-one, links + marks GOING', async () => {
+      inviteRepo.findOne.mockResolvedValue({
+        id: 'invite-1',
+        name: 'Milly',
+        plusOnes: 2,
+        rsvpStatus: RsvpStatus.PENDING,
+        session: { id: 'session-1', joinCode: '123456', host: { id: 'gm1' } },
+      });
+      sessionPlayerService.joinSession
+        .mockResolvedValueOnce({ player: { id: 'p-milly', name: 'Milly' } })
+        .mockResolvedValueOnce({ player: { id: 'p-po1', name: 'Milly +1' } })
+        .mockResolvedValueOnce({ player: { id: 'p-po2', name: 'Milly +2' } });
+      inviteRepo.save.mockImplementation((i: Invite) => Promise.resolve(i));
+
+      const { invite, playersAdded } = await service.checkInGuest(
+        'session-1',
+        'invite-1',
+      );
+
+      expect(playersAdded).toBe(3); // Milly + 2 plus-ones
+      expect(sessionPlayerService.joinSession).toHaveBeenNthCalledWith(1, {
+        joinCode: '123456',
+        playerName: 'Milly',
+      });
+      expect(sessionPlayerService.joinSession).toHaveBeenNthCalledWith(2, {
+        joinCode: '123456',
+        playerName: 'Milly +1',
+      });
+      expect(sessionPlayerService.joinSession).toHaveBeenNthCalledWith(3, {
+        joinCode: '123456',
+        playerName: 'Milly +2',
+      });
+      expect(invite.playerId).toBe('p-milly');
+      expect(invite.rsvpStatus).toBe(RsvpStatus.GOING);
+      expect(events.emit).toHaveBeenCalledWith(
+        'invite.updated',
+        expect.objectContaining({ sessionId: 'session-1' }),
+      );
+    });
+
+    it('checks in a guest with no plus-ones as a single player', async () => {
+      inviteRepo.findOne.mockResolvedValue({
+        id: 'invite-2',
+        name: 'Solo',
+        plusOnes: 0,
+        rsvpStatus: RsvpStatus.GOING,
+        session: { id: 'session-1', joinCode: '111111', host: { id: 'gm1' } },
+      });
+      sessionPlayerService.joinSession.mockResolvedValue({
+        player: { id: 'p-solo', name: 'Solo' },
+      });
+      inviteRepo.save.mockImplementation((i: Invite) => Promise.resolve(i));
+
+      const { playersAdded } = await service.checkInGuest(
+        'session-1',
+        'invite-2',
+      );
+
+      expect(playersAdded).toBe(1);
+      expect(sessionPlayerService.joinSession).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('selfRsvp', () => {
     it('creates a new invite when none matches, and emits', async () => {
       sessionRepo.findOne.mockResolvedValue({ id: 'session-1' });
