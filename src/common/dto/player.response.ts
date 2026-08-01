@@ -11,6 +11,14 @@ export class PlayerResponseDto {
   @ApiProperty({ example: 'playing' })
   status: string;
 
+  @ApiProperty({
+    example: true,
+    description:
+      'True for anonymous players who joined via code; false for the host ' +
+      '(games master). Individual turn rotation is over guests only.',
+  })
+  isGuest: boolean;
+
   @ApiProperty({ example: '2025-07-19T16:30:46.512Z', nullable: true })
   lastConnectedAt: Date | null;
 
@@ -37,6 +45,7 @@ export class PlayerResponseDto {
     dto.id = entity.id;
     dto.name = entity.name;
     dto.status = entity.status;
+    dto.isGuest = entity.isGuest;
     dto.lastConnectedAt = entity.lastConnectedAt ?? null;
     dto.sessionId = entity.session?.id ?? null;
     dto.teamIds = entity.teams?.map((team) => team.id) ?? [];
