@@ -290,6 +290,7 @@ export class InviteService {
       status: session.status,
       date: session.date,
       location: session.location ?? null,
+      locationUrl: session.locationUrl ?? null,
       description: session.description ?? null,
       inviteMessage: session.inviteMessage ?? null,
       hostName: session.host?.name ?? null,

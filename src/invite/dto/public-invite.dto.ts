@@ -23,6 +23,12 @@ class PublicInviteSessionDto {
   location: string | null;
 
   @ApiProperty({
+    description: 'Custom map link for the location (e.g. a Google Maps pin).',
+    nullable: true,
+  })
+  locationUrl: string | null;
+
+  @ApiProperty({
     enum: SessionStatus,
     description: 'Session status — lets a guest see if they can join yet.',
   })
@@ -102,6 +108,7 @@ export class PublicInviteDto {
           description: invite.session.description ?? null,
           date: invite.session.date,
           location: invite.session.location ?? null,
+          locationUrl: invite.session.locationUrl ?? null,
           status: invite.session.status,
           host: invite.session.host ? { name: invite.session.host.name } : null,
         }

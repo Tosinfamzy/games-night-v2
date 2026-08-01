@@ -52,6 +52,16 @@ export class Session {
   location?: string;
 
   @ApiProperty({
+    description:
+      'Optional custom map link for the location (e.g. a Google Maps pin). ' +
+      'When set, the displayed address links here instead of a generated map search.',
+    example: 'https://maps.app.goo.gl/VSRPyxwhdKgNagAG7',
+    required: false,
+  })
+  @Column({ nullable: true })
+  locationUrl?: string;
+
+  @ApiProperty({
     enum: SessionStatus,
     default: SessionStatus.SCHEDULED,
     description: 'Current status of the session',

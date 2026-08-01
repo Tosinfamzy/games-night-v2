@@ -47,6 +47,18 @@ export class CreateSessionDto {
 
   @ApiProperty({
     description:
+      'Optional custom map link for the location (e.g. a Google Maps pin). ' +
+      'When set, the displayed address links here. Send an empty string to clear it.',
+    example: 'https://maps.app.goo.gl/VSRPyxwhdKgNagAG7',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(2048)
+  locationUrl?: string;
+
+  @ApiProperty({
+    description:
       'Host-authored invite message, used as the default share text for the ' +
       'RSVP link and shown on the public RSVP page. Send an empty string to clear it.',
     example: "You're invited! Bring snacks and your A-game 🎲",
