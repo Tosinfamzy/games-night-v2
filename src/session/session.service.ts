@@ -286,7 +286,18 @@ export class SessionService {
   }
 
   async remove(id: string): Promise<void> {
-    const session = await this.findOne(id);
+    const session = await this.findOne(id, ['players']);
+    // Deleting the session DB-cascades to its players, but that cascade can't
+    // clean the team_players_player join rows — that FK is NO ACTION by design
+    // (TypeORM synchronize can't cascade a junction table, so we detach in code
+    // to avoid drifting prod from dev/test; see SessionSubtreeCascade). So a raw
+    // session delete 500s once any player is on a team. Removing the players via
+    // the repo first makes TypeORM clear their team-membership rows (same as
+    // removePlayerFromSession); the rest of the subtree — games, teams, results,
+    // messages, invites — then DB-cascades cleanly.
+    if (session.players?.length) {
+      await this.playerRepo.remove(session.players);
+    }
     await this.repo.remove(session);
   }
 

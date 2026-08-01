@@ -54,13 +54,26 @@ describe('Session & player removal cascade (e2e)', () => {
       .expect(204);
   });
 
-  it('deletes a non-empty session and cascades its whole subtree', async () => {
+  it('deletes a non-empty session whose players are on teams', async () => {
     // The session has games, teams, players and a submitted score by now.
     await request(server)
       .post(`/scores/games/${seed.gameId}/submit`)
       .set('Authorization', bearer(seed.hostToken))
       .send({ teamId: seed.teamIds[0], score: 3 })
       .expect(201);
+
+    // Put a player on a team so team_players_player has rows — deleting the
+    // session must clean those first, or the session→player DB cascade 500s on
+    // that NO-ACTION junction FK (the exact prod bug this guards against).
+    const join = await request(server)
+      .post('/sessions/join')
+      .send({ joinCode: seed.joinCode, playerName: 'On A Team' })
+      .expect(201);
+    await request(server)
+      .put(`/sessions/${seed.sessionId}/teams/${seed.teamIds[0]}/players`)
+      .set('Authorization', bearer(seed.hostToken))
+      .send({ playerIds: [(join.body as { playerId: string }).playerId] })
+      .expect(200);
 
     await request(server)
       .delete(`/sessions/${seed.sessionId}`)
