@@ -190,7 +190,10 @@ export class InviteService {
    * updates their existing one so repeat submissions don't pile up duplicates
    * (matched by email when given, otherwise by case-insensitive name).
    */
-  async selfRsvp(rsvpToken: string, dto: PublicRsvpDto): Promise<Invite> {
+  async selfRsvp(
+    rsvpToken: string,
+    dto: PublicRsvpDto,
+  ): Promise<{ invite: Invite; created: boolean }> {
     const session = await findOneOrThrow(
       this.sessionRepo,
       { publicRsvpToken: rsvpToken },
@@ -204,6 +207,11 @@ export class InviteService {
       dto.email,
     );
 
+    // Whether this request created the invite (a first-time RSVP) vs updated an
+    // existing one. Only the creator gets their inviteToken echoed back (for
+    // their personal bookmark/join link) — updating a matched invite must not
+    // hand its edit token to whoever submitted the form.
+    const created = !existing;
     const invite =
       existing ??
       this.inviteRepo.create({
@@ -227,7 +235,7 @@ export class InviteService {
       sessionId: session.id,
       invite: saved,
     });
-    return saved;
+    return { invite: saved, created };
   }
 
   /** Find an invite to update for an open-link RSVP: by email, else by name. */

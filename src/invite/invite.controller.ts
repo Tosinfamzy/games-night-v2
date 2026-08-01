@@ -134,15 +134,13 @@ export class InviteController {
     @Param('rsvpToken', ParseUUIDPipe) rsvpToken: string,
     @Body() dto: PublicRsvpDto,
   ): Promise<PublicInviteDto> {
-    return (
-      this.inviteService
-        .selfRsvp(rsvpToken, dto)
-        // Open link: never echo the matched invite's personal edit token — that
-        // would let anyone submitting a matching email/name harvest a guest's
-        // ongoing edit access. They re-RSVP through the same link + email.
-        .then((invite) =>
-          PublicInviteDto.fromEntity(invite, { includeToken: false }),
-        )
+    return this.inviteService.selfRsvp(rsvpToken, dto).then(
+      // Echo the personal edit token only when THIS request created the invite
+      // (a first-time RSVP) — so the guest gets their own bookmark/join link.
+      // On an update to a matched invite we withhold it, so nobody can harvest
+      // an existing guest's edit token by re-submitting their email/name.
+      ({ invite, created }) =>
+        PublicInviteDto.fromEntity(invite, { includeToken: created }),
     );
   }
 }
