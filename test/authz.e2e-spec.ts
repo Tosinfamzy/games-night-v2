@@ -236,13 +236,22 @@ describe('Host authorization (e2e)', () => {
       .expect(201);
   });
 
-  // Admin cross-tenant list endpoints must not be an anonymous data dump.
-  it.each(['/games', '/teams', '/scores', '/history/games'])(
-    'rejects anonymous access to admin list %s',
+  // The history list still exists (a real feature) and must stay guarded —
+  // no anonymous data dump.
+  it('rejects anonymous access to the history list', async () => {
+    const res = await request(server).get('/history/games');
+    expect(res.status).toBe(400);
+    expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+  });
+
+  // These cross-tenant list endpoints leaked every tenant's data (join codes,
+  // RSVP tokens, player PII) and were removed outright — so they must no longer
+  // resolve to a handler at all.
+  it.each(['/sessions', '/games', '/teams', '/scores', '/players'])(
+    'no longer exposes the removed cross-tenant list %s (404)',
     async (path) => {
       const res = await request(server).get(path);
-      expect(res.status).toBe(400);
-      expect((res.body as { code?: string }).code).toBe('TOKEN_INVALID');
+      expect(res.status).toBe(404);
     },
   );
 

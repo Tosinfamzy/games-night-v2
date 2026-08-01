@@ -28,7 +28,6 @@ import { TeamScore } from './interfaces/team-score.interface';
 import { ScoreResponseDto } from '../common/dto/score.response';
 import { HostGuard } from '../auth/guards/host.guard';
 import { SessionMemberGuard } from '../auth/guards/session-member.guard';
-import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
 import { SessionMember } from '../auth/decorators/session-member.decorator';
 
@@ -88,23 +87,6 @@ export class ScoreController {
       .submitGameScore(gameId, dto)
       .then((score) => this.service.findOne(score.id))
       .then((score) => ScoreResponseDto.fromEntity(score));
-  }
-
-  // Admin-only cross-tenant list — was unauthenticated. Requires a signed-in GM.
-  @Get()
-  @UseGuards(ClerkAuthGuard)
-  @ApiOperation({ summary: 'Get all score records (admin)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'List of all scores.',
-    type: [ScoreResponseDto],
-  })
-  async findAll(): Promise<ScoreResponseDto[]> {
-    return this.service
-      .findAll()
-      .then((scores) =>
-        scores.map((score) => ScoreResponseDto.fromEntity(score)),
-      );
   }
 
   @Get('games/:gameId')

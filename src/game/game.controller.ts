@@ -28,7 +28,6 @@ import { GameResultsDto } from '../common/dto/game-results.dto';
 import { HostGuard } from '../auth/guards/host.guard';
 import { SessionMemberGuard } from '../auth/guards/session-member.guard';
 import { SessionMember } from '../auth/decorators/session-member.decorator';
-import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
 
 @ApiTags('games')
@@ -57,22 +56,6 @@ export class GameController {
   })
   create(@Body() dto: CreateGameDto): Promise<GameResponseDto> {
     return this.service.create(dto).then((game) => this.serializeGame(game.id));
-  }
-
-  // Admin-only cross-tenant list — was unauthenticated and dumped every game in
-  // the database. Requires a signed-in games master.
-  @Get()
-  @UseGuards(ClerkAuthGuard)
-  @ApiOperation({ summary: 'Get all games (admin)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'List of all games.',
-    type: [GameResponseDto],
-  })
-  findAll(): Promise<GameResponseDto[]> {
-    return this.service
-      .findAll()
-      .then((games) => games.map((game) => GameResponseDto.fromEntity(game)));
   }
 
   @Get(':id')

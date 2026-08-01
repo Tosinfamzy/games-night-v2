@@ -104,26 +104,6 @@ export class SessionController {
     return this.service.create({ ...dto, gamesMasterId });
   }
 
-  @Get()
-  // Require a signed-in host: this returns join codes + host codes + RSVP
-  // tokens and was fully anonymous (mass-enumeration leak). Hosts should use
-  // GET /auth/games-master/sessions for their own scoped list.
-  @UseGuards(ClerkAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all sessions (host only)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'List of all sessions.',
-    type: [SessionResponseDto],
-  })
-  findAll(): Promise<SessionResponseDto[]> {
-    return this.service
-      .findAll(['host', 'games', 'teams', 'players'])
-      .then((sessions) =>
-        sessions.map((session) => SessionResponseDto.fromEntity(session)),
-      );
-  }
-
   @Get(':id')
   @UseGuards(OptionalClerkAuthGuard)
   @ApiOperation({ summary: 'Get a session by ID' })
@@ -323,6 +303,9 @@ export class SessionController {
   }
 
   @Get('join/:joinCode')
+  // Same tight limit as POST /join: this lookup takes the same 6-digit code and
+  // confirms validity, so it must not offer a faster brute-force path than join.
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: 'Get session by join code' })
   @ApiParam({
     name: 'joinCode',
