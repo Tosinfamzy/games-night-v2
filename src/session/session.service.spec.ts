@@ -374,12 +374,12 @@ describe('SessionService', () => {
 
       it('should propagate errors from sessionPlayerService', async () => {
         sessionPlayerService.joinSession.mockRejectedValue(
-          new BadRequestException('Cannot join a completed session'),
+          new BadRequestException('This games night has already ended'),
         );
 
         await expect(
           service.joinSession({ joinCode: '123456', playerName: 'Bob' }),
-        ).rejects.toThrow('Cannot join a completed session');
+        ).rejects.toThrow('This games night has already ended');
       });
     });
 

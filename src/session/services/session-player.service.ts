@@ -56,18 +56,16 @@ export class SessionPlayerService {
   ): Promise<JoinSessionResult> {
     const session = await this.findByJoinCode(dto.joinCode);
 
+    // Walk-ins are the whole point of a games night — people show up after it's
+    // kicked off. So joining an already-started (IN_PROGRESS) session is allowed;
+    // only a finished or cancelled night is closed. A mid-session joiner lands as
+    // a player not yet on a team; the host teams them up for the next game.
     if (session.status === SessionStatus.COMPLETED) {
-      throw new BadRequestException('Cannot join a completed session');
+      throw new BadRequestException('This games night has already ended');
     }
 
     if (session.status === SessionStatus.CANCELLED) {
-      throw new BadRequestException('Cannot join a cancelled session');
-    }
-
-    if (session.status !== SessionStatus.SCHEDULED) {
-      throw new BadRequestException(
-        `Cannot join session - current status: ${session.status}`,
-      );
+      throw new BadRequestException('This games night was cancelled');
     }
 
     // Check if player name already exists in the session
