@@ -29,6 +29,20 @@ const makeResult = (
 const player = (id: string, name: string, teamIds: string[]): Player =>
   ({ id, name, teams: teamIds.map((t) => ({ id: t }) as Team) }) as Player;
 
+// getPlayerStats/getLeaderboard load results through the GM-scoped query builder
+// (gmResultsQuery). Mock the chainable builder so getMany() yields the results.
+const mockResultsQb = (results: GameResult[]) =>
+  ({
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    leftJoin: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getMany: jest.fn().mockResolvedValue(results),
+  }) as unknown as ReturnType<MockRepo['createQueryBuilder']>;
+
 describe('HistoryService', () => {
   let service: HistoryService;
   let gameResultRepo: MockRepo;
@@ -70,34 +84,36 @@ describe('HistoryService', () => {
       playerRepo.findOne.mockResolvedValue(
         player('p1', 'Alice', ['team-1', 'team-2']),
       );
-      gameResultRepo.find.mockResolvedValue([
-        makeResult(
-          'Trivia',
-          [
-            { teamId: 'team-1', teamName: 'Reds', score: 100, rank: 1 },
-            { teamId: 'team-9', teamName: 'Blues', score: 80, rank: 2 },
-          ],
-          'team-1', // player's team won
-          new Date('2026-02-02T00:00:00Z'),
-        ),
-        makeResult(
-          'Charades',
-          [
-            { teamId: 'team-8', teamName: 'Greens', score: 70, rank: 1 },
-            { teamId: 'team-2', teamName: 'Reds', score: 50, rank: 2 },
-          ],
-          'team-8', // player's team lost
-          new Date('2026-01-01T00:00:00Z'),
-        ),
-        makeResult(
-          'Pictionary',
-          [{ teamId: 'team-7', teamName: 'Yellows', score: 10, rank: 1 }],
-          'team-7', // player not involved
-          new Date('2026-03-03T00:00:00Z'),
-        ),
-      ]);
+      gameResultRepo.createQueryBuilder.mockReturnValue(
+        mockResultsQb([
+          makeResult(
+            'Trivia',
+            [
+              { teamId: 'team-1', teamName: 'Reds', score: 100, rank: 1 },
+              { teamId: 'team-9', teamName: 'Blues', score: 80, rank: 2 },
+            ],
+            'team-1', // player's team won
+            new Date('2026-02-02T00:00:00Z'),
+          ),
+          makeResult(
+            'Charades',
+            [
+              { teamId: 'team-8', teamName: 'Greens', score: 70, rank: 1 },
+              { teamId: 'team-2', teamName: 'Reds', score: 50, rank: 2 },
+            ],
+            'team-8', // player's team lost
+            new Date('2026-01-01T00:00:00Z'),
+          ),
+          makeResult(
+            'Pictionary',
+            [{ teamId: 'team-7', teamName: 'Yellows', score: 10, rank: 1 }],
+            'team-7', // player not involved
+            new Date('2026-03-03T00:00:00Z'),
+          ),
+        ]),
+      );
 
-      const stats = await service.getPlayerStats('p1');
+      const stats = await service.getPlayerStats('gm1', 'p1');
 
       expect(stats.gamesPlayed).toBe(2); // Trivia + Charades, not Pictionary
       expect(stats.gamesWon).toBe(1); // won Trivia only
@@ -110,31 +126,33 @@ describe('HistoryService', () => {
     it('credits an individual-mode game by the player’s own id + rank 1', async () => {
       // Player is on no team — their finalScores entry is keyed by their id.
       playerRepo.findOne.mockResolvedValue(player('p3', 'Ada', []));
-      gameResultRepo.find.mockResolvedValue([
-        makeResult(
-          'UNO',
-          [
-            {
-              teamId: 'p3',
-              teamName: 'Ada',
-              entrantType: 'player',
-              score: 30,
-              rank: 1,
-            },
-            {
-              teamId: 'p4',
-              teamName: 'Bob',
-              entrantType: 'player',
-              score: 20,
-              rank: 2,
-            },
-          ],
-          null, // individual game — no winning team FK
-          new Date('2026-04-04T00:00:00Z'),
-        ),
-      ]);
+      gameResultRepo.createQueryBuilder.mockReturnValue(
+        mockResultsQb([
+          makeResult(
+            'UNO',
+            [
+              {
+                teamId: 'p3',
+                teamName: 'Ada',
+                entrantType: 'player',
+                score: 30,
+                rank: 1,
+              },
+              {
+                teamId: 'p4',
+                teamName: 'Bob',
+                entrantType: 'player',
+                score: 20,
+                rank: 2,
+              },
+            ],
+            null, // individual game — no winning team FK
+            new Date('2026-04-04T00:00:00Z'),
+          ),
+        ]),
+      );
 
-      const stats = await service.getPlayerStats('p3');
+      const stats = await service.getPlayerStats('gm1', 'p3');
 
       expect(stats.gamesPlayed).toBe(1);
       expect(stats.gamesWon).toBe(1); // rank 1, not tied
@@ -143,16 +161,18 @@ describe('HistoryService', () => {
 
     it('returns zeroed stats for a player with no matching results', async () => {
       playerRepo.findOne.mockResolvedValue(player('p2', 'Bob', ['team-x']));
-      gameResultRepo.find.mockResolvedValue([
-        makeResult(
-          'Trivia',
-          [{ teamId: 'team-1', teamName: 'Reds', score: 100, rank: 1 }],
-          'team-1',
-          new Date('2026-02-02T00:00:00Z'),
-        ),
-      ]);
+      gameResultRepo.createQueryBuilder.mockReturnValue(
+        mockResultsQb([
+          makeResult(
+            'Trivia',
+            [{ teamId: 'team-1', teamName: 'Reds', score: 100, rank: 1 }],
+            'team-1',
+            new Date('2026-02-02T00:00:00Z'),
+          ),
+        ]),
+      );
 
-      const stats = await service.getPlayerStats('p2');
+      const stats = await service.getPlayerStats('gm1', 'p2');
 
       expect(stats.gamesPlayed).toBe(0);
       expect(stats.gamesWon).toBe(0);
@@ -162,7 +182,7 @@ describe('HistoryService', () => {
 
     it('throws NotFoundException when the player does not exist', async () => {
       playerRepo.findOne.mockResolvedValue(null);
-      await expect(service.getPlayerStats('missing')).rejects.toThrow(
+      await expect(service.getPlayerStats('gm1', 'missing')).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -175,19 +195,21 @@ describe('HistoryService', () => {
         player('p2', 'Bob', ['team-2']), // 1 game, 0 wins -> winRate 0.0
         player('p3', 'Cara', ['team-3']), // no games -> excluded
       ]);
-      gameResultRepo.find.mockResolvedValue([
-        makeResult(
-          'Trivia',
-          [
-            { teamId: 'team-1', teamName: 'Reds', score: 100, rank: 1 },
-            { teamId: 'team-2', teamName: 'Blues', score: 80, rank: 2 },
-          ],
-          'team-1',
-          new Date('2026-02-02T00:00:00Z'),
-        ),
-      ]);
+      gameResultRepo.createQueryBuilder.mockReturnValue(
+        mockResultsQb([
+          makeResult(
+            'Trivia',
+            [
+              { teamId: 'team-1', teamName: 'Reds', score: 100, rank: 1 },
+              { teamId: 'team-2', teamName: 'Blues', score: 80, rank: 2 },
+            ],
+            'team-1',
+            new Date('2026-02-02T00:00:00Z'),
+          ),
+        ]),
+      );
 
-      const board = await service.getLeaderboard();
+      const board = await service.getLeaderboard('gm1');
 
       expect(board.map((s) => s.playerId)).toEqual(['p1', 'p2']);
       expect(board[0].winRate).toBe(1);

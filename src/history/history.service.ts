@@ -30,31 +30,48 @@ export class HistoryService {
   /**
    * Get game history with optional filters
    */
-  async getGameHistory(queryDto: QueryHistoryDto): Promise<GameResult[]> {
-    const { sessionId, limit = 10, offset = 0 } = queryDto;
-
-    const query = this.gameResultRepo
+  /**
+   * Base query for game results scoped to a single games master — only results
+   * from sessions this GM hosts. History and leaderboards are per-host: a GM
+   * sees their own nights, never every tenant's games/players.
+   */
+  private gmResultsQuery(gamesMasterId: string) {
+    return this.gameResultRepo
       .createQueryBuilder('gameResult')
       .leftJoinAndSelect('gameResult.game', 'game')
       .leftJoinAndSelect('gameResult.session', 'session')
       .leftJoinAndSelect('gameResult.winningTeam', 'winningTeam')
+      .leftJoin('session.host', 'host')
+      .where('host.id = :gamesMasterId', { gamesMasterId });
+  }
+
+  async getGameHistory(
+    gamesMasterId: string,
+    queryDto: QueryHistoryDto,
+  ): Promise<GameResult[]> {
+    const { sessionId, limit = 10, offset = 0 } = queryDto;
+
+    const query = this.gmResultsQuery(gamesMasterId)
       .orderBy('gameResult.completedAt', 'DESC')
       .skip(offset)
       .take(limit);
 
     if (sessionId) {
-      query.where('session.id = :sessionId', { sessionId });
+      query.andWhere('session.id = :sessionId', { sessionId });
     }
 
     return await query.getMany();
   }
 
   /**
-   * Get a single game result by ID
+   * Get a single game result by ID — scoped to the caller's own sessions.
    */
-  async getGameResultById(id: string): Promise<GameResult> {
+  async getGameResultById(
+    gamesMasterId: string,
+    id: string,
+  ): Promise<GameResult> {
     const gameResult = await this.gameResultRepo.findOne({
-      where: { id },
+      where: { id, session: { host: { id: gamesMasterId } } },
       relations: ['game', 'session', 'winningTeam'],
     });
 
@@ -66,9 +83,12 @@ export class HistoryService {
   }
 
   /**
-   * Get statistics for a single player.
+   * Get statistics for a single player, within the caller's own sessions.
    */
-  async getPlayerStats(playerId: string): Promise<PlayerStatsDto> {
+  async getPlayerStats(
+    gamesMasterId: string,
+    playerId: string,
+  ): Promise<PlayerStatsDto> {
     const player = await this.playerRepo.findOne({
       where: { id: playerId },
       relations: ['teams'],
@@ -78,10 +98,9 @@ export class HistoryService {
       throw new NotFoundException(`Player with ID ${playerId} not found`);
     }
 
-    const results = await this.gameResultRepo.find({
-      relations: ['winningTeam'],
-      order: { completedAt: 'DESC' },
-    });
+    const results = await this.gmResultsQuery(gamesMasterId)
+      .orderBy('gameResult.completedAt', 'DESC')
+      .getMany();
 
     return this.buildPlayerStats(player, results);
   }
@@ -163,14 +182,17 @@ export class HistoryService {
   /**
    * Get leaderboard (top players by win rate, then games won).
    */
-  async getLeaderboard(limit: number = 10): Promise<PlayerStatsDto[]> {
-    // Load players (with their teams) and all results once, then compute in
-    // memory — avoids an N+1 query over the player table.
+  async getLeaderboard(
+    gamesMasterId: string,
+    limit: number = 10,
+  ): Promise<PlayerStatsDto[]> {
+    // Load players (with their teams) and this GM's results once, then compute
+    // in memory. Players who never played in this GM's sessions get 0 games and
+    // are filtered out below, so the board is naturally per-host.
     const players = await this.playerRepo.find({ relations: ['teams'] });
-    const results = await this.gameResultRepo.find({
-      relations: ['winningTeam'],
-      order: { completedAt: 'DESC' },
-    });
+    const results = await this.gmResultsQuery(gamesMasterId)
+      .orderBy('gameResult.completedAt', 'DESC')
+      .getMany();
 
     return players
       .map((player) => this.buildPlayerStats(player, results))
