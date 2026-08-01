@@ -14,6 +14,14 @@ export const TIME = {
 
   /** Regular timer tick broadcast interval in seconds (to reduce noise) */
   TIMER_BROADCAST_INTERVAL_SECONDS: 5,
+
+  /**
+   * Grace period before a disconnected player is broadcast as offline. Phones
+   * at a party lock/background constantly, dropping the socket for a few
+   * seconds; without this every lock flickers the player "disconnected" in
+   * everyone's roster. A reconnect within the window cancels the offline.
+   */
+  PLAYER_OFFLINE_GRACE_MS: 20000,
 } as const;
 
 /**

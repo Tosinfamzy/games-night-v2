@@ -7,10 +7,26 @@ if (!globalThis.crypto) {
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { ValidationPipe, VersioningType, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AuthenticatedIoAdapter } from './common/adapters/authenticated-io.adapter';
 import { isAllowedOrigin } from './common/config/cors.config';
+import { getErrorMessage } from './common/utils/error.util';
+
+// A single unhandled rejection/exception would otherwise terminate the process
+// (Node >=15) — on single-replica hosting that drops every connected player at
+// once mid-game. Log and stay up; the platform restart policy is the backstop
+// for a genuinely fatal state. Registered before bootstrap so early failures
+// are covered too.
+const processLogger = new Logger('Process');
+process.on('unhandledRejection', (reason) => {
+  processLogger.error(
+    `Unhandled promise rejection: ${getErrorMessage(reason)}`,
+  );
+});
+process.on('uncaughtException', (err) => {
+  processLogger.error(`Uncaught exception: ${getErrorMessage(err)}`);
+});
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -72,13 +88,19 @@ async function bootstrap() {
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api', app, swaggerDocument);
 
+  // Clean shutdown on SIGTERM (Railway redeploys): drains the DB pool and runs
+  // onModuleDestroy hooks (e.g. GameTimerService clears its interval timers).
+  app.enableShutdownHooks();
+
   // Start the server
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
+  new Logger('Bootstrap').log(`Application is running on port ${port}`);
 }
 
 void bootstrap().catch((err) => {
-  console.error('Failed to start application:', err);
+  new Logger('Bootstrap').error(
+    `Failed to start application: ${getErrorMessage(err)}`,
+  );
   process.exit(1);
 });
