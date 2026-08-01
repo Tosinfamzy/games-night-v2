@@ -126,11 +126,13 @@ export class InviteService {
     });
     let playersAdded = 1;
 
-    // One anonymous player per plus-one so they can be teamed and scored.
-    for (let i = 1; i <= (invite.plusOnes ?? 0); i++) {
+    // One player per plus-one so they can be teamed and scored — using the name
+    // the guest gave, falling back to "<guest> +N" for any left unnamed.
+    for (let i = 0; i < (invite.plusOnes ?? 0); i++) {
+      const givenName = invite.plusOneNames?.[i]?.trim();
       await this.sessionPlayerService.joinSession({
         joinCode,
-        playerName: `${guestName} +${i}`,
+        playerName: givenName || `${guestName} +${i + 1}`,
       });
       playersAdded++;
     }
@@ -222,13 +224,40 @@ export class InviteService {
     );
   }
 
+  /**
+   * Normalise plus-one input. When names are supplied, the array length is the
+   * count and each (trimmed) entry names that plus-one — an empty entry means a
+   * +1 added without a name. When only a legacy count is supplied, there are no
+   * names. A non-GOING response has no plus-ones.
+   */
+  private resolvePlusOnes(
+    status: RsvpStatus,
+    dto: { plusOnes?: number; plusOneNames?: string[] },
+  ): { count: number; names: string[] } {
+    if (status !== RsvpStatus.GOING) return { count: 0, names: [] };
+    if (dto.plusOneNames) {
+      const names = dto.plusOneNames.map((n) => (n ?? '').trim());
+      return { count: names.length, names };
+    }
+    return { count: dto.plusOnes ?? 0, names: [] };
+  }
+
   /** Public: a guest submits or updates their RSVP via their token. */
   async rsvp(token: string, dto: RsvpDto): Promise<Invite> {
     const invite = await this.findByToken(token);
 
     invite.rsvpStatus = dto.status;
     if (dto.name) invite.name = dto.name;
-    if (dto.plusOnes !== undefined) invite.plusOnes = dto.plusOnes;
+    // Reset plus-ones when not going; otherwise update only when the request
+    // carried them (so a status-only change doesn't wipe an existing count).
+    if (dto.status !== RsvpStatus.GOING) {
+      invite.plusOnes = 0;
+      invite.plusOneNames = [];
+    } else if (dto.plusOneNames !== undefined || dto.plusOnes !== undefined) {
+      const plus = this.resolvePlusOnes(dto.status, dto);
+      invite.plusOnes = plus.count;
+      invite.plusOneNames = plus.names;
+    }
     if (dto.note !== undefined) invite.note = dto.note;
     invite.respondedAt = new Date();
 
@@ -306,7 +335,9 @@ export class InviteService {
     invite.name = dto.name;
     if (dto.email !== undefined) invite.email = dto.email;
     invite.rsvpStatus = dto.status;
-    invite.plusOnes = dto.status === RsvpStatus.GOING ? (dto.plusOnes ?? 0) : 0;
+    const plus = this.resolvePlusOnes(dto.status, dto);
+    invite.plusOnes = plus.count;
+    invite.plusOneNames = plus.names;
     if (dto.note !== undefined) invite.note = dto.note;
     invite.respondedAt = new Date();
 
