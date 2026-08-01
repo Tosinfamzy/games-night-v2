@@ -545,12 +545,13 @@ describe('ScoreService', () => {
       const result = await service.getRankedGameScores('game-1');
 
       expect(result).toHaveLength(3);
-      // Both Team A and Team B should have rank 1
+      // Both Team A and Team B share rank 1, so BOTH are tied — including the
+      // leading team, which a "tied with previous" check used to miss.
       expect(result[0].rank).toBe(1);
-      expect(result[0].isTied).toBe(false); // First team is not tied
+      expect(result[0].isTied).toBe(true);
       expect(result[1].rank).toBe(1);
-      expect(result[1].isTied).toBe(true); // Second team is tied
-      // Team C should have rank 3 (not 2, because two teams are tied at rank 1)
+      expect(result[1].isTied).toBe(true);
+      // Team C is alone at rank 3 (not 2, because two teams tie at rank 1).
       expect(result[2].rank).toBe(3);
       expect(result[2].isTied).toBe(false);
     });
