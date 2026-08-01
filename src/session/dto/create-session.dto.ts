@@ -59,6 +59,18 @@ export class CreateSessionDto {
 
   @ApiProperty({
     description:
+      "Host info shown to guests once they've joined (WiFi, house rules, etc.). " +
+      'Send an empty string to clear it.',
+    example: 'WiFi: GamesNight / pw: rolldice20 🎲 Snacks in the kitchen!',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @MaxLength(1000)
+  hostMessage?: string;
+
+  @ApiProperty({
+    description:
       'ID of the hosting games master. Optional when authenticated as a ' +
       'games master via Clerk (the host is then derived from the token); ' +
       'legacy clients still pass it explicitly.',

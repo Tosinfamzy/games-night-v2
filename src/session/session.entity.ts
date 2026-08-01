@@ -88,6 +88,17 @@ export class Session {
   inviteMessage?: string;
 
   @ApiProperty({
+    description:
+      "Host-authored info shown to guests once they've joined (on the night) — " +
+      'e.g. WiFi details, house rules, "snacks in the kitchen". Distinct from ' +
+      'inviteMessage, which is the pre-event RSVP greeting.',
+    example: 'WiFi: GamesNight / pw: rolldice20 🎲 Snacks in the kitchen!',
+    required: false,
+  })
+  @Column({ type: 'text', nullable: true })
+  hostMessage?: string;
+
+  @ApiProperty({
     description: 'Games master hosting this session',
     type: () => GamesMaster,
   })
