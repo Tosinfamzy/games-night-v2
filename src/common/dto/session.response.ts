@@ -44,6 +44,14 @@ export class SessionResponseDto extends SessionSummaryDto {
   })
   inviteMessage?: string | null;
 
+  @ApiProperty({
+    description:
+      "Host info shown to guests once they've joined (WiFi, house rules, etc.).",
+    example: 'WiFi: GamesNight / pw: rolldice20 🎲',
+    nullable: true,
+  })
+  hostMessage?: string | null;
+
   @ApiProperty({ type: () => GamesMasterSummaryDto, nullable: true })
   host: GamesMasterSummaryDto | null;
 
@@ -95,6 +103,7 @@ export class SessionResponseDto extends SessionSummaryDto {
     dto.description = entity.description ?? null;
     dto.location = entity.location ?? null;
     dto.inviteMessage = entity.inviteMessage ?? null;
+    dto.hostMessage = entity.hostMessage ?? null;
     dto.host = GamesMasterSummaryDto.fromEntity(entity.host);
     if (includeHostSecrets) {
       dto.publicRsvpToken = entity.publicRsvpToken;
