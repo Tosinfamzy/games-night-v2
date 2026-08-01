@@ -222,13 +222,14 @@ describe('InviteService', () => {
         Promise.resolve({ ...data, id: 'invite-9' }),
       );
 
-      const result = await service.selfRsvp('rsvp-token', {
+      const { invite: result, created } = await service.selfRsvp('rsvp-token', {
         name: 'Grace',
         email: 'grace@example.com',
         status: RsvpStatus.GOING,
         plusOnes: 1,
       });
 
+      expect(created).toBe(true); // first-time RSVP creates the invite
       expect(result.name).toBe('Grace');
       expect(result.rsvpStatus).toBe(RsvpStatus.GOING);
       expect(result.plusOnes).toBe(1);
@@ -253,12 +254,13 @@ describe('InviteService', () => {
         Promise.resolve(data),
       );
 
-      const result = await service.selfRsvp('rsvp-token', {
+      const { invite: result, created } = await service.selfRsvp('rsvp-token', {
         name: 'Grace',
         email: 'grace@example.com',
         status: RsvpStatus.MAYBE,
       });
 
+      expect(created).toBe(false); // updating a match, not creating
       expect(inviteRepo.create).not.toHaveBeenCalled();
       expect(result.id).toBe('invite-1');
       expect(result.inviteToken).toBe('existing-token');
@@ -273,7 +275,7 @@ describe('InviteService', () => {
         Promise.resolve(data),
       );
 
-      const result = await service.selfRsvp('rsvp-token', {
+      const { invite: result } = await service.selfRsvp('rsvp-token', {
         name: 'Grace',
         email: 'grace@example.com',
         status: RsvpStatus.MAYBE,
