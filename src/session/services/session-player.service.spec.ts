@@ -287,7 +287,7 @@ describe('SessionPlayerService', () => {
           joinCode: '123456',
           playerName: 'Bob',
         }),
-      ).rejects.toThrow('Cannot join a completed session');
+      ).rejects.toThrow('This games night has already ended');
     });
 
     it('should throw BadRequestException if session is cancelled', async () => {
@@ -303,23 +303,36 @@ describe('SessionPlayerService', () => {
           joinCode: '123456',
           playerName: 'Charlie',
         }),
-      ).rejects.toThrow('Cannot join a cancelled session');
+      ).rejects.toThrow('This games night was cancelled');
     });
 
-    it('should throw BadRequestException if session is in progress', async () => {
+    it('allows a walk-in to join an in-progress session', async () => {
       const session = createMockSession({
+        id: 'session-1',
         joinCode: '123456',
         status: SessionStatus.IN_PROGRESS,
+        host: createMockGamesMaster({ name: 'Test GM' }) as GamesMaster,
+      });
+      const mockPlayer = createMockPlayer({
+        id: 'player-walkin',
+        name: 'David',
+        session: session as Session,
+        status: PlayerStatus.JOINED,
       });
 
       sessionRepo.findOne.mockResolvedValue(session);
+      playerRepo.findOne.mockResolvedValue(null);
+      playerRepo.create.mockReturnValue(mockPlayer);
+      playerRepo.save.mockResolvedValue(mockPlayer);
+      authService.generatePlayerToken.mockReturnValue('mock-token');
 
-      await expect(
-        service.joinSession({
-          joinCode: '123456',
-          playerName: 'David',
-        }),
-      ).rejects.toThrow('Cannot join session');
+      const result = await service.joinSession({
+        joinCode: '123456',
+        playerName: 'David',
+      });
+
+      expect(result.player.name).toBe('David');
+      expect(result.playerToken).toBe('mock-token');
     });
 
     it('should throw NotFoundException if join code invalid', async () => {

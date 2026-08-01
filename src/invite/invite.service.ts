@@ -1,9 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { findOneOrThrow } from '../common/utils/find-or-throw.util';
+import { MailService } from '../mail/mail.service';
 import { Session } from '../session/session.entity';
 import {
   SessionPlayerService,
@@ -41,7 +43,35 @@ export class InviteService {
     private readonly sessionRepo: Repository<Session>,
     private readonly eventEmitter: EventEmitter2,
     private readonly sessionPlayerService: SessionPlayerService,
+    private readonly mail: MailService,
+    private readonly config: ConfigService,
   ) {}
+
+  /**
+   * Email a guest a confirmation the moment they RSVP "going" — event details,
+   * a one-tap join link, and a calendar attachment. Fire-and-forget: MailService
+   * never throws (it logs + returns false), so this can't fail the RSVP itself.
+   * No-op without an email, a non-GOING status, or FRONTEND_URL (no link).
+   */
+  private sendRsvpConfirmation(invite: Invite): void {
+    const session = invite.session;
+    if (!invite.email || invite.rsvpStatus !== RsvpStatus.GOING || !session) {
+      return;
+    }
+    const frontendUrl = this.config.get<string>('FRONTEND_URL');
+    if (!frontendUrl) {
+      return;
+    }
+    void this.mail.sendRsvpConfirmation({
+      to: invite.email,
+      guestName: invite.name ?? null,
+      sessionName: session.name,
+      date: session.date,
+      location: session.location ?? null,
+      hostName: session.host?.name ?? null,
+      inviteUrl: `${frontendUrl.replace(/\/$/, '')}/invite/${invite.inviteToken}`,
+    });
+  }
 
   /**
    * Public: a guest joins the live session straight from their invite link — no
@@ -138,6 +168,7 @@ export class InviteService {
     const saved = await this.inviteRepo.save(invite);
 
     this.eventEmitter.emit('invite.updated', { sessionId, invite: saved });
+    this.sendRsvpConfirmation(saved);
     return saved;
   }
 
@@ -287,6 +318,7 @@ export class InviteService {
       sessionId: session.id,
       invite: saved,
     });
+    this.sendRsvpConfirmation(saved);
     return { invite: saved, created };
   }
 

@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { MailService } from '../mail/mail.service';
 import { InviteService } from './invite.service';
 import { Invite } from './invite.entity';
 import { Session } from '../session/session.entity';
@@ -47,12 +49,16 @@ describe('InviteService', () => {
   let sessionRepo: MockRepo;
   let events: { emit: jest.Mock };
   let sessionPlayerService: { joinSession: jest.Mock };
+  let mailService: { sendRsvpConfirmation: jest.Mock };
+  let config: { get: jest.Mock };
 
   beforeEach(async () => {
     inviteRepo = mockRepo();
     sessionRepo = mockRepo();
     events = { emit: jest.fn() };
     sessionPlayerService = { joinSession: jest.fn() };
+    mailService = { sendRsvpConfirmation: jest.fn() };
+    config = { get: jest.fn().mockReturnValue('https://thegamesnight.com') };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
@@ -61,6 +67,8 @@ describe('InviteService', () => {
         { provide: getRepositoryToken(Session), useValue: sessionRepo },
         { provide: EventEmitter2, useValue: events },
         { provide: SessionPlayerService, useValue: sessionPlayerService },
+        { provide: MailService, useValue: mailService },
+        { provide: ConfigService, useValue: config },
       ],
     }).compile();
 
@@ -302,6 +310,30 @@ describe('InviteService', () => {
         'invite.updated',
         expect.objectContaining({ sessionId: 'session-1' }),
       );
+      // A GOING RSVP triggers a confirmation email with the guest's join link.
+      expect(mailService.sendRsvpConfirmation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'grace@example.com',
+          inviteUrl: expect.stringContaining('/invite/'),
+        }),
+      );
+    });
+
+    it('does not email a confirmation for a NOT_GOING response', async () => {
+      sessionRepo.findOne.mockResolvedValue({ id: 'session-1' });
+      inviteRepo.createQueryBuilder.mockReturnValue(mockQb(null));
+      inviteRepo.create.mockImplementation((data: Partial<Invite>) => data);
+      inviteRepo.save.mockImplementation((data: Invite) =>
+        Promise.resolve({ ...data, id: 'invite-x' }),
+      );
+
+      await service.selfRsvp('rsvp-token', {
+        name: 'Grace',
+        email: 'grace@example.com',
+        status: RsvpStatus.NOT_GOING,
+      });
+
+      expect(mailService.sendRsvpConfirmation).not.toHaveBeenCalled();
     });
 
     it('updates the existing invite instead of duplicating (dedupe)', async () => {
