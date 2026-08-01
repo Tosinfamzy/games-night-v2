@@ -11,4 +11,15 @@ export class NextTurnDto {
   @IsOptional()
   @IsUUID()
   nextTeamId?: string;
+
+  @ApiProperty({
+    description:
+      'ID of the player whose turn it should be next in an individual-mode game ' +
+      '(optional - auto-rotates if not provided).',
+    example: 'uuid',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  nextPlayerId?: string;
 }

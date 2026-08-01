@@ -24,6 +24,7 @@ import { TeamService } from '../team/team.service';
 import { ScoreService } from '../score/score.service';
 import { GameStatus } from './enums/game-status.enum';
 import { ScoreMode } from './enums/score-mode.enum';
+import { isActivePlayer } from '../common/utils/player-status.util';
 import { CreateTeamsDto } from '../team/dto/team-formation.dto';
 import { GameResultsDto } from '../common/dto/game-results.dto';
 import { GameGateway } from './game.gateway';
@@ -412,6 +413,11 @@ export class GameService {
       );
     }
 
+    // Individual games rotate the turn over players, not teams.
+    if (game.scoreMode === ScoreMode.INDIVIDUAL) {
+      return this.nextTurnIndividual(game, dto);
+    }
+
     const teams = await this.teamService.findByGame(id);
 
     if (teams.length < 2) {
@@ -481,6 +487,85 @@ export class GameService {
           game.turnStartedAt,
         );
       }
+    }
+
+    return savedGame;
+  }
+
+  /**
+   * Advance the turn in an individual-mode game — rotates over the session's
+   * active players (not teams), tracked on currentTurnPlayerId. The turn
+   * broadcasts and timer are keyed by the player as the entrant.
+   */
+  private async nextTurnIndividual(
+    game: Game,
+    dto?: NextTurnDto,
+  ): Promise<Game> {
+    const allPlayers = await this.playerRepo.find({
+      where: { session: { id: game.session.id } },
+    });
+    // Rotate over the competitors — active guests. The host (isGuest: false) is
+    // the games master running the night, not a turn-taker. Stable order so
+    // auto-rotation is deterministic across calls.
+    const players = allPlayers
+      .filter((p) => isActivePlayer(p) && p.isGuest)
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+    if (players.length < 2) {
+      throw new BadRequestException(
+        'Game needs at least 2 players for turn management',
+      );
+    }
+
+    let nextPlayerId: string;
+    if (dto?.nextPlayerId) {
+      if (!players.some((p) => p.id === dto.nextPlayerId)) {
+        throw new NotFoundException(
+          `Player with ID ${dto.nextPlayerId} not found in this game`,
+        );
+      }
+      nextPlayerId = dto.nextPlayerId;
+    } else {
+      const currentIndex = players.findIndex(
+        (p) => p.id === game.currentTurnPlayerId,
+      );
+      nextPlayerId = players[(currentIndex + 1) % players.length].id;
+    }
+
+    const previousPlayerId = game.currentTurnPlayerId;
+    game.currentTurnPlayerId = nextPlayerId;
+    game.turnStartedAt = new Date();
+    const savedGame = await this.repo.save(game);
+
+    const nextPlayer = players.find((p) => p.id === nextPlayerId)!;
+    // The turn broadcasts/timer take an entrant id + name; in individual mode
+    // that entrant is the player.
+    this.gameGateway.broadcastTurnStarted(
+      game.id,
+      nextPlayer.id,
+      nextPlayer.name,
+      game.turnTimeLimit,
+      game.turnStartedAt,
+    );
+    if (game.turnTimeLimit && this.gameTimerService) {
+      this.gameTimerService.startTimer(
+        game.id,
+        nextPlayer.id,
+        nextPlayer.name,
+        game.turnTimeLimit,
+        game.turnStartedAt,
+      );
+    }
+    if (!dto?.['_auto']) {
+      this.gameGateway.broadcastTurnAdvanced(
+        game.id,
+        previousPlayerId || '',
+        nextPlayer.id,
+        nextPlayer.name,
+        false,
+        game.turnTimeLimit,
+        game.turnStartedAt,
+      );
     }
 
     return savedGame;
@@ -664,6 +749,7 @@ export class GameService {
     game.status = GameStatus.PENDING;
     game.currentRound = 0;
     game.currentTurnTeamId = undefined;
+    game.currentTurnPlayerId = undefined;
     game.turnStartedAt = undefined;
     game.statusBeforePause = undefined;
     game.winnerId = undefined;
