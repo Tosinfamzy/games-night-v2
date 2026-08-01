@@ -22,7 +22,6 @@ import { GameService } from './game.service';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { StartGameDto } from './dto/start-game.dto';
-import { StartGameWithTeamsDto } from './dto/start-game-with-teams.dto';
 import { NextTurnDto } from './dto/next-turn.dto';
 import { GameResponseDto } from '../common/dto/game.response';
 import { GameResultsDto } from '../common/dto/game-results.dto';
@@ -245,32 +244,6 @@ export class GameController {
   }
 
   // ============ ENHANCED GAME FLOW ENDPOINTS ============
-
-  @Post(':id/start-with-teams')
-  @HostOf('game')
-  @ApiOperation({ summary: 'Start a game with automatic team formation' })
-  @ApiParam({ name: 'id', description: 'ID of the game' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'Game started successfully with teams formed.',
-    type: GameResponseDto,
-  })
-  @ApiResponse({
-    status: HttpStatus.BAD_REQUEST,
-    description: 'Invalid input or game cannot be started.',
-  })
-  @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'Game not found.',
-  })
-  startWithTeams(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: StartGameWithTeamsDto,
-  ): Promise<GameResponseDto> {
-    return this.service
-      .startGameWithTeams(id, dto)
-      .then((game) => this.serializeGame(game.id));
-  }
 
   @Get(':id/readiness')
   @SessionMember('game', 'id')

@@ -15,7 +15,6 @@ import { Game } from './game.entity';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { StartGameDto } from './dto/start-game.dto';
-import { StartGameWithTeamsDto } from './dto/start-game-with-teams.dto';
 import { NextTurnDto } from './dto/next-turn.dto';
 import { Session } from '../session/session.entity';
 import { Team } from '../team/team.entity';
@@ -25,7 +24,6 @@ import { ScoreService } from '../score/score.service';
 import { GameStatus } from './enums/game-status.enum';
 import { ScoreMode } from './enums/score-mode.enum';
 import { isActivePlayer } from '../common/utils/player-status.util';
-import { CreateTeamsDto } from '../team/dto/team-formation.dto';
 import { GameResultsDto } from '../common/dto/game-results.dto';
 import { GameGateway } from './game.gateway';
 import { GameTimerService } from './game-timer.service';
@@ -297,50 +295,6 @@ export class GameService {
   }
 
   // ============ ENHANCED GAME FLOW METHODS ============
-
-  /**
-   * Start a game with automatic team formation
-   */
-  async startGameWithTeams(
-    id: string,
-    dto: StartGameWithTeamsDto,
-  ): Promise<Game> {
-    const game = await this.findOne(id);
-
-    if (game.status !== GameStatus.PENDING) {
-      throw DomainError.gameInvalidState(`Game is already ${game.status}`);
-    }
-
-    // Create teams using the team service
-    const createTeamsDto: CreateTeamsDto = {
-      teamCount: dto.teamCount,
-      strategy: dto.strategy,
-    };
-
-    const teams = await this.teamService.createTeamsForGame(
-      game.id,
-      createTeamsDto,
-    );
-
-    if (teams.length < 2) {
-      throw new BadRequestException(
-        'At least two teams are required to start a game',
-      );
-    }
-
-    // Update game with teams and start
-    game.status = GameStatus.IN_PROGRESS;
-    game.currentRound = 1;
-    game.turnTimeLimit = dto.turnTimeLimit;
-
-    // Set the first team's turn
-    if (teams.length > 0) {
-      game.currentTurnTeamId = teams[0].id;
-      game.turnStartedAt = new Date();
-    }
-
-    return await this.repo.save(game);
-  }
 
   /**
    * Check if a game is ready to start (has teams formed)
