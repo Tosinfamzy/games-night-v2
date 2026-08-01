@@ -62,6 +62,15 @@ export class PublicInviteDto {
   @ApiProperty({ example: 0 })
   plusOnes: number;
 
+  @ApiProperty({
+    type: [String],
+    description:
+      'Names of the plus-ones, in order (may contain blanks for unnamed +1s). ' +
+      'Lets the guest see/edit who they named, and the host name them at check-in.',
+    example: ['Jake', 'Priya'],
+  })
+  plusOneNames: string[];
+
   @ApiProperty({ nullable: true })
   note: string | null;
 
@@ -83,6 +92,7 @@ export class PublicInviteDto {
     dto.inviteToken = includeToken ? invite.inviteToken : null;
     dto.rsvpStatus = invite.rsvpStatus;
     dto.plusOnes = invite.plusOnes;
+    dto.plusOneNames = invite.plusOneNames ?? [];
     dto.note = invite.note ?? null;
     dto.respondedAt = invite.respondedAt ?? null;
     dto.session = invite.session

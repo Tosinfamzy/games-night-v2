@@ -7,6 +7,8 @@ import {
   Min,
   Max,
   MaxLength,
+  IsArray,
+  ArrayMaxSize,
 } from 'class-validator';
 import { RsvpStatus } from '../enums/rsvp-status.enum';
 
@@ -40,6 +42,21 @@ export class RsvpDto {
   @Max(10)
   @IsOptional()
   plusOnes?: number;
+
+  @ApiProperty({
+    type: [String],
+    required: false,
+    description:
+      'Names of the plus-ones, in order. Its length sets the plus-one count; ' +
+      'an entry may be blank when a +1 is added without a name.',
+    example: ['Jake', 'Priya'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  @MaxLength(80, { each: true })
+  plusOneNames?: string[];
 
   @ApiProperty({ description: 'Optional note', required: false })
   @IsString()

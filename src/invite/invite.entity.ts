@@ -66,6 +66,17 @@ export class Invite {
   @Column({ type: 'int', default: 0 })
   plusOnes: number;
 
+  @ApiProperty({
+    type: [String],
+    description:
+      'Names of the plus-ones, in order. Length matches plusOnes; an entry ' +
+      'may be an empty string when the guest added a +1 without naming them. ' +
+      'Used to name the players created at check-in (falls back to "+N").',
+    example: ['Jake', 'Priya'],
+  })
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  plusOneNames: string[];
+
   @ApiProperty({ description: 'Optional note from the guest', required: false })
   @Column({ type: 'text', nullable: true })
   note?: string;

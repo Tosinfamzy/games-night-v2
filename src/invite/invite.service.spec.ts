@@ -283,6 +283,40 @@ describe('InviteService', () => {
       expect(playersAdded).toBe(1);
       expect(sessionPlayerService.joinSession).toHaveBeenCalledTimes(1);
     });
+
+    it('names plus-ones from plusOneNames, falling back to +N when blank', async () => {
+      inviteRepo.findOne.mockResolvedValue({
+        id: 'invite-3',
+        name: 'Milly',
+        plusOnes: 2,
+        plusOneNames: ['Jake', ''], // second +1 left unnamed
+        rsvpStatus: RsvpStatus.GOING,
+        session: { id: 'session-1', joinCode: '123456', host: { id: 'gm1' } },
+      });
+      sessionPlayerService.joinSession.mockResolvedValue({
+        player: { id: 'p', name: 'x' },
+      });
+      inviteRepo.save.mockImplementation((i: Invite) => Promise.resolve(i));
+
+      const { playersAdded } = await service.checkInGuest(
+        'session-1',
+        'invite-3',
+      );
+
+      expect(playersAdded).toBe(3); // Milly + Jake + the unnamed one
+      expect(sessionPlayerService.joinSession).toHaveBeenNthCalledWith(1, {
+        joinCode: '123456',
+        playerName: 'Milly',
+      });
+      expect(sessionPlayerService.joinSession).toHaveBeenNthCalledWith(2, {
+        joinCode: '123456',
+        playerName: 'Jake', // named plus-one
+      });
+      expect(sessionPlayerService.joinSession).toHaveBeenNthCalledWith(3, {
+        joinCode: '123456',
+        playerName: 'Milly +2', // blank → fallback
+      });
+    });
   });
 
   describe('selfRsvp', () => {
@@ -379,6 +413,25 @@ describe('InviteService', () => {
       });
 
       expect(result.plusOnes).toBe(0);
+    });
+
+    it('stores plus-one names and derives the count from them', async () => {
+      sessionRepo.findOne.mockResolvedValue({ id: 'session-1' });
+      inviteRepo.createQueryBuilder.mockReturnValue(mockQb(null));
+      inviteRepo.create.mockImplementation((data: Partial<Invite>) => data);
+      inviteRepo.save.mockImplementation((data: Invite) =>
+        Promise.resolve(data),
+      );
+
+      const { invite: result } = await service.selfRsvp('rsvp-token', {
+        name: 'Grace',
+        email: 'grace@example.com',
+        status: RsvpStatus.GOING,
+        plusOneNames: ['Jake', ' Priya '], // trimmed
+      });
+
+      expect(result.plusOnes).toBe(2); // derived from the names array
+      expect(result.plusOneNames).toEqual(['Jake', 'Priya']);
     });
   });
 
