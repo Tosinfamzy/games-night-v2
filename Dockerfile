@@ -42,9 +42,11 @@ USER nestjs
 # Expose port
 EXPOSE 3000
 
-# Health check
+# Health check. The app uses URI versioning (defaultVersion '1'), so the real
+# route is /v1/health — the old /health returned 404 and marked the container
+# permanently unhealthy. Honour $PORT (the platform may not use 3000).
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+    CMD node -e "const p=process.env.PORT||3000;require('http').get('http://localhost:'+p+'/v1/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1)).on('error', () => process.exit(1))"
 
 # Start the application
 CMD ["node", "dist/src/main"]

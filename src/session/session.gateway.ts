@@ -11,6 +11,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { OnEvent } from '@nestjs/event-emitter';
 import { BaseGateway } from '../common/gateways/base.gateway';
 import { WS_CORS_CONFIG } from '../common/config/cors.config';
+import { TIME } from '../common/constants';
 import { Player } from '../player/player.entity';
 import { Team } from '../team/team.entity';
 import { Session } from './session.entity';
@@ -41,6 +42,12 @@ export class SessionGateway extends BaseGateway {
 
   protected logger = new Logger(SessionGateway.name);
 
+  // Pending "player offline" broadcasts, keyed by playerId. A disconnect
+  // schedules one after a grace period; a reconnect within the window cancels
+  // it, so a brief phone-lock/network-handoff doesn't flicker the player
+  // offline in everyone's roster.
+  private readonly pendingOffline = new Map<string, NodeJS.Timeout>();
+
   constructor(private readonly playerService: PlayerService) {
     super();
   }
@@ -68,6 +75,14 @@ export class SessionGateway extends BaseGateway {
 
       // Mark player as online
       await this.playerService.setPlayerOnline(playerId, client.id);
+
+      // Cancel any pending offline broadcast — the player is back within the
+      // grace window, so no one ever needs to see them drop.
+      const pending = this.pendingOffline.get(playerId);
+      if (pending) {
+        clearTimeout(pending);
+        this.pendingOffline.delete(playerId);
+      }
 
       this.logger.log(
         `Player ${playerName} (${playerId}) connected to session ${sessionId}`,
@@ -101,15 +116,36 @@ export class SessionGateway extends BaseGateway {
         return;
       }
 
-      // Mark player as offline
-      await this.playerService.setPlayerOffline(player.id);
-
+      // Defer marking the player offline. Phones lock/background constantly at
+      // a party, dropping the socket for a few seconds; broadcasting offline
+      // immediately would flicker the roster on every lock. If the player
+      // reconnects within the grace window, handleConnection cancels this and
+      // no one sees them drop. Only a genuine, sustained disconnect goes offline.
+      const { id: playerId, name: playerName } = player;
+      const sessionId = player.session.id;
       this.logger.log(
-        `Player ${player.name} disconnected from session ${player.session.id}`,
+        `Player ${playerName} disconnected from session ${sessionId} ` +
+          `(offline in ${TIME.PLAYER_OFFLINE_GRACE_MS / 1000}s unless back)`,
       );
 
-      // Broadcast player offline status to session room
-      this.broadcastPlayerOffline(player.session.id, player.id, player.name);
+      const existing = this.pendingOffline.get(playerId);
+      if (existing) {
+        clearTimeout(existing);
+      }
+      const timer = setTimeout(() => {
+        this.pendingOffline.delete(playerId);
+        void this.playerService
+          .setPlayerOffline(playerId)
+          .then(() => {
+            this.broadcastPlayerOffline(sessionId, playerId, playerName);
+          })
+          .catch((error) => {
+            this.logger.error(
+              `Failed to mark player offline: ${getErrorMessage(error)}`,
+            );
+          });
+      }, TIME.PLAYER_OFFLINE_GRACE_MS);
+      this.pendingOffline.set(playerId, timer);
     } catch (error) {
       this.logger.error(
         `Failed to handle player disconnection: ${getErrorMessage(error)}`,

@@ -15,8 +15,13 @@ const DEV_ORIGIN_PATTERNS: RegExp[] = [
   /^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/,
 ];
 
-// The frontend's hosting domain — allowed in every environment.
-const ALWAYS_ORIGIN_PATTERNS: RegExp[] = [/^https:\/\/.*\.vercel\.app$/];
+// The frontend's hosting domains — allowed in every environment. Covers the
+// Vercel deployment URLs and the production custom domain (apex + www), so a
+// browser hitting either form works regardless of the exact FRONTEND_URL value.
+const ALWAYS_ORIGIN_PATTERNS: RegExp[] = [
+  /^https:\/\/.*\.vercel\.app$/,
+  /^https:\/\/(www\.)?thegamesnight\.com$/,
+];
 
 /**
  * Whether a request/handshake `Origin` is allowed. A missing Origin (server-to-
