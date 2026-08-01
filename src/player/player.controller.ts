@@ -24,7 +24,6 @@ import { HostGuard } from '../auth/guards/host.guard';
 import { SessionMemberGuard } from '../auth/guards/session-member.guard';
 import { SessionMember } from '../auth/decorators/session-member.decorator';
 import { HostOf } from '../auth/decorators/host-of.decorator';
-import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { PlayerService } from './player.service';
 import { CreatePlayerDto } from './dto/create-player.dto';
 import { UpdatePlayerDto } from './dto/update-player.dto';
@@ -61,22 +60,6 @@ export class PlayerController {
         this.service.findOne(player.id, ['session', 'teams', 'scores']),
       )
       .then((player) => PlayerResponseDto.fromEntity(player));
-  }
-
-  @Get()
-  @UseGuards(ClerkAuthGuard)
-  @ApiOperation({ summary: 'Get all players (host only)' })
-  @ApiResponse({
-    status: HttpStatus.OK,
-    description: 'List of all players.',
-    type: [PlayerResponseDto],
-  })
-  findAll(): Promise<PlayerResponseDto[]> {
-    return this.service
-      .findAll(['session', 'teams', 'scores'])
-      .then((players) =>
-        players.map((player) => PlayerResponseDto.fromEntity(player)),
-      );
   }
 
   @Get('session/:sessionId')

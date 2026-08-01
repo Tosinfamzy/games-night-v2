@@ -23,7 +23,6 @@ import {
 import { HostGuard } from '../auth/guards/host.guard';
 import { SessionMemberGuard } from '../auth/guards/session-member.guard';
 import { SessionMember } from '../auth/decorators/session-member.decorator';
-import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
 import { HostOf } from '../auth/decorators/host-of.decorator';
 import { TeamService } from './team.service';
 import { CreateTeamDto } from './dto/create-team.dto';
@@ -59,21 +58,6 @@ export class TeamController {
         this.service.findOne(team.id, ['session', 'game', 'players', 'scores']),
       )
       .then((team) => TeamResponseDto.fromEntity(team));
-  }
-
-  // Admin-only cross-tenant list — was unauthenticated. Requires a signed-in GM.
-  @Get()
-  @UseGuards(ClerkAuthGuard)
-  @ApiOperation({ summary: 'Get all teams (admin)' })
-  @ApiResponse({
-    status: 200,
-    description: 'List of all teams',
-    type: [TeamResponseDto],
-  })
-  findAll(): Promise<TeamResponseDto[]> {
-    return this.service
-      .findAll()
-      .then((teams) => teams.map((team) => TeamResponseDto.fromEntity(team)));
   }
 
   @Get(':id')
