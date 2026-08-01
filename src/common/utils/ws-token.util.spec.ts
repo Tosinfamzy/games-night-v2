@@ -14,10 +14,10 @@ describe('extractPlayerToken', () => {
     expect(extractPlayerToken({ auth: { token: 't' } })).toBe('t');
   });
 
-  it('falls back to query.playerToken when auth has no token', () => {
-    expect(extractPlayerToken({ auth: {}, query: { playerToken: 'q' } })).toBe(
-      'q',
-    );
+  it('ignores query.playerToken — the token is never read from the query string', () => {
+    expect(
+      extractPlayerToken({ auth: {}, query: { playerToken: 'q' } }),
+    ).toBeNull();
   });
 
   it('returns null when nothing is present', () => {

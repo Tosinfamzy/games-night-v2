@@ -318,7 +318,7 @@ export class TeamAssignmentService {
   async reassignPlayer(playerId: string, newTeamId: string): Promise<Team> {
     const player = await this.playerRepo.findOne({
       where: { id: playerId },
-      relations: ['teams', 'teams.game', 'teams.session'],
+      relations: ['teams', 'teams.game', 'teams.session', 'session'],
     });
 
     if (!player) {
@@ -328,8 +328,19 @@ export class TeamAssignmentService {
     const newTeam = await this.findOne(newTeamId, [
       'players',
       'game',
+      'game.session',
       'session',
     ]);
+
+    // The player must belong to the same session as the target team. The host
+    // is authorized on newTeamId, but without this check they could pull a
+    // player from a *different* session (a known foreign UUID) into their team.
+    const targetSessionId = newTeam.session?.id ?? newTeam.game?.session?.id;
+    if (!player.session || player.session.id !== targetSessionId) {
+      throw new BadRequestException(
+        'Player does not belong to this team’s session',
+      );
+    }
 
     // Find player's current team (if any) in the same game
     const currentTeamInSameGame = player.teams?.find(

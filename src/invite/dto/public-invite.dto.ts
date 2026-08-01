@@ -47,8 +47,14 @@ export class PublicInviteDto {
   @ApiProperty({ nullable: true })
   email: string | null;
 
-  @ApiProperty({ description: 'Personal token for editing this RSVP later' })
-  inviteToken: string;
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Personal token for editing this RSVP later. Null on the open self-RSVP ' +
+      'link response — that path must not hand a matched guest’s edit token to ' +
+      'whoever submitted the form (they re-RSVP via the same link + email).',
+  })
+  inviteToken: string | null;
 
   @ApiProperty({ enum: RsvpStatus })
   rsvpStatus: RsvpStatus;
@@ -65,12 +71,16 @@ export class PublicInviteDto {
   @ApiProperty({ type: () => PublicInviteSessionDto, nullable: true })
   session: PublicInviteSessionDto | null;
 
-  static fromEntity(invite: Invite): PublicInviteDto {
+  static fromEntity(
+    invite: Invite,
+    opts: { includeToken?: boolean } = {},
+  ): PublicInviteDto {
+    const { includeToken = true } = opts;
     const dto = new PublicInviteDto();
     dto.id = invite.id;
     dto.name = invite.name ?? null;
     dto.email = invite.email ?? null;
-    dto.inviteToken = invite.inviteToken;
+    dto.inviteToken = includeToken ? invite.inviteToken : null;
     dto.rsvpStatus = invite.rsvpStatus;
     dto.plusOnes = invite.plusOnes;
     dto.note = invite.note ?? null;

@@ -324,6 +324,7 @@ describe('TeamAssignmentService', () => {
 
       const player = {
         ...createMockPlayer({ id: 'player-1' }),
+        session: session as Session,
         teams: [currentTeam as Team],
       };
 
@@ -374,6 +375,7 @@ describe('TeamAssignmentService', () => {
 
       const player = {
         ...createMockPlayer({ id: 'player-1' }),
+        session: session as Session,
         teams: [],
       };
 
@@ -385,6 +387,31 @@ describe('TeamAssignmentService', () => {
 
       expect(result).toBeDefined();
       expect(teamRepo.save).toHaveBeenCalledTimes(1); // Only save new team
+    });
+
+    it('rejects reassigning a player from a different session (cross-tenant)', async () => {
+      const teamSession = createMockSession({ id: 'session-1' });
+      const game = createMockGame({ id: 'game-1' });
+      const newTeam = {
+        ...createMockTeam({ id: 'team-2' }),
+        game: game as Game,
+        session: teamSession as Session,
+        players: [],
+      };
+      // Player belongs to a different session than the target team.
+      const player = {
+        ...createMockPlayer({ id: 'player-1' }),
+        session: createMockSession({ id: 'session-2' }) as Session,
+        teams: [],
+      };
+
+      playerRepo.findOne.mockResolvedValue(player);
+      teamRepo.findOne.mockResolvedValue(newTeam);
+
+      await expect(
+        service.reassignPlayer('player-1', 'team-2'),
+      ).rejects.toThrow('Player does not belong to this team’s session');
+      expect(teamRepo.save).not.toHaveBeenCalled();
     });
   });
 

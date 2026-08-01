@@ -26,6 +26,11 @@ import { CreateSessionDto } from './dto/create-session.dto';
 import { CreateSessionResponseDto } from './dto/create-session-response.dto';
 import { UpdateSessionDto } from './dto/update-session.dto';
 import { JoinSessionDto } from './dto/join-session.dto';
+import { RejoinSessionDto } from './dto/rejoin-session.dto';
+import {
+  SetPlayerReadyDto,
+  UpdatePlayerStatusDto,
+} from './dto/player-status.dto';
 import {
   AddGamesToSessionDto,
   RemoveGameFromSessionDto,
@@ -35,7 +40,6 @@ import {
   AssignPlayersToTeamDto,
 } from './dto/session-teams.dto';
 
-import { PlayerStatus } from '../player/player.entity';
 import {
   SessionJoinResponseDto,
   SessionResponseDto,
@@ -373,7 +377,7 @@ export class SessionController {
     description: 'Player or session not found.',
   })
   rejoinSession(
-    @Body() dto: { playerToken: string },
+    @Body() dto: RejoinSessionDto,
   ): Promise<SessionJoinResponseDto> {
     return this.service
       .rejoinSession(dto.playerToken)
@@ -596,7 +600,7 @@ export class SessionController {
   setPlayerReady(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('playerId', ParseUUIDPipe) playerId: string,
-    @Body() dto: { ready: boolean },
+    @Body() dto: SetPlayerReadyDto,
   ) {
     return this.service.setPlayerReady(id, playerId, dto.ready);
   }
@@ -614,7 +618,7 @@ export class SessionController {
   updatePlayerStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('playerId', ParseUUIDPipe) playerId: string,
-    @Body() dto: { status: PlayerStatus },
+    @Body() dto: UpdatePlayerStatusDto,
   ) {
     return this.service.updatePlayerStatus(id, playerId, dto.status);
   }

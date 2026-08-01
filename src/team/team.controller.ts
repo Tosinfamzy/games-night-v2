@@ -33,6 +33,7 @@ import {
   TeamFormationStrategy,
 } from './dto/team-formation.dto';
 import { SwapPlayerDto, ReassignPlayerDto } from './dto/team-management.dto';
+import { RebalanceTeamsDto } from './dto/rebalance-teams.dto';
 import { TeamResponseDto } from '../common/dto/team.response';
 
 @ApiTags('teams')
@@ -244,13 +245,10 @@ export class TeamController {
   @ApiNotFoundResponse({ description: 'Game or teams not found' })
   async rebalanceTeams(
     @Param('gameId', ParseUUIDPipe) gameId: string,
-    @Body() body: { strategy?: 'automatic' | 'balanced' | 'random' | 'manual' },
+    @Body() body: RebalanceTeamsDto,
   ): Promise<TeamResponseDto[]> {
-    const strategy =
-      TeamFormationStrategy[
-        (body.strategy?.toUpperCase() ||
-          'BALANCED') as keyof typeof TeamFormationStrategy
-      ] || TeamFormationStrategy.BALANCED;
+    // Validated to a TeamFormationStrategy value (or omitted → balanced).
+    const strategy = body.strategy ?? TeamFormationStrategy.BALANCED;
     return this.service
       .rebalanceTeams(gameId, strategy)
       .then((teams) => teams.map((team) => TeamResponseDto.fromEntity(team)));
