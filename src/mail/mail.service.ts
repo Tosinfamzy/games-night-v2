@@ -15,6 +15,16 @@ export interface SessionReminderEmail {
   inviteUrl: string;
 }
 
+/**
+ * Timezone for rendering event times in email bodies. Emails are sent
+ * server-side, so without a fixed zone times render in the server's timezone
+ * (UTC on Railway) — a BST guest would then see the time an hour early in the
+ * body while the attached .ics (UTC-based, so calendars show the correct local
+ * time) disagrees. The app + guests are UK-based; pin to UK time so the body
+ * matches the calendar. TODO: store a per-session timezone for wider audiences.
+ */
+const EVENT_TIME_ZONE = 'Europe/London';
+
 /** Minimal HTML escaping for user-supplied values interpolated into emails. */
 function escapeHtml(value: string): string {
   return value
@@ -164,6 +174,7 @@ export class MailService {
       month: 'long',
       hour: 'numeric',
       minute: '2-digit',
+      timeZone: EVENT_TIME_ZONE,
     });
     const host = e.hostName ? ` hosted by ${escapeHtml(e.hostName)}` : '';
 
@@ -189,6 +200,7 @@ export class MailService {
       weekday: 'long',
       hour: 'numeric',
       minute: '2-digit',
+      timeZone: EVENT_TIME_ZONE,
     });
     const host = e.hostName ? ` by ${escapeHtml(e.hostName)}` : '';
 
@@ -215,6 +227,7 @@ export class MailService {
       month: 'long',
       hour: 'numeric',
       minute: '2-digit',
+      timeZone: EVENT_TIME_ZONE,
     });
     const host = e.hostName ? ` ${escapeHtml(e.hostName)}'s` : 'the';
 
