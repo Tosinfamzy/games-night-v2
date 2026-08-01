@@ -401,7 +401,7 @@ export class GameService {
   /**
    * Move to the next team's turn
    */
-  async nextTurn(id: string, dto?: NextTurnDto): Promise<Game> {
+  async nextTurn(id: string, dto?: NextTurnDto, auto = false): Promise<Game> {
     const game = await this.findOne(id);
 
     if (
@@ -415,7 +415,7 @@ export class GameService {
 
     // Individual games rotate the turn over players, not teams.
     if (game.scoreMode === ScoreMode.INDIVIDUAL) {
-      return this.nextTurnIndividual(game, dto);
+      return this.nextTurnIndividual(game, dto, auto);
     }
 
     const teams = await this.teamService.findByGame(id);
@@ -474,9 +474,9 @@ export class GameService {
         );
       }
 
-      // Also broadcast turn advanced (only if not called from auto-advance)
-      // Auto-advance is handled by timer service
-      if (!dto?.['_auto']) {
+      // Broadcast turn advanced only on a manual advance — an auto-advance is
+      // already signalled by broadcastTimerExpired + broadcastTurnStarted.
+      if (!auto) {
         this.gameGateway.broadcastTurnAdvanced(
           game.id,
           previousTeamId || '',
@@ -500,6 +500,7 @@ export class GameService {
   private async nextTurnIndividual(
     game: Game,
     dto?: NextTurnDto,
+    auto = false,
   ): Promise<Game> {
     const allPlayers = await this.playerRepo.find({
       where: { session: { id: game.session.id } },
@@ -556,7 +557,7 @@ export class GameService {
         game.turnStartedAt,
       );
     }
-    if (!dto?.['_auto']) {
+    if (!auto) {
       this.gameGateway.broadcastTurnAdvanced(
         game.id,
         previousPlayerId || '',
@@ -798,10 +799,14 @@ export class GameService {
         { status: GameStatus.IN_PROGRESS },
         { status: GameStatus.ROUND_IN_PROGRESS },
       ],
-      relations: ['teams'],
+      // session.players is needed to rehydrate an individual game's turn timer.
+      relations: ['teams', 'session', 'session.players'],
     });
     return games.filter(
-      (g) => g.turnTimeLimit && g.currentTurnTeamId && g.turnStartedAt,
+      (g) =>
+        g.turnTimeLimit &&
+        g.turnStartedAt &&
+        (g.currentTurnTeamId || g.currentTurnPlayerId),
     );
   }
 }

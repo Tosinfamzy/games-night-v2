@@ -6,7 +6,6 @@ import { TeamService } from '../team/team.service';
 import { GameStatus } from './enums/game-status.enum';
 import {
   createMockGame,
-  createMockTeam,
   resetTestCounters,
   MockGameService,
   MockGameGateway,
@@ -374,16 +373,20 @@ describe('GameTimerService', () => {
       // Wait for async operations
       await Promise.resolve();
 
-      expect(gameService.nextTurn).toHaveBeenCalledWith(gameId);
+      // Auto-advance passes auto: true so the advance is broadcast as automatic.
+      expect(gameService.nextTurn).toHaveBeenCalledWith(
+        gameId,
+        undefined,
+        true,
+      );
     });
 
-    it('should start new timer after auto-advance', async () => {
+    it('should have a timer running for the next turn after auto-advance', async () => {
       const gameId = 'game-1';
       const teamId = 'team-1';
       const turnTimeLimit = 5;
       const turnStartedAt = new Date(currentTime);
 
-      const nextTeam = createMockTeam({ id: 'team-2', name: 'Blue Team' });
       const game = createMockGame({
         id: gameId,
         status: GameStatus.IN_PROGRESS,
@@ -392,8 +395,18 @@ describe('GameTimerService', () => {
         turnTimeLimit: 60,
       });
 
-      gameService.nextTurn.mockResolvedValue(game);
-      teamService.findByGame.mockResolvedValue([nextTeam]);
+      // nextTurn re-arms the next turn's timer itself (as the real service does),
+      // so handleTimerExpired no longer re-arms separately.
+      gameService.nextTurn.mockImplementation(() => {
+        service.startTimer(
+          gameId,
+          'team-2',
+          'Blue Team',
+          60,
+          new Date(currentTime),
+        );
+        return Promise.resolve(game);
+      });
 
       service.startTimer(
         gameId,
@@ -414,7 +427,7 @@ describe('GameTimerService', () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      // Timer should still be active (new timer for next team)
+      // A timer is still active — nextTurn armed one for the next turn.
       expect(service.getActiveTimerCount()).toBe(1);
     });
 

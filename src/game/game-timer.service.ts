@@ -8,14 +8,15 @@ import {
 } from '@nestjs/common';
 import { GameService } from './game.service';
 import { GameGateway } from './game.gateway';
-import { TeamService } from '../team/team.service';
 import { TIME } from '../common/constants';
 import { getErrorMessage } from '../common/utils/error.util';
 
 interface ActiveTimer {
   gameId: string;
-  teamId: string;
-  teamName: string;
+  // The entrant whose turn is timed — a team (team mode) or a player
+  // (individual mode). Named generically since the timer is mode-agnostic.
+  entrantId: string;
+  entrantName: string;
   turnTimeLimit: number;
   turnStartedAt: Date;
   intervalId: NodeJS.Timeout;
@@ -33,7 +34,6 @@ export class GameTimerService
     @Inject(forwardRef(() => GameService))
     private readonly gameService: GameService,
     private readonly gameGateway: GameGateway,
-    private readonly teamService: TeamService,
   ) {}
 
   /**
@@ -48,14 +48,18 @@ export class GameTimerService
       const games = await this.gameService.getGamesNeedingTimer();
       let restored = 0;
       for (const game of games) {
-        const team = (game.teams ?? []).find(
-          (t) => t.id === game.currentTurnTeamId,
-        );
-        if (team && game.turnTimeLimit && game.turnStartedAt) {
+        // The in-flight entrant is a team (team mode) or a player (individual).
+        const entrant =
+          game.currentTurnPlayerId != null
+            ? (game.session?.players ?? []).find(
+                (p) => p.id === game.currentTurnPlayerId,
+              )
+            : (game.teams ?? []).find((t) => t.id === game.currentTurnTeamId);
+        if (entrant && game.turnTimeLimit && game.turnStartedAt) {
           this.startTimer(
             game.id,
-            team.id,
-            team.name,
+            entrant.id,
+            entrant.name,
             game.turnTimeLimit,
             game.turnStartedAt,
           );
@@ -82,8 +86,8 @@ export class GameTimerService
    */
   startTimer(
     gameId: string,
-    teamId: string,
-    teamName: string,
+    entrantId: string,
+    entrantName: string,
     turnTimeLimit: number,
     turnStartedAt: Date,
   ): void {
@@ -91,7 +95,7 @@ export class GameTimerService
     this.stopTimer(gameId);
 
     this.logger.log(
-      `Starting timer for game ${gameId}, team ${teamName}, ${turnTimeLimit}s`,
+      `Starting timer for game ${gameId}, entrant ${entrantName}, ${turnTimeLimit}s`,
     );
 
     // Create interval that ticks every second
@@ -101,8 +105,8 @@ export class GameTimerService
 
     this.activeTimers.set(gameId, {
       gameId,
-      teamId,
-      teamName,
+      entrantId,
+      entrantName,
       turnTimeLimit,
       turnStartedAt,
       intervalId,
@@ -171,35 +175,21 @@ export class GameTimerService
     // Broadcast timer expired
     this.gameGateway.broadcastTimerExpired(
       gameId,
-      timer.teamId,
-      timer.teamName,
+      timer.entrantId,
+      timer.entrantName,
       true, // Will auto-advance
     );
 
     try {
-      // Auto-advance to next turn
-      const game = await this.gameService.nextTurn(gameId);
+      // Auto-advance to next turn. Pass auto: true so the advance is broadcast
+      // as automatic (not a manual host tap). nextTurn re-arms the next turn's
+      // timer itself (team and individual paths both call startTimer), so there
+      // is no separate re-arm here.
+      await this.gameService.nextTurn(gameId, undefined, true);
 
       this.logger.log(
         `Auto-advanced game ${gameId} to next turn after timeout`,
       );
-
-      // If the new turn also has a timer, start it
-      if (game.turnTimeLimit && game.turnStartedAt && game.currentTurnTeamId) {
-        // Get team name for the new turn
-        const teams = await this.teamService.findByGame(gameId);
-        const newTeam = teams.find((t) => t.id === game.currentTurnTeamId);
-
-        if (newTeam) {
-          this.startTimer(
-            gameId,
-            game.currentTurnTeamId,
-            newTeam.name,
-            game.turnTimeLimit,
-            game.turnStartedAt,
-          );
-        }
-      }
     } catch (error) {
       this.logger.error(
         `Failed to auto-advance game ${gameId}: ${getErrorMessage(error)}`,
