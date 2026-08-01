@@ -15,7 +15,9 @@ export const AppDataSource = new DataSource({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432', 10),
   username: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'password123',
+  // No hardcoded default — a missing DB_PASSWORD should make the CLI fail
+  // loudly rather than silently attempt a connection with a literal password.
+  password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'games_night',
   entities: [__dirname + '/**/*.entity.{ts,js}'],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
