@@ -837,6 +837,31 @@ describe('ScoreService', () => {
       expect(scoreRepo.save).toHaveBeenCalled();
     });
 
+    it('emits score.updated so live leaderboards refresh on an edit', async () => {
+      const mockScore = createMockScore({
+        id: 'score-1',
+        points: 10,
+        roundNumber: 2,
+        game: { id: 'game-1' } as Game,
+        team: { id: 'team-1' } as Team,
+      });
+
+      scoreRepo.findOne.mockResolvedValue(mockScore);
+      scoreRepo.save.mockResolvedValue({ ...mockScore, points: 20 });
+
+      await service.update('score-1', { points: 20 });
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith('score.updated', {
+        gameId: 'game-1',
+        entrantType: 'team',
+        entrantId: 'team-1',
+        teamId: 'team-1',
+        playerId: undefined,
+        points: 20,
+        roundNumber: 2,
+      });
+    });
+
     it('should update isBonus field', async () => {
       const mockScore = createMockScore({ id: 'score-1', isBonus: false });
 
@@ -859,6 +884,31 @@ describe('ScoreService', () => {
       await service.delete('score-1');
 
       expect(scoreRepo.remove).toHaveBeenCalledWith(mockScore);
+    });
+
+    it('emits score.updated so live leaderboards refresh on a delete', async () => {
+      const mockScore = createMockScore({
+        id: 'score-1',
+        points: 7,
+        roundNumber: 1,
+        game: { id: 'game-1' } as Game,
+        player: { id: 'player-1' } as Player,
+      });
+
+      scoreRepo.findOne.mockResolvedValue(mockScore);
+      scoreRepo.remove.mockResolvedValue(mockScore);
+
+      await service.delete('score-1');
+
+      expect(eventEmitter.emit).toHaveBeenCalledWith('score.updated', {
+        gameId: 'game-1',
+        entrantType: 'player',
+        entrantId: 'player-1',
+        teamId: undefined,
+        playerId: 'player-1',
+        points: 7,
+        roundNumber: 1,
+      });
     });
 
     it('should throw NotFoundException if score not found', async () => {

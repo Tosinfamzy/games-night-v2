@@ -17,6 +17,17 @@ import { Game } from './game.entity';
 import { WsPlayerAuthGuard } from '../auth/guards/ws-player-auth.guard';
 import { AppSocket } from '../common/types/socket.types';
 
+/** Fields the score service emits when a score is submitted, edited, or removed. */
+interface ScoreChangePayload {
+  gameId: string;
+  entrantType?: 'team' | 'player';
+  entrantId?: string;
+  teamId?: string;
+  playerId?: string;
+  points: number;
+  roundNumber: number;
+}
+
 /**
  * WebSocket Gateway for real-time game updates
  * Handles live scoring, game flow, round progression, etc.
@@ -95,27 +106,36 @@ export class GameGateway extends BaseGateway {
   }
 
   /**
-   * Listen to score.submitted event from EventEmitter and broadcast
+   * Listen to score.submitted event from EventEmitter and broadcast.
    */
   @OnEvent('score.submitted')
-  handleScoreSubmitted(payload: {
-    gameId: string;
-    entrantType?: 'team' | 'player';
-    entrantId?: string;
-    teamId?: string;
-    playerId?: string;
-    points: number;
-    roundNumber: number;
-  }): void {
+  handleScoreSubmitted(payload: ScoreChangePayload): void {
+    this.broadcastScoreChange('game:score-submitted', payload);
+  }
+
+  /**
+   * Listen to score.updated (a score was edited or removed) and broadcast, so
+   * live leaderboards refresh instead of waiting for the next poll. The FE
+   * listens for game:score-updated the same way it does game:score-submitted.
+   */
+  @OnEvent('score.updated')
+  handleScoreUpdated(payload: ScoreChangePayload): void {
+    this.broadcastScoreChange('game:score-updated', payload);
+  }
+
+  /**
+   * Forward the fields the service actually emits to the game room. teamId/
+   * playerId let the client update the right entrant in either scoring mode.
+   * (A previous version destructured a `score` object that was never sent, so
+   * broadcasts carried `score: undefined` and dropped the round number.)
+   */
+  private broadcastScoreChange(
+    event: 'game:score-submitted' | 'game:score-updated',
+    payload: ScoreChangePayload,
+  ): void {
     const room = `game:${payload.gameId}`;
-
-    this.logger.log(`Broadcasting score submitted for game: ${payload.gameId}`);
-
-    // Forward the fields the service actually emits — the old handler
-    // destructured a `score` object that was never sent, so every broadcast
-    // carried `score: undefined` and dropped the round number. teamId/playerId
-    // let the client update the right entrant in either scoring mode.
-    this.emitToRoom(room, 'game:score-submitted', {
+    this.logger.log(`Broadcasting ${event} for game: ${payload.gameId}`);
+    this.emitToRoom(room, event, {
       gameId: payload.gameId,
       entrantType: payload.entrantType,
       entrantId: payload.entrantId,

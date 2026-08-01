@@ -285,12 +285,40 @@ export class ScoreService {
       score.isBonus = dto.isBonus;
     }
 
-    return await this.repo.save(score);
+    const savedScore = await this.repo.save(score);
+    // Editing a score changes the standings, so clients must re-render live —
+    // not wait for the next poll. The FE listens for game:score-updated.
+    this.emitScoreChanged(savedScore);
+    return savedScore;
   }
 
   async delete(id: string): Promise<void> {
     const score = await this.findOne(id);
     await this.repo.remove(score);
+    // Removing a score changes the standings too. `score` still holds its
+    // game/team/player/round in memory after remove(), so the room is known.
+    this.emitScoreChanged(score);
+  }
+
+  /**
+   * Notify the game room that a score changed (edited or removed) so live
+   * leaderboards refresh. findOne eager-loads game/team/player, so this fires
+   * on the entity the update/delete paths already have in hand.
+   */
+  private emitScoreChanged(score: Score): void {
+    const gameId = score.game?.id;
+    if (!gameId) {
+      return;
+    }
+    this.eventEmitter.emit('score.updated', {
+      gameId,
+      entrantType: score.player ? 'player' : 'team',
+      entrantId: score.player?.id ?? score.team?.id,
+      teamId: score.team?.id,
+      playerId: score.player?.id,
+      points: score.points,
+      roundNumber: score.roundNumber,
+    });
   }
 
   /**

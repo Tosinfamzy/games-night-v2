@@ -71,6 +71,22 @@ describe('GameGateway', () => {
       );
     });
 
+    it('score-updated broadcasts on an edit/delete so live boards refresh', () => {
+      gateway.handleScoreUpdated({
+        gameId: 'g1',
+        teamId: 't1',
+        entrantType: 'team',
+        entrantId: 't1',
+        points: 20,
+        roundNumber: 2,
+      });
+      expect(emitToRoom).toHaveBeenCalledWith(
+        'game:g1',
+        'game:score-updated',
+        expect.objectContaining({ teamId: 't1', points: 20, roundNumber: 2 }),
+      );
+    });
+
     it('timer-tick includes timeRemaining (the field the FE reads)', () => {
       gateway.broadcastTimerTick('g1', 30, false);
       expect(emitToRoom).toHaveBeenCalledWith(
