@@ -37,6 +37,13 @@ export class SessionResponseDto extends SessionSummaryDto {
   location?: string | null;
 
   @ApiProperty({
+    description: 'Custom map link for the location (e.g. a Google Maps pin).',
+    example: 'https://maps.app.goo.gl/VSRPyxwhdKgNagAG7',
+    nullable: true,
+  })
+  locationUrl?: string | null;
+
+  @ApiProperty({
     description:
       'Host-authored invite message (share text + public RSVP greeting).',
     example: "You're invited! Bring snacks and your A-game 🎲",
@@ -102,6 +109,7 @@ export class SessionResponseDto extends SessionSummaryDto {
     Object.assign(dto, SessionSummaryDto.fromEntity(entity));
     dto.description = entity.description ?? null;
     dto.location = entity.location ?? null;
+    dto.locationUrl = entity.locationUrl ?? null;
     dto.inviteMessage = entity.inviteMessage ?? null;
     dto.hostMessage = entity.hostMessage ?? null;
     dto.host = GamesMasterSummaryDto.fromEntity(entity.host);

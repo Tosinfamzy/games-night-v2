@@ -169,6 +169,7 @@ describe('InviteService', () => {
         status: SessionStatus.SCHEDULED,
         date: new Date('2026-09-01T19:00:00Z'),
         location: 'HQ',
+        locationUrl: null,
         description: null,
         inviteMessage: "You're invited! 🎲",
         hostName: 'Ada',

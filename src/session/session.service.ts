@@ -103,6 +103,7 @@ export class SessionService {
             description: dto.description,
             date: dto.date,
             location: dto.location,
+            locationUrl: dto.locationUrl,
             inviteMessage: dto.inviteMessage,
             hostMessage: dto.hostMessage,
             host,
@@ -219,6 +220,7 @@ export class SessionService {
       description: dto.description ?? session.description,
       date: dto.date ?? session.date,
       location: dto.location ?? session.location,
+      locationUrl: dto.locationUrl ?? session.locationUrl,
       // `?? existing` keeps the message when the field is omitted; passing an
       // explicit empty string clears it.
       inviteMessage: dto.inviteMessage ?? session.inviteMessage,

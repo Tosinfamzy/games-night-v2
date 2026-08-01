@@ -28,6 +28,13 @@ export class PublicRsvpViewDto {
   @ApiProperty({ example: 'Community Center', nullable: true })
   location: string | null;
 
+  @ApiProperty({
+    description: 'Custom map link for the location (e.g. a Google Maps pin).',
+    example: 'https://maps.app.goo.gl/VSRPyxwhdKgNagAG7',
+    nullable: true,
+  })
+  locationUrl: string | null;
+
   @ApiProperty({ example: 'Weekly board game meetup', nullable: true })
   description: string | null;
 
