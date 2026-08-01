@@ -17,6 +17,7 @@ import { ScoreMode } from './enums/score-mode.enum';
 import { createMockRepository } from '../../test/utils/test-db';
 import {
   createMockGame,
+  createMockPlayer,
   createMockSession,
   createMockTeam,
   resetTestCounters,
@@ -762,6 +763,55 @@ describe('GameService', () => {
 
         expect(result.currentTurnTeamId).toBe('team-2');
         expect(result.turnStartedAt).toBeDefined();
+      });
+
+      it('rotates over active guest players in individual mode (host excluded)', async () => {
+        const game = createMockGame({
+          id: 'game-1',
+          status: GameStatus.ROUND_IN_PROGRESS,
+          scoreMode: ScoreMode.INDIVIDUAL,
+          session: { id: 'session-1' } as Session,
+        });
+        const players = [
+          createMockPlayer({ id: 'aaa', name: 'Alice', isGuest: true }),
+          createMockPlayer({ id: 'bbb', name: 'Bob', isGuest: true }),
+          createMockPlayer({ id: 'zzz', name: 'Host', isGuest: false }),
+        ];
+        gameRepo.findOne.mockResolvedValue(game);
+        playerRepo.find.mockResolvedValue(players);
+        gameRepo.save.mockImplementation((g) => Promise.resolve(g as Game));
+
+        // No current turn yet -> first competitor by stable id order (Alice).
+        const r1 = await service.nextTurn('game-1');
+        expect(r1.currentTurnPlayerId).toBe('aaa');
+
+        // Advancing from Alice rotates to Bob — the host is never selected.
+        game.currentTurnPlayerId = 'aaa';
+        const r2 = await service.nextTurn('game-1');
+        expect(r2.currentTurnPlayerId).toBe('bbb');
+
+        // Wrap: from Bob back to Alice (2 competitors, host excluded).
+        game.currentTurnPlayerId = 'bbb';
+        const r3 = await service.nextTurn('game-1');
+        expect(r3.currentTurnPlayerId).toBe('aaa');
+      });
+
+      it('rejects individual next-turn with fewer than 2 competitors', async () => {
+        const game = createMockGame({
+          id: 'game-1',
+          status: GameStatus.ROUND_IN_PROGRESS,
+          scoreMode: ScoreMode.INDIVIDUAL,
+          session: { id: 'session-1' } as Session,
+        });
+        gameRepo.findOne.mockResolvedValue(game);
+        playerRepo.find.mockResolvedValue([
+          createMockPlayer({ id: 'aaa', isGuest: true }),
+          createMockPlayer({ id: 'zzz', isGuest: false }),
+        ] as never);
+
+        await expect(service.nextTurn('game-1')).rejects.toThrow(
+          BadRequestException,
+        );
       });
 
       it('should wrap around to first team after last team', async () => {
