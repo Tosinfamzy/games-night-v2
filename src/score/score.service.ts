@@ -305,19 +305,17 @@ export class ScoreService {
       (a, b) => b.totalPoints - a.totalPoints,
     );
 
-    // Assign ranks and detect ties
+    // Assign ranks (standard competition ranking: equal scores share a rank,
+    // the next distinct score skips ahead — 1, 1, 3).
     const standings: TeamStandingDto[] = [];
     let currentRank = 1;
 
     for (let i = 0; i < sortedScores.length; i++) {
       const score = sortedScores[i];
 
-      // Check if tied with previous team
-      const isTied =
+      const tiedWithPrev =
         i > 0 && sortedScores[i - 1].totalPoints === score.totalPoints;
-
-      // If not tied with previous, update rank
-      if (i > 0 && !isTied) {
+      if (i > 0 && !tiedWithPrev) {
         currentRank = i + 1;
       }
 
@@ -329,8 +327,20 @@ export class ScoreService {
         totalPoints: score.totalPoints,
         bonusPointsCount: score.bonusPointsCount,
         roundPoints: score.roundPoints,
-        isTied,
+        isTied: false, // set below, once all ranks are known
       });
+    }
+
+    // A standing is tied iff another standing shares its rank. Deriving the
+    // flag from a "tied with the previous team" check (as this used to) left
+    // the leading member of a tie group — e.g. the top team in a two-way tie
+    // for 1st — marked not-tied while its co-leader was marked tied.
+    const countByRank = new Map<number, number>();
+    for (const s of standings) {
+      countByRank.set(s.rank, (countByRank.get(s.rank) ?? 0) + 1);
+    }
+    for (const s of standings) {
+      s.isTied = (countByRank.get(s.rank) ?? 0) > 1;
     }
 
     return standings;
