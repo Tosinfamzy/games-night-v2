@@ -5,7 +5,6 @@ import {
   Query,
   ParseUUIDPipe,
   HttpStatus,
-  UseInterceptors,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -16,25 +15,28 @@ import {
   ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
 import { HistoryService } from './history.service';
 import { GameResult } from './game-result.entity';
 import { QueryHistoryDto } from './dto/query-history.dto';
 import { PlayerStatsDto } from './dto/player-stats.dto';
 import { ClerkAuthGuard } from '../auth/guards/clerk-auth.guard';
+import { CurrentGm } from '../auth/decorators/current-gm.decorator';
+import { GamesMaster } from '../games-master/games-master.entity';
 
-// History exposes game records, per-player stats and leaderboards (aggregated
-// player PII). It was fully public — require a signed-in games master.
+// History exposes game records, per-player stats and leaderboards. Everything is
+// scoped to the signed-in games master's own sessions — a host sees their own
+// nights, never every tenant's games/players. (No response cache: the
+// URL-keyed CacheInterceptor would serve one host's history to another now that
+// results differ per caller.)
 @ApiTags('history')
 @ApiBearerAuth()
 @Controller('history')
 @UseGuards(ClerkAuthGuard)
-@UseInterceptors(CacheInterceptor)
 export class HistoryController {
   constructor(private readonly historyService: HistoryService) {}
 
   @Get('games')
-  @ApiOperation({ summary: 'Get game history with optional filters' })
+  @ApiOperation({ summary: 'Get game history for your sessions' })
   @ApiQuery({
     name: 'sessionId',
     required: false,
@@ -57,11 +59,11 @@ export class HistoryController {
     description: 'Game history retrieved successfully',
     type: [GameResult],
   })
-  @CacheTTL(60000) // Cache for 60 seconds
   async getGameHistory(
+    @CurrentGm() gm: GamesMaster,
     @Query() queryDto: QueryHistoryDto,
   ): Promise<GameResult[]> {
-    return this.historyService.getGameHistory(queryDto);
+    return this.historyService.getGameHistory(gm.id, queryDto);
   }
 
   @Get('games/:id')
@@ -76,15 +78,15 @@ export class HistoryController {
     status: HttpStatus.NOT_FOUND,
     description: 'Game result not found',
   })
-  @CacheTTL(300000) // Cache for 5 minutes
   async getGameResultById(
+    @CurrentGm() gm: GamesMaster,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<GameResult> {
-    return this.historyService.getGameResultById(id);
+    return this.historyService.getGameResultById(gm.id, id);
   }
 
   @Get('players/:playerId/stats')
-  @ApiOperation({ summary: 'Get statistics for a specific player' })
+  @ApiOperation({ summary: 'Get a player’s stats within your sessions' })
   @ApiParam({ name: 'playerId', description: 'Player ID' })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -95,15 +97,15 @@ export class HistoryController {
     status: HttpStatus.NOT_FOUND,
     description: 'Player not found',
   })
-  @CacheTTL(120000) // Cache for 2 minutes
   async getPlayerStats(
+    @CurrentGm() gm: GamesMaster,
     @Param('playerId', ParseUUIDPipe) playerId: string,
   ): Promise<PlayerStatsDto> {
-    return this.historyService.getPlayerStats(playerId);
+    return this.historyService.getPlayerStats(gm.id, playerId);
   }
 
   @Get('leaderboard')
-  @ApiOperation({ summary: 'Get leaderboard (top players by win rate)' })
+  @ApiOperation({ summary: 'Top players across your sessions (by win rate)' })
   @ApiQuery({
     name: 'limit',
     required: false,
@@ -115,10 +117,10 @@ export class HistoryController {
     description: 'Leaderboard retrieved successfully',
     type: [PlayerStatsDto],
   })
-  @CacheTTL(180000) // Cache for 3 minutes
   async getLeaderboard(
+    @CurrentGm() gm: GamesMaster,
     @Query('limit') limit?: number,
   ): Promise<PlayerStatsDto[]> {
-    return this.historyService.getLeaderboard(limit || 10);
+    return this.historyService.getLeaderboard(gm.id, limit || 10);
   }
 }
