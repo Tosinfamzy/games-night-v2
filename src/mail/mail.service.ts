@@ -82,6 +82,7 @@ export class MailService {
         to: email.to,
         subject,
         html: this.reminderHtml(email),
+        text: this.reminderText(email),
       });
       return true;
     } catch (error) {
@@ -110,6 +111,7 @@ export class MailService {
         to: email.to,
         subject,
         html: this.nudgeHtml(email),
+        text: this.nudgeText(email),
       });
       return true;
     } catch (error) {
@@ -149,6 +151,7 @@ export class MailService {
         to: email.to,
         subject,
         html: this.confirmationHtml(email),
+        text: this.confirmationText(email),
         attachments: [
           {
             filename: 'games-night.ics',
@@ -192,6 +195,64 @@ export class MailService {
   </a>
   <p style="font-size:13px;color:#888;">Or open this link: <br><a href="${e.inviteUrl}" style="color:#4f46e5;">${e.inviteUrl}</a></p>
 </div>`.trim();
+  }
+
+  // Plain-text alternatives. An HTML-only email is a real spam signal — every
+  // send ships a matching text/plain part so filters (and text-only clients)
+  // see a legit multipart message.
+  private formatWhen(e: SessionReminderEmail, withDate: boolean): string {
+    return e.date.toLocaleString('en-GB', {
+      weekday: 'long',
+      ...(withDate ? { day: 'numeric', month: 'long' } : {}),
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZone: EVENT_TIME_ZONE,
+    });
+  }
+
+  private textLines(lines: Array<string | null | undefined>): string {
+    return lines.filter((l) => l !== null && l !== undefined).join('\n');
+  }
+
+  private confirmationText(e: SessionReminderEmail): string {
+    const host = e.hostName ? ` hosted by ${e.hostName}` : '';
+    return this.textLines([
+      e.guestName ? `Hi ${e.guestName},` : 'Hi,',
+      '',
+      `You're all set for ${e.sessionName}${host} — ${this.formatWhen(e, true)}.`,
+      e.location ? `Location: ${e.location}` : null,
+      '',
+      "We've attached a calendar invite so you don't forget. On the night, open this link to jump straight in — no code needed:",
+      e.inviteUrl,
+      '',
+      'See you there!',
+    ]);
+  }
+
+  private reminderText(e: SessionReminderEmail): string {
+    const host = e.hostName ? ` by ${e.hostName}` : '';
+    return this.textLines([
+      e.guestName ? `Hi ${e.guestName},` : 'Hi,',
+      '',
+      `${e.sessionName} is happening today${host} — ${this.formatWhen(e, false)}. Ready to play?`,
+      e.location ? `Location: ${e.location}` : null,
+      '',
+      'Open this link to join the game night:',
+      e.inviteUrl,
+    ]);
+  }
+
+  private nudgeText(e: SessionReminderEmail): string {
+    const host = e.hostName ? ` ${e.hostName}'s` : 'the';
+    return this.textLines([
+      e.guestName ? `Hi ${e.guestName},` : 'Hi,',
+      '',
+      `You're invited to${host} ${e.sessionName} — ${this.formatWhen(e, true)}. Can you make it?`,
+      e.location ? `Location: ${e.location}` : null,
+      '',
+      'RSVP here:',
+      e.inviteUrl,
+    ]);
   }
 
   private reminderHtml(e: SessionReminderEmail): string {
