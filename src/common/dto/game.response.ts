@@ -57,6 +57,13 @@ export class GameResponseDto {
   @ApiProperty({ example: 'A fun word-guessing game', nullable: true })
   description: string | null;
 
+  @ApiProperty({
+    description: 'How-to-play rules from the game library.',
+    example: 'Teams take turns describing words while teammates guess…',
+    nullable: true,
+  })
+  rules: string | null;
+
   @ApiProperty({ example: ['team-uuid-1'] })
   teamIds: string[];
 
@@ -92,6 +99,7 @@ export class GameResponseDto {
     dto.minPlayers = entity.gameLibrary?.minPlayers ?? 0;
     dto.maxPlayers = entity.gameLibrary?.maxPlayers ?? 0;
     dto.description = entity.gameLibrary?.description ?? null;
+    dto.rules = entity.gameLibrary?.rules ?? null;
     // Teams are session-scoped; a game scores the session's teams. Prefer the
     // session's teams, falling back to any game-linked teams.
     const sessionTeams = entity.session?.teams ?? [];
