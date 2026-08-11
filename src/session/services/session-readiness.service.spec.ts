@@ -338,7 +338,7 @@ describe('SessionReadinessService', () => {
       expect(result.checks.playersReady).toBe(true);
     });
 
-    it('should not allow starting if player count is invalid for games', async () => {
+    it('allows starting but WARNS when player count is short for a game', async () => {
       const gameLibrary = createMockGameLibrary({
         name: 'Test Game',
         minPlayers: 4,
@@ -350,7 +350,7 @@ describe('SessionReadinessService', () => {
       const players = [
         createMockPlayer({ status: PlayerStatus.READY }),
         createMockPlayer({ status: PlayerStatus.READY }),
-      ]; // Only 2 players, need 4
+      ]; // Only 2 players, need 4 — allowed, but flagged
       const session = createMockSession({
         id: 'session-1',
         status: SessionStatus.SCHEDULED,
@@ -362,9 +362,13 @@ describe('SessionReadinessService', () => {
 
       const result = await service.canStartSession('session-1');
 
-      expect(result.canStart).toBe(false);
+      // Player count no longer blocks the start — it's a warning.
+      expect(result.canStart).toBe(true);
       expect(result.checks.playerCountValid).toBe(false);
-      expect(result.reasons).toContain(
+      expect(result.warnings).toContain(
+        'Test Game requires 4-8 players, but 2 active players in session',
+      );
+      expect(result.reasons).not.toContain(
         'Test Game requires 4-8 players, but 2 active players in session',
       );
     });

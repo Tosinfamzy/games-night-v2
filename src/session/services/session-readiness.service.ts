@@ -22,6 +22,12 @@ export interface PlayerCountValidation {
 export interface StartCheck {
   canStart: boolean;
   reasons: string[];
+  /**
+   * Non-blocking advisories — surfaced to the host but they do NOT prevent the
+   * start. Player-count shortfalls live here: people trickle in over the night,
+   * so a game being short-handed right now shouldn't stop the session starting.
+   */
+  warnings: string[];
   checks: {
     hasGames: boolean;
     playersReady: boolean;
@@ -132,6 +138,7 @@ export class SessionReadinessService {
     const session = await this.getSessionWithRelations(sessionId);
 
     const reasons: string[] = [];
+    const warnings: string[] = [];
     const checks = {
       hasGames: session.games.length > 0,
       playersReady: false,
@@ -166,23 +173,22 @@ export class SessionReadinessService {
       );
     }
 
-    // Check player count validity for all games
+    // Player count is a WARNING, not a blocker — a game may be short-handed now
+    // but fill up as guests arrive, so it must not stop the host starting.
     if (checks.hasGames) {
       const validation = await this.validatePlayerCountForGames(sessionId);
       checks.playerCountValid = validation.isValid;
 
       if (!validation.isValid) {
-        reasons.push(...validation.errors);
+        warnings.push(...validation.errors);
       }
     }
 
     return {
       canStart:
-        checks.hasGames &&
-        checks.playersReady &&
-        checks.playerCountValid &&
-        checks.sessionScheduled,
+        checks.hasGames && checks.playersReady && checks.sessionScheduled,
       reasons,
+      warnings,
       checks,
     };
   }
