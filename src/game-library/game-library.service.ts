@@ -71,6 +71,20 @@ export class GameLibraryService implements OnModuleInit {
           'One player is the Card Czar each round. The Czar reads a black card question. All other players submit their funniest white card as an answer. The Czar picks their favorite, and that player gets a point. First to 5-7 points wins.',
         isActive: true,
       },
+      {
+        name: 'UNO No Mercy',
+        description:
+          'The ruthless version of UNO — bigger draw penalties (Draw 6, Draw 10, Wild Draw 10), Skip-Everyone and Discard-All cards, stackable draws, and a mercy rule: hit 25 cards in your hand and you are out. Fast and brutal.',
+        minPlayers: 2,
+        maxPlayers: 10,
+        estimatedDuration: 30,
+        difficulty: 'Medium',
+        categories: ['Card Game', 'Party Game'],
+        equipment: 'UNO No Mercy deck',
+        rules:
+          'Match the top card by colour, number or symbol; play action cards to stack draw penalties and wreck opponents. Reach 25 cards in your hand and you are eliminated. Last player standing (or first to empty their hand) wins the round — keep score across rounds here.',
+        isActive: true,
+      },
 
       // ── Party games (team-scored) — award placement points per game:
       //    1st = 3, 2nd = 2, 3rd = 1 (Musical Cups pays the winner 5). ──
