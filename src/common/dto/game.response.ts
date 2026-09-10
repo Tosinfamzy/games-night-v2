@@ -18,6 +18,12 @@ export class GameResponseDto {
   maxRounds: number;
 
   @ApiProperty({
+    example: 0,
+    description: 'Position in the night’s run-of-show (ascending).',
+  })
+  orderIndex: number;
+
+  @ApiProperty({
     enum: ['team', 'individual'],
     example: 'team',
     description: 'Whether the game is scored by team or by individual player.',
@@ -89,6 +95,7 @@ export class GameResponseDto {
     dto.status = entity.status;
     dto.currentRound = entity.currentRound;
     dto.maxRounds = entity.maxRounds;
+    dto.orderIndex = entity.orderIndex;
     dto.scoreMode = entity.scoreMode;
     dto.currentTurnTeamId = entity.currentTurnTeamId ?? null;
     dto.currentTurnPlayerId = entity.currentTurnPlayerId ?? null;
