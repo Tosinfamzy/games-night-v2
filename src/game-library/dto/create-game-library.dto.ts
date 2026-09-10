@@ -10,6 +10,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { GameFormat } from '../enums/game-format.enum';
 
 export class CreateGameLibraryDto {
   @ApiProperty({
@@ -102,4 +103,57 @@ export class CreateGameLibraryDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean = true;
+
+  @ApiProperty({
+    description: 'How the game is physically run on the night',
+    enum: GameFormat,
+    default: GameFormat.ALL_TEAMS,
+    required: false,
+  })
+  @IsEnum(GameFormat)
+  @IsOptional()
+  format?: GameFormat;
+
+  @ApiProperty({
+    description: 'Suggested number of rounds/waves for this game',
+    example: 3,
+    default: 1,
+    required: false,
+  })
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  recommendedRounds?: number;
+
+  @ApiProperty({
+    description:
+      'How many players participate at once (omit for everyone together)',
+    example: 6,
+    required: false,
+  })
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  playersPerRound?: number | null;
+
+  @ApiProperty({
+    description: 'Minimum number of teams this game needs',
+    example: 3,
+    required: false,
+  })
+  @IsNumber()
+  @Min(2)
+  @IsOptional()
+  minTeams?: number | null;
+
+  @ApiProperty({
+    description:
+      'Flat points awarded to the winner instead of placement points',
+    example: 5,
+    required: false,
+  })
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  winnerBonusPoints?: number | null;
 }
