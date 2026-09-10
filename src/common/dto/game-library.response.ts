@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { GameLibrary } from '../../game-library/game-library.entity';
+import { GameFormat } from '../../game-library/enums/game-format.enum';
 
 export class GameLibraryResponseDto {
   @ApiProperty({ example: 'uuid' })
@@ -35,6 +36,21 @@ export class GameLibraryResponseDto {
   @ApiProperty({ example: true })
   isActive: boolean;
 
+  @ApiProperty({ enum: GameFormat, example: GameFormat.ALL_TEAMS })
+  format: GameFormat;
+
+  @ApiProperty({ example: 3 })
+  recommendedRounds: number;
+
+  @ApiProperty({ example: 6, nullable: true })
+  playersPerRound?: number | null;
+
+  @ApiProperty({ example: 3, nullable: true })
+  minTeams?: number | null;
+
+  @ApiProperty({ example: 5, nullable: true })
+  winnerBonusPoints?: number | null;
+
   @ApiProperty({ example: '2025-07-19T14:47:39.863Z' })
   createdAt: Date;
 
@@ -54,6 +70,11 @@ export class GameLibraryResponseDto {
     dto.equipment = entity.equipment ?? null;
     dto.rules = entity.rules ?? null;
     dto.isActive = entity.isActive;
+    dto.format = entity.format;
+    dto.recommendedRounds = entity.recommendedRounds;
+    dto.playersPerRound = entity.playersPerRound ?? null;
+    dto.minTeams = entity.minTeams ?? null;
+    dto.winnerBonusPoints = entity.winnerBonusPoints ?? null;
     dto.createdAt = entity.createdAt;
     dto.updatedAt = entity.updatedAt;
     return dto;

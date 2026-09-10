@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { ApiProperty } from '@nestjs/swagger';
+import { GameFormat } from './enums/game-format.enum';
 
 @Entity('game_library')
 export class GameLibrary {
@@ -88,6 +89,54 @@ export class GameLibrary {
   })
   @Column({ default: true })
   isActive: boolean;
+
+  // ── Night Builder planning metadata ──
+  // How the game is run, and the defaults the planner suggests for it.
+
+  @ApiProperty({
+    enum: GameFormat,
+    example: GameFormat.ALL_TEAMS,
+    description: 'How the game is physically run on the night',
+  })
+  @Column({ type: 'varchar', default: GameFormat.ALL_TEAMS })
+  format: GameFormat;
+
+  @ApiProperty({
+    example: 3,
+    description: 'Suggested number of rounds/waves for this game',
+  })
+  @Column({ default: 1 })
+  recommendedRounds: number;
+
+  @ApiProperty({
+    example: 6,
+    description:
+      'How many players participate at once (null = everyone plays together)',
+    required: false,
+    nullable: true,
+  })
+  @Column({ type: 'int', nullable: true })
+  playersPerRound?: number | null;
+
+  @ApiProperty({
+    example: 3,
+    description:
+      'Minimum number of teams this game needs (null = no special requirement)',
+    required: false,
+    nullable: true,
+  })
+  @Column({ type: 'int', nullable: true })
+  minTeams?: number | null;
+
+  @ApiProperty({
+    example: 5,
+    description:
+      'Flat points awarded to the winner instead of placement points (null = use placement points)',
+    required: false,
+    nullable: true,
+  })
+  @Column({ type: 'int', nullable: true })
+  winnerBonusPoints?: number | null;
 
   @CreateDateColumn()
   createdAt: Date;
