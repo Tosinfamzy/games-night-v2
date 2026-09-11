@@ -82,6 +82,16 @@ export class Game {
   maxRounds: number;
 
   @ApiProperty({
+    example: 0,
+    description:
+      'Position of the game in the night’s run-of-show (ascending). Set by ' +
+      'the Night Builder; defaults to 0 for ad-hoc additions.',
+    default: 0,
+  })
+  @Column({ default: 0 })
+  orderIndex: number;
+
+  @ApiProperty({
     enum: ScoreMode,
     default: ScoreMode.TEAM,
     description:

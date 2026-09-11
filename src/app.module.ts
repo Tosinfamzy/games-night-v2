@@ -23,6 +23,7 @@ import { ChatModule } from './chat/chat.module';
 import { HistoryModule } from './history/history.module';
 import { HealthModule } from './health/health.module';
 import { InviteModule } from './invite/invite.module';
+import { NightPlannerModule } from './night-planner/night-planner.module';
 import * as Joi from 'joi';
 
 @Module({
@@ -128,6 +129,7 @@ import * as Joi from 'joi';
     HistoryModule,
     HealthModule,
     InviteModule,
+    NightPlannerModule,
   ],
   controllers: [AppController],
   providers: [
