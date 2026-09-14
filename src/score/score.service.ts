@@ -15,6 +15,7 @@ import { GameStatus } from '../game/enums/game-status.enum';
 import { ScoreMode } from '../game/enums/score-mode.enum';
 import { TeamScore } from './interfaces/team-score.interface';
 import { TeamStandingDto } from '../common/dto/team-standing.dto';
+import { placementPoints } from './placement.util';
 
 interface RawTeamScore {
   teamId: string;
@@ -442,101 +443,78 @@ export class ScoreService {
       gamePoints: Record<string, number>;
     }>
   > {
-    const rawResults = await this.repo
-      .createQueryBuilder('score')
-      .leftJoin('score.team', 'team')
-      .leftJoin('score.game', 'game')
-      .leftJoin('game.session', 'session')
-      .where('session.id = :sessionId', { sessionId })
-      .select([
-        'team.id as "teamId"',
-        'team.name as "teamName"',
-        'game.id as "gameId"',
-        'CAST(SUM(score.points) AS INTEGER) as "gamePoints"',
-      ])
-      .groupBy('team.id, team.name, game.id')
-      .getRawMany<{
-        teamId: string;
-        teamName: string;
-        gameId: string;
-        gamePoints: string;
-      }>();
+    // Placement is awarded only when a game finishes. Load the session's
+    // COMPLETED games (gameLibrary is eager → winnerBonusPoints in hand).
+    const games = await this.gameRepo.find({
+      where: { session: { id: sessionId }, status: GameStatus.COMPLETED },
+    });
 
-    // Aggregate by team
-    const teamMap = new Map<
-      string,
-      {
-        teamId: string;
-        teamName: string;
-        totalPoints: number;
-        gamesWon: number;
-        gamesPlayed: number;
-        gamePoints: Record<string, number>;
-      }
-    >();
-
-    // First pass: collect all game points per team
-    for (const result of rawResults) {
-      // Individual-mode scores have no team (team=null → null teamId); by design
-      // they don't feed the team-based session leaderboard, so skip them rather
-      // than collapsing them all into a phantom null "team".
-      if (result.teamId == null) {
-        continue;
-      }
-      if (!teamMap.has(result.teamId)) {
-        teamMap.set(result.teamId, {
-          teamId: result.teamId,
-          teamName: result.teamName,
+    type Standing = {
+      teamId: string;
+      teamName: string;
+      totalPoints: number;
+      gamesWon: number;
+      gamesPlayed: number;
+      gamePoints: Record<string, number>;
+    };
+    const teamMap = new Map<string, Standing>();
+    const ensureTeam = (teamId: string, teamName: string): Standing => {
+      let team = teamMap.get(teamId);
+      if (!team) {
+        team = {
+          teamId,
+          teamName,
           totalPoints: 0,
           gamesWon: 0,
           gamesPlayed: 0,
           gamePoints: {},
-        });
+        };
+        teamMap.set(teamId, team);
       }
+      return team;
+    };
 
-      const team = teamMap.get(result.teamId)!;
-      const points = parseInt(result.gamePoints, 10) || 0;
-      team.gamePoints[result.gameId] = points;
-      team.totalPoints += points;
-      team.gamesPlayed++;
-    }
-
-    // Second pass: determine each game's winner. Collect every team's points
-    // per game, then take the unique max — seeding from 0 (the old default)
-    // meant an all-negative game had no winner and a real 0 could never win.
-    const perGame = new Map<
-      string,
-      Array<{ teamId: string; points: number }>
-    >();
-    for (const [, team] of teamMap) {
-      for (const [gameId, points] of Object.entries(team.gamePoints)) {
-        const entries = perGame.get(gameId) ?? [];
-        entries.push({ teamId: team.teamId, points });
-        perGame.set(gameId, entries);
+    // Seed the session's fixed teams at 0 so they always appear — even before
+    // they've placed in any game (a fresh leaderboard shows every team).
+    const sessionTeams = await this.teamRepo.find({
+      where: { session: { id: sessionId } },
+    });
+    for (const team of sessionTeams) {
+      if (team.game == null) {
+        ensureTeam(team.id, team.name);
       }
     }
 
-    const gameWinnersMap = new Map<string, string>();
-    for (const [gameId, entries] of perGame) {
-      const max = Math.max(...entries.map((e) => e.points));
-      const leaders = entries.filter((e) => e.points === max);
-      // Only a clear (untied) top team wins the game.
-      if (leaders.length === 1) {
-        gameWinnersMap.set(gameId, leaders[0].teamId);
-      }
-    }
+    // Each completed game awards placement points by finishing position (or a
+    // flat winner bonus). Computed on read from current standings, so a score
+    // edited after completion is reflected on the next fetch.
+    for (const game of games) {
+      const standings = await this.getRankedGameScores(game.id);
+      const winnerBonus = game.gameLibrary?.winnerBonusPoints ?? null;
+      // A game is "won" only by a sole first place (matches determineWinner).
+      const firstPlace = standings.filter((s) => s.rank === 1);
+      const soleWinnerId =
+        firstPlace.length === 1 ? firstPlace[0].teamId : null;
 
-    // Third pass: count wins
-    for (const [, team] of teamMap) {
-      for (const [gameId] of Object.entries(team.gamePoints)) {
-        if (gameWinnersMap.get(gameId) === team.teamId) {
+      for (const standing of standings) {
+        // Individual-mode standings are players, not teams — they don't feed
+        // the team-based session leaderboard.
+        if (standing.entrantType && standing.entrantType !== 'team') {
+          continue;
+        }
+        const points = placementPoints(standing.rank, winnerBonus);
+        const team = ensureTeam(standing.teamId, standing.teamName);
+        team.gamePoints[game.id] = points;
+        team.totalPoints += points;
+        team.gamesPlayed++;
+        if (standing.teamId === soleWinnerId) {
           team.gamesWon++;
         }
       }
     }
 
     return Array.from(teamMap.values()).sort(
-      (a, b) => b.totalPoints - a.totalPoints,
+      (a, b) => b.totalPoints - a.totalPoints || b.gamesWon - a.gamesWon,
     );
   }
 }
