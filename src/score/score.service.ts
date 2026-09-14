@@ -38,10 +38,22 @@ export class ScoreService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
+  /**
+   * The teams eligible to score in a game. Prefer the session's FIXED teams
+   * (session-scoped, game == null) — the Night Builder's model, shared across
+   * every game of the night — and fall back to the game's own teams for legacy
+   * sessions that formed teams per game. Mirrors the "prefer session teams"
+   * choice in GameResponseDto.fromEntity so display and scoring agree.
+   */
+  private resolveScorableTeams(game: Game): Team[] {
+    const fixed = (game.session?.teams ?? []).filter((t) => t.game == null);
+    return fixed.length > 0 ? fixed : (game.teams ?? []);
+  }
+
   async create(dto: CreateScoreDto): Promise<Score> {
     const game = await this.gameRepo.findOne({
       where: { id: dto.gameId },
-      relations: ['session', 'teams'],
+      relations: ['session', 'teams', 'session.teams'],
     });
 
     if (!game) {
@@ -74,8 +86,9 @@ export class ScoreService {
       if (!team) {
         throw new NotFoundException(`Team with ID ${dto.teamId} not found`);
       }
-      // The team must be one of this game's teams.
-      if (!(game.teams ?? []).some((t) => t.id === dto.teamId)) {
+      // The team must be one this game can score — the session's fixed teams,
+      // or the game's own teams for legacy sessions.
+      if (!this.resolveScorableTeams(game).some((t) => t.id === dto.teamId)) {
         throw DomainError.gameInvalidState('Team is not part of this game');
       }
       score.team = team;
@@ -90,8 +103,9 @@ export class ScoreService {
   ): Promise<Score> {
     const game = await this.gameRepo.findOne({
       where: { id: gameId },
-      // session.players is needed to validate an individual-mode entrant.
-      relations: ['session', 'teams', 'session.players'],
+      // session.teams: the fixed teams scored across the night. session.players:
+      // needed to validate an individual-mode entrant.
+      relations: ['session', 'teams', 'session.teams', 'session.players'],
     });
 
     if (!game) {
@@ -144,9 +158,10 @@ export class ScoreService {
       if (!team) {
         throw new NotFoundException(`Team with ID ${dto.teamId} not found`);
       }
-      // The team must be one of THIS game's teams — not merely in the same
-      // session — otherwise a host could score a team playing a different game.
-      if (!(game.teams ?? []).some((t) => t.id === dto.teamId)) {
+      // The team must be one this game can score: the session's fixed teams
+      // (shared across the night) or, for legacy sessions, the game's own teams.
+      // A team from a different session/game is still rejected.
+      if (!this.resolveScorableTeams(game).some((t) => t.id === dto.teamId)) {
         throw DomainError.gameInvalidState('Team is not part of this game');
       }
       score.team = team;
@@ -171,15 +186,20 @@ export class ScoreService {
   async getGameScores(gameId: string): Promise<TeamScore[]> {
     const game = await this.gameRepo.findOne({
       where: { id: gameId },
-      relations: ['teams'],
+      relations: ['teams', 'session', 'session.teams'],
     });
 
     // Individual games have no fixed roster (a 1-v-1 lives inside a larger
     // session), so entrants are the players who have actually scored — seeded
-    // from the score rows — not every player in the session.
+    // from the score rows — not every player in the session. Team games seed
+    // from the session's fixed teams (falling back to the game's own teams).
     return game?.scoreMode === ScoreMode.INDIVIDUAL
       ? this.aggregateByEntrant(gameId, 'player', [])
-      : this.aggregateByEntrant(gameId, 'team', game?.teams ?? []);
+      : this.aggregateByEntrant(
+          gameId,
+          'team',
+          game ? this.resolveScorableTeams(game) : [],
+        );
   }
 
   /**

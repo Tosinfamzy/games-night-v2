@@ -108,7 +108,7 @@ describe('ScoreService', () => {
 
       expect(gameRepo.findOne).toHaveBeenCalledWith({
         where: { id: 'game-1' },
-        relations: ['session', 'teams'],
+        relations: ['session', 'teams', 'session.teams'],
       });
       expect(teamRepo.findOneBy).toHaveBeenCalledWith({ id: 'team-1' });
       expect(scoreRepo.save).toHaveBeenCalled();
@@ -350,6 +350,34 @@ describe('ScoreService', () => {
         service.submitGameScore('game-1', { teamId: 'team-x', score: 5 }),
       ).rejects.toThrow('Team is not part of this game');
       expect(scoreRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('scores a session fixed team even when the game has no teams of its own', async () => {
+      // Night Builder model: the game has no game-scoped teams; the session
+      // carries the fixed teams (game == null), and they must be scorable.
+      const fixedTeam = createMockTeam({ id: 'fixed-1' }); // game undefined
+      const session = createMockSession({ teams: [fixedTeam] as any });
+      const game = createMockGame({
+        id: 'game-1',
+        status: GameStatus.ROUND_IN_PROGRESS,
+        currentRound: 1,
+        session: session as any,
+        teams: [], // no game-scoped teams
+      });
+      const mockScore = createMockScore({ points: 7, game: game as Game });
+
+      gameRepo.findOne.mockResolvedValue(game);
+      teamRepo.findOne.mockResolvedValue(fixedTeam);
+      scoreRepo.create.mockReturnValue(mockScore);
+      scoreRepo.save.mockResolvedValue(mockScore);
+
+      await service.submitGameScore('game-1', { teamId: 'fixed-1', score: 7 });
+
+      expect(scoreRepo.save).toHaveBeenCalled();
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'score.submitted',
+        expect.objectContaining({ teamId: 'fixed-1' }),
+      );
     });
   });
 
