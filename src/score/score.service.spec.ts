@@ -721,134 +721,117 @@ describe('ScoreService', () => {
   });
 
   describe('getSessionLeaderboard', () => {
-    it('should aggregate scores across multiple games', async () => {
-      const mockQueryBuilder = {
-        leftJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        groupBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue([
-          {
-            teamId: 'team-1',
-            teamName: 'Team A',
-            gameId: 'game-1',
-            gamePoints: '100',
-          },
-          {
-            teamId: 'team-1',
-            teamName: 'Team A',
-            gameId: 'game-2',
-            gamePoints: '120',
-          },
-          {
-            teamId: 'team-2',
-            teamName: 'Team B',
-            gameId: 'game-1',
-            gamePoints: '80',
-          },
-          {
-            teamId: 'team-2',
-            teamName: 'Team B',
-            gameId: 'game-2',
-            gamePoints: '90',
-          },
-        ]),
-      };
+    // Minimal team standing (as getRankedGameScores returns) for a game.
+    const standing = (
+      teamId: string,
+      teamName: string,
+      rank: number,
+      over: Record<string, unknown> = {},
+    ) => ({
+      teamId,
+      teamName,
+      entrantType: 'team' as const,
+      rank,
+      totalPoints: 0,
+      bonusPointsCount: 0,
+      roundPoints: {},
+      isTied: false,
+      ...over,
+    });
 
-      scoreRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder as any);
+    it('awards placement points (3/2/1) across completed games', async () => {
+      gameRepo.find.mockResolvedValue([
+        createMockGame({ id: 'game-1', status: GameStatus.COMPLETED }),
+        createMockGame({ id: 'game-2', status: GameStatus.COMPLETED }),
+      ]);
+      // Two fixed session teams (game undefined → session-scoped).
+      teamRepo.find.mockResolvedValue([
+        createMockTeam({ id: 'team-A', name: 'A' }),
+        createMockTeam({ id: 'team-B', name: 'B' }),
+      ]);
+      jest
+        .spyOn(service, 'getRankedGameScores')
+        .mockResolvedValue([
+          standing('team-A', 'A', 1),
+          standing('team-B', 'B', 2),
+        ]);
+
+      const result = await service.getSessionLeaderboard('session-1');
+      const a = result.find((r) => r.teamId === 'team-A')!;
+      const b = result.find((r) => r.teamId === 'team-B')!;
+
+      expect(a.totalPoints).toBe(6); // 1st + 1st = 3 + 3
+      expect(b.totalPoints).toBe(4); // 2nd + 2nd = 2 + 2
+      expect(a.gamesWon).toBe(2);
+      expect(result[0].teamId).toBe('team-A'); // sorted by placement total
+    });
+
+    it('applies a game’s flat winner bonus instead of placement', async () => {
+      gameRepo.find.mockResolvedValue([
+        createMockGame({
+          id: 'game-1',
+          status: GameStatus.COMPLETED,
+          gameLibrary: { winnerBonusPoints: 5 } as any,
+        }),
+      ]);
+      teamRepo.find.mockResolvedValue([
+        createMockTeam({ id: 'team-A', name: 'A' }),
+        createMockTeam({ id: 'team-B', name: 'B' }),
+      ]);
+      jest
+        .spyOn(service, 'getRankedGameScores')
+        .mockResolvedValue([
+          standing('team-A', 'A', 1),
+          standing('team-B', 'B', 2),
+        ]);
 
       const result = await service.getSessionLeaderboard('session-1');
 
-      expect(result).toHaveLength(2);
+      expect(result.find((r) => r.teamId === 'team-A')!.totalPoints).toBe(5);
+      expect(result.find((r) => r.teamId === 'team-B')!.totalPoints).toBe(0);
+    });
+
+    it('gives tied first-place teams equal points and no win', async () => {
+      gameRepo.find.mockResolvedValue([
+        createMockGame({ id: 'game-1', status: GameStatus.COMPLETED }),
+      ]);
+      teamRepo.find.mockResolvedValue([
+        createMockTeam({ id: 'team-A', name: 'A' }),
+        createMockTeam({ id: 'team-B', name: 'B' }),
+      ]);
+      jest
+        .spyOn(service, 'getRankedGameScores')
+        .mockResolvedValue([
+          standing('team-A', 'A', 1, { isTied: true }),
+          standing('team-B', 'B', 1, { isTied: true }),
+        ]);
+
+      const result = await service.getSessionLeaderboard('session-1');
+
+      expect(result.find((r) => r.teamId === 'team-A')!.totalPoints).toBe(3);
+      expect(result.find((r) => r.teamId === 'team-B')!.totalPoints).toBe(3);
+      expect(result.every((r) => r.gamesWon === 0)).toBe(true);
+    });
+
+    it('seeds the session’s fixed teams at 0 and ignores game-scoped teams', async () => {
+      gameRepo.find.mockResolvedValue([]); // no completed games yet
+      teamRepo.find.mockResolvedValue([
+        createMockTeam({ id: 'team-A', name: 'A' }), // fixed (game undefined)
+        createMockTeam({
+          id: 'team-legacy',
+          name: 'Legacy',
+          game: { id: 'g' } as any, // game-scoped → not a fixed team
+        }),
+      ]);
+
+      const result = await service.getSessionLeaderboard('session-1');
+
+      expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
-        teamId: 'team-1',
-        teamName: 'Team A',
-        totalPoints: 220, // 100 + 120
-        gamesPlayed: 2,
-        gamePoints: {
-          'game-1': 100,
-          'game-2': 120,
-        },
+        teamId: 'team-A',
+        totalPoints: 0,
+        gamesPlayed: 0,
       });
-      expect(result[1]).toMatchObject({
-        teamId: 'team-2',
-        teamName: 'Team B',
-        totalPoints: 170, // 80 + 90
-        gamesPlayed: 2,
-      });
-    });
-
-    it('should count wins correctly', async () => {
-      const mockQueryBuilder = {
-        leftJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        groupBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue([
-          {
-            teamId: 'team-1',
-            teamName: 'Team A',
-            gameId: 'game-1',
-            gamePoints: '100', // Wins game-1
-          },
-          {
-            teamId: 'team-1',
-            teamName: 'Team A',
-            gameId: 'game-2',
-            gamePoints: '80', // Loses game-2
-          },
-          {
-            teamId: 'team-2',
-            teamName: 'Team B',
-            gameId: 'game-1',
-            gamePoints: '90', // Loses game-1
-          },
-          {
-            teamId: 'team-2',
-            teamName: 'Team B',
-            gameId: 'game-2',
-            gamePoints: '120', // Wins game-2
-          },
-        ]),
-      };
-
-      scoreRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder as any);
-
-      const result = await service.getSessionLeaderboard('session-1');
-
-      expect(result[0].gamesWon).toBe(1); // Team A won game-1
-      expect(result[1].gamesWon).toBe(1); // Team B won game-2
-    });
-
-    it('should not count wins for tied games', async () => {
-      const mockQueryBuilder = {
-        leftJoin: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        select: jest.fn().mockReturnThis(),
-        groupBy: jest.fn().mockReturnThis(),
-        getRawMany: jest.fn().mockResolvedValue([
-          {
-            teamId: 'team-1',
-            teamName: 'Team A',
-            gameId: 'game-1',
-            gamePoints: '100', // Tied with team-2
-          },
-          {
-            teamId: 'team-2',
-            teamName: 'Team B',
-            gameId: 'game-1',
-            gamePoints: '100', // Tied with team-1
-          },
-        ]),
-      };
-
-      scoreRepo.createQueryBuilder.mockReturnValue(mockQueryBuilder as any);
-
-      const result = await service.getSessionLeaderboard('session-1');
-
-      // Neither team should get a win for a tied game
-      expect(result[0].gamesWon).toBe(0);
-      expect(result[1].gamesWon).toBe(0);
     });
   });
 
