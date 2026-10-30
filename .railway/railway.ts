@@ -12,6 +12,10 @@ export default defineRailway(() => {
     healthcheckTimeout: 120,
     replicas: { "europe-west4-drams3a": 1 },
     domains: ["api.thegamesnight.com"],
+    // The old railway.toml set these. The first-class DSL has no restart-policy
+    // field, and IaC treats an absent field as "unset it", so without this an
+    // apply resets maxRetries to Railway's default of 10.
+    deploy: { restartPolicyType: "ON_FAILURE", restartPolicyMaxRetries: 3 },
   });
 
   return project("games-night-api", {
