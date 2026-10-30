@@ -79,6 +79,7 @@
     "globals": "^16.0.0",
     "jest": "^30.4.2",
     "prettier": "^3.8.4",
+    "railway": "^3.16.0",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
